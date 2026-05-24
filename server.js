@@ -13,6 +13,7 @@ const fs = require("fs");
 const path = require("path");
 const express = require("express");
 const { chromium } = require("playwright");
+const { createClient } = require("@supabase/supabase-js");
 
 // ── Minimal .env loader (no dependency). Real process.env wins over the file. ──
 function loadEnv() {
@@ -33,6 +34,40 @@ function loadEnv() {
   }
 }
 loadEnv();
+
+// Server-side Supabase client (service role — bypasses RLS). Used to verify
+// user tokens and to write ads/storage on the user's behalf.
+const supabaseAdmin =
+  process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      })
+    : null;
+
+// Gate the cost-incurring endpoints: caller must present a valid Supabase
+// access token AND be approved. Prevents bypassing the browser gate.
+async function requireApprovedUser(req, res, next) {
+  if (!supabaseAdmin) {
+    return res.status(500).json({ error: "Supabase is not configured on the server (.env)." });
+  }
+  const header = req.headers.authorization || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+  if (!token) return res.status(401).json({ error: "Not signed in." });
+
+  const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(token);
+  if (userErr || !userData || !userData.user) {
+    return res.status(401).json({ error: "Invalid or expired session. Please sign in again." });
+  }
+
+  const { data: profile, error: profErr } = await supabaseAdmin
+    .from("profiles").select("approved").eq("id", userData.user.id).single();
+  if (profErr || !profile || !profile.approved) {
+    return res.status(403).json({ error: "Your account is awaiting approval." });
+  }
+
+  req.user = userData.user;
+  next();
+}
 
 const app = express();
 // Base64 images (reference ad, logo, Stage 2 vision input) make request bodies large.
@@ -141,7 +176,7 @@ function extractFromPage() {
   };
 }
 
-app.post("/extract", async (req, res) => {
+app.post("/extract", requireApprovedUser, async (req, res) => {
   const url = (req.body && req.body.url ? String(req.body.url) : "").trim();
   if (!/^https?:\/\//i.test(url)) {
     return res.status(400).json({ error: "Provide a valid http(s) URL." });
@@ -181,11 +216,13 @@ app.get("/config", (req, res) => {
     kieResolution: process.env.KIE_IMAGE_RESOLUTION || "1K",
     openrouterConfigured: !!process.env.OPENROUTER_API_KEY,
     kieConfigured: !!process.env.KIE_API_KEY,
+    supabaseUrl: process.env.SUPABASE_URL || "",
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
   });
 });
 
 // ── OpenRouter proxy. Model is pinned per-stage from .env; key never leaves the server. ──
-app.post("/chat", async (req, res) => {
+app.post("/chat", requireApprovedUser, async (req, res) => {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return res.status(500).json({ error: { message: "OPENROUTER_API_KEY is not set in .env" } });
 
@@ -229,7 +266,7 @@ async function kieUploadBase64(apiKey, base64Data, fileName) {
 }
 
 // ── KIE Stage 3: image-to-image generation from the Stage 2 prompt + reference ad + logo. ──
-app.post("/kie/generate", async (req, res) => {
+app.post("/kie/generate", requireApprovedUser, async (req, res) => {
   const apiKey = process.env.KIE_API_KEY;
   if (!apiKey) return res.status(500).json({ error: "KIE_API_KEY is not set in .env" });
 
@@ -270,7 +307,7 @@ app.post("/kie/generate", async (req, res) => {
 });
 
 // ── KIE Stage 3 polling. ──
-app.get("/kie/result", async (req, res) => {
+app.get("/kie/result", requireApprovedUser, async (req, res) => {
   const apiKey = process.env.KIE_API_KEY;
   if (!apiKey) return res.status(500).json({ error: "KIE_API_KEY is not set in .env" });
 
@@ -295,6 +332,46 @@ app.get("/kie/result", async (req, res) => {
       } catch (e) {}
     }
     res.json({ state: d.state || "", progress: d.progress, urls, failMsg: d.failMsg || d.failCode || "" });
+  } catch (e) {
+    res.status(502).json({ error: e.message || String(e) });
+  }
+});
+
+// ── Persist a generated ad: download the (temporary) KIE image, store it in
+//    Supabase Storage under the user's folder, and insert an `ads` row. ──
+app.post("/library/ads", requireApprovedUser, async (req, res) => {
+  const { imageUrl, brandId, websiteUrl, prompt, aspectRatio, resolution } = req.body || {};
+  if (!imageUrl) return res.status(400).json({ error: "imageUrl is required" });
+
+  try {
+    const imgRes = await fetch(imageUrl);
+    if (!imgRes.ok) return res.status(502).json({ error: "Could not download image (HTTP " + imgRes.status + ")" });
+    const buffer = Buffer.from(await imgRes.arrayBuffer());
+    const contentType = imgRes.headers.get("content-type") || "image/png";
+    const ext = contentType.includes("jpeg") || contentType.includes("jpg") ? "jpg" : "png";
+    const adId = require("crypto").randomUUID();
+    const path = req.user.id + "/" + adId + "." + ext;
+
+    const up = await supabaseAdmin.storage.from("ads").upload(path, buffer, { contentType, upsert: false });
+    if (up.error) return res.status(502).json({ error: "Storage upload failed: " + up.error.message });
+
+    const ins = await supabaseAdmin
+      .from("ads")
+      .insert({
+        id: adId,
+        user_id: req.user.id,
+        brand_id: brandId || null,
+        website_url: websiteUrl || null,
+        image_path: path,
+        prompt: prompt || null,
+        aspect_ratio: aspectRatio || null,
+        resolution: resolution || null,
+      })
+      .select()
+      .single();
+    if (ins.error) return res.status(502).json({ error: "Saving record failed: " + ins.error.message });
+
+    res.json({ ad: ins.data });
   } catch (e) {
     res.status(502).json({ error: e.message || String(e) });
   }
