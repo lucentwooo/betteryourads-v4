@@ -57,6 +57,7 @@ src/
     kie.ts              # upload + generate + poll
     brand-map.ts        # extraction JSON -> brand row fields + concepts rows
   middleware.ts         # gate everything except /login + /api/login behind cookie
+scripts/setup-supabase.mjs  # one-time: create buckets (+ tables if SUPABASE_DB_URL set)
 supabase/migrations/0001_initial.sql
 tests/                  # vitest unit tests for pure helpers
 .env.example
@@ -112,10 +113,14 @@ git mv server.js legacy/server.js
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
     "@tailwindcss/postcss": "^4",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.6",
+    "pg": "^8.13.0",
+    "dotenv": "^16.4.5"
   }
 }
 ```
+
+`pg` + `dotenv` are only used by the one-time `scripts/setup-supabase.mjs` (Task 4).
 
 - [ ] **Step 3: Install + Playwright browser**
 
@@ -268,7 +273,15 @@ KIE_IMAGE_RESOLUTION=1K
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
+# Optional — only used by `npm run setup:db` to auto-create tables.
+# Supabase dashboard -> Settings -> Database -> Connection string -> URI.
+SUPABASE_DB_URL=
 ```
+
+> Note: the user's existing root `.env` uses the names `SUPABASE_URL` and
+> `SUPABASE_SERVICE_ROLE_KEY` with occasional surrounding spaces/quotes. In the
+> new local `.env`, set `NEXT_PUBLIC_SUPABASE_URL` to the same project URL value,
+> and copy the service-role key across. Strip the surrounding quotes/spaces.
 
 - [ ] **Step 2: src/lib/env.ts**
 
@@ -381,19 +394,67 @@ create index creatives_brand_idx on public.creatives(brand_id, state, created_at
 create index creatives_batch_idx on public.creatives(batch_id);
 ```
 
-- [ ] **Step 3: Apply migration**
+- [ ] **Step 3: Create the setup script** `scripts/setup-supabase.mjs`
 
-Run the SQL in the Supabase project's SQL editor (or `supabase db push` if the CLI is linked). Verify the four tables exist.
+Auto-creates the 3 storage buckets (works with the service-role key) and, if
+`SUPABASE_DB_URL` is set, applies `0001_initial.sql` over a direct Postgres
+connection. If `SUPABASE_DB_URL` is absent, it prints the SQL path + a clear
+instruction so a human can paste it once.
 
-- [ ] **Step 4: Create storage buckets**
+```js
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import dotenv from "dotenv";
+import { createClient } from "@supabase/supabase-js";
 
-In Supabase Storage, create buckets `logos`, `inspiration`, `creatives` (public read). Document this in `supabase/migrations/0001_initial.sql` as a trailing comment so it isn't forgotten.
+dotenv.config();
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
-- [ ] **Step 5: Commit**
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!url || !serviceKey) { console.error("Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY"); process.exit(1); }
+
+const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
+
+// 1. Buckets (idempotent).
+for (const name of ["logos", "inspiration", "creatives"]) {
+  const { error } = await sb.storage.createBucket(name, { public: true });
+  if (error && !/already exists/i.test(error.message)) console.warn(`bucket ${name}: ${error.message}`);
+  else console.log(`bucket ${name}: ok`);
+}
+
+// 2. Schema (only if a DB connection string is provided).
+const dbUrl = process.env.SUPABASE_DB_URL;
+const sqlPath = join(__dirname, "..", "supabase", "migrations", "0001_initial.sql");
+if (dbUrl) {
+  const { default: pg } = await import("pg");
+  const client = new pg.Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
+  await client.connect();
+  await client.query(readFileSync(sqlPath, "utf8"));
+  await client.end();
+  console.log("schema applied via SUPABASE_DB_URL");
+} else {
+  console.log(`\nSUPABASE_DB_URL not set — apply the schema once manually:`);
+  console.log(`  1. Open Supabase dashboard -> SQL Editor`);
+  console.log(`  2. Paste the contents of ${sqlPath} and run it.`);
+}
+```
+
+- [ ] **Step 4: Add the `setup:db` npm script**
+
+In `package.json` scripts add: `"setup:db": "node scripts/setup-supabase.mjs"`.
+
+- [ ] **Step 5: Run setup**
+
+Run: `npm run setup:db`
+Expected: prints `bucket logos: ok` (×3) and either `schema applied via SUPABASE_DB_URL` or the manual-paste instructions. If schema wasn't auto-applied, the smoke-test steps (Tasks 12, 17, 19) depend on the tables existing — note this in the final handoff.
+
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/lib/supabase.ts supabase/migrations/0001_initial.sql
-git commit -m "feat: supabase admin client + initial schema"
+git add src/lib/supabase.ts supabase/migrations/0001_initial.sql scripts/setup-supabase.mjs package.json
+git commit -m "feat: supabase admin client + schema + automated setup script"
 ```
 
 ### Task 5: Shared-password auth (cookie + middleware + login)
@@ -1591,20 +1652,73 @@ git add -A
 git commit -m "feat: library with keep/dismiss"
 ```
 
-### Task 19: README + final smoke
+### Task 19: README handoff note (non-technical) + final smoke
 
 **Files:**
 - Modify: `README.md`
 
-- [ ] **Step 1: Rewrite README** with setup (`npm install`, `npx playwright install chromium`, fill `.env`, run the SQL migration + create the 3 storage buckets, `npm run dev`), the password gate, and the flow (onboard → dashboard → batch → library).
+> This is the LAST task. The README must be readable by someone who does **not**
+> understand code at all. Two parts: a short plain-English handoff note at the
+> very top, then the technical setup below it.
 
-- [ ] **Step 2: Full smoke** — fresh `npm run dev`: login → onboard a real URL → dashboard shows concepts/colors/vibe → full JSON page → select concepts + inspiration → batch renders → library keep/dismiss.
+- [ ] **Step 1: Run the full smoke test first** (so the note can report real status)
 
-- [ ] **Step 3: Commit**
+Fresh `npm run dev`: login → onboard a real URL → dashboard shows
+concepts/colors/vibe → full JSON page → select concepts + upload inspiration →
+batch renders → library keep/dismiss. Note whether the Supabase schema was
+auto-applied or still needs the one manual paste (from Task 4 Step 5).
+
+- [ ] **Step 2: Write the plain-English handoff at the top of `README.md`**
+
+Write it warmly and simply (no jargon). It MUST include, in this spirit:
+
+```markdown
+# BetterYourAds
+
+> **A note for you (finishing up at 4:12 AM)**
+>
+> Hey — I built the first working version of the ad tool overnight. In plain terms,
+> here's what it now does:
+>
+> - You type in a company name and its website, and the app automatically "reads"
+>   that website — its colours, its logo, what it sells, who it's for — and saves
+>   all of that.
+> - From that, it gives you **5 ready-made ad ideas** for the brand.
+> - You pick the ideas you like, upload one example ad as inspiration, and the app
+>   **creates real ad images** for you.
+> - Everything you make lands in a **Library**, where you can **keep** the ones you
+>   like and **throw away** the ones you don't.
+>
+> **What you need to do to run it:** [fill in the actual outcome from the smoke test —
+> e.g. "everything's ready, just run it" OR "do this one 30-second step first:
+> open Supabase, paste in one block of text — exact instructions are further down"].
+>
+> **Next steps / ideas for later:** sorting the 5 ideas by audience "awareness stage",
+> polishing the look, and letting you download the finished ads in bulk.
+>
+> **This is a starting point — change anything you don't like.** Nothing here is
+> permanent; if a wording, colour, or step feels off, it can be adjusted.
+>
+> I can't see how this turned out since I ran it overnight, but — good luck on
+> everything today. 🙌
+```
+
+Replace the bracketed `[...]` with the real smoke-test outcome. Keep the tone, the
+4:12 AM line, the "change anything you don't like" line, and the good-luck sign-off.
+
+- [ ] **Step 3: Below the note, add the technical setup section**
+
+`## Setup` with: `npm install`, `npx playwright install chromium`, copy
+`.env.example` → `.env` and fill keys, `npm run setup:db` (and, if it printed the
+manual-paste message, the exact steps to paste `supabase/migrations/0001_initial.sql`
+into the Supabase SQL editor), then `npm run dev`. Document the shared-password
+gate and the flow (onboard → dashboard → batch → library).
+
+- [ ] **Step 4: Commit**
 
 ```bash
 git add README.md
-git commit -m "docs: README setup + usage for the creative app"
+git commit -m "docs: plain-English overnight handoff note + setup"
 ```
 
 ---
