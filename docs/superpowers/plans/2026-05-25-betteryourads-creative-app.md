@@ -1670,52 +1670,52 @@ auto-applied or still needs the one manual paste (from Task 4 Step 5).
 
 - [ ] **Step 2: Write `For-Lucent.md` as a letter**
 
-Write it warmly and simply, in letter format. It MUST keep: the greeting to
-Lucent, the "finishing up at 4:12 AM" line, a plain-English summary of what was
-built, what (if anything) Lucent must do to run it, next-step ideas, the "change
-anything you don't like" reassurance, the good-luck sign-off, and a signature
-**— Jerey**. Use this as the template (fill the bracket from the smoke test):
+Write it warmly and simply, in letter format. It MUST keep: a casual greeting to
+Lucent, the "finishing up at 4:12 AM" line, that Jerey pulled the parts from the
+repo and tweaked/wired them up, a plain-English summary of what it does, a note
+that since Lucent will be pulling the repo **fresh** he'll need to **download the
+packages** first to run it (and that Jerey will help him get it set up), the
+"have a look and change anything you see fit" reassurance, the good-luck sign-off,
+and a signature **— Jerey**. Do **NOT** include any "ideas for next time"
+section. Use this as the template (fill the bracket from the smoke test):
 
 ```markdown
 # For Lucent
 
 Hey Lucent,
 
-I'm finishing up at **4:12 AM** — wanted to leave you a note so you know what
-landed overnight.
+Listen — I'm finishing up at **4:12 AM**. Got the first version working, so I
+wanted to leave you a quick note.
 
-I got the first working version of the ad tool built. In plain terms, here's what
-it does now:
+Basically I pulled all the parts out of the repo, changed it up a bit, and wired
+the pieces together so it actually runs. In plain terms, here's what it does now:
 
-- You type in a company name and its website, and the app automatically "reads"
-  that website — its colours, its logo, what it sells, and who it's for — and
-  saves all of it.
-- From that, it hands you **5 ready-made ad ideas** for the brand.
-- You pick the ideas you like, drop in one example ad as inspiration, and the app
+- You type in a company name and its website, and it automatically "reads" that
+  website — its colours, its logo, what it sells, and who it's for — and saves all
+  of it.
+- From that, it gives you **5 ready-made ad ideas** for the brand.
+- You pick the ones you like, drop in one example ad as inspiration, and it
   **generates real ad images** for you.
-- Everything you make collects in a **Library**, where you can **keep** the ones
-  you love and **toss** the ones you don't.
+- Everything you make lands in a **Library**, where you can **keep** the good ones
+  and **toss** the rest.
 
-**To run it:** [fill from the smoke test — e.g. "it's all ready, just start it up"
-OR "there's one tiny 30-second step first — open Supabase and paste in one block
-of text; I've left the exact steps next to this note"].
+To run it: you'll be pulling the repo down fresh, so you'll need to **download all
+the packages first** before it'll start up[ — and there's one tiny extra step].
+Don't stress about the setup, I'll walk you through getting it running.
 
-**A few ideas for next time:** grouping the 5 ad ideas by how familiar the
-audience already is with the product, smoothing out the look, and adding a way to
-download all your finished ads at once.
+Have a look whenever you get a chance, and **change anything you see fit** — none
+of it's set in stone.
 
-None of this is set in stone — **if there's anything you don't like, it can be
-changed.** Wording, colours, the steps, any of it.
-
-I can't see how it turned out since I'm running this overnight, but — good luck
-with everything today. You've got this. 🙌
+I can't see how it turned out since I ran it overnight, but good luck with
+everything today. 🙌
 
 — Jerey
 ```
 
-Replace the bracketed `[...]` with the real smoke-test outcome. If a manual
-Supabase paste is still needed, also write a short plain-English `SETUP.md` with
-those exact steps (so the letter can point to it) — but still do **not** create a
+Fill the bracket from the real smoke-test outcome: if everything's ready, drop the
+"and there's one tiny extra step" clause entirely; if a manual Supabase paste is
+still needed, keep it and also write a short plain-English `SETUP.md` with those
+exact steps so Jerey can point Lucent to it. Either way, do **not** create a
 `README.md`.
 
 - [ ] **Step 3: Commit**
