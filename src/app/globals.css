@@ -1,0 +1,489 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--cream);
+  --color-foreground: var(--ink);
+
+  /* Brand surfaces */
+  --color-cream: var(--cream);
+  --color-bone: var(--bone);
+  --color-paper: var(--paper);
+
+  /* Ink scale */
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-mute: var(--ink-mute);
+  --color-ink-faint: var(--ink-faint);
+
+  /* Accent */
+  --color-ultra: var(--ultra);
+  --color-ultra-deep: var(--ultra-deep);
+  --color-ultra-tint: var(--ultra-tint);
+
+  /* Section flood (marketing only) */
+  --color-coral: var(--coral);
+  --color-citrus: var(--citrus);
+  --color-noir: var(--noir);
+
+  /* Type families */
+  --font-display: var(--font-general-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-bricolage), var(--font-general-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-italic: var(--font-instrument-serif), Georgia, serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+  --font-heading: var(--font-display);
+  --font-serif: var(--font-italic);
+
+  /* shadcn passthroughs (kept) */
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  --radius-2xl: 24px;
+  --radius-pill: 999px;
+}
+
+:root {
+  /* Surfaces */
+  --cream: #f4efe6;
+  --bone: #ebe5d8;
+  --paper: #ffffff;
+
+  /* Ink */
+  --ink: #0a0a0a;
+  --ink-2: #1a1a1a;
+  --ink-mute: rgba(10, 10, 10, 0.55);
+  --ink-faint: rgba(10, 10, 10, 0.14);
+
+  /* Accent */
+  --ultra: #1a3df0;
+  --ultra-deep: #0d2bb8;
+  --ultra-tint: rgba(26, 61, 240, 0.10);
+
+  /* Section flood */
+  --coral: #ff5b3c;
+  --citrus: #f5b800;
+  --noir: #0e1014;
+
+  /* Legacy compat — TODO remove after surface specs migrate.
+     Existing components reference these names; aliasing keeps them
+     compiling while we migrate. */
+  --azure: var(--ultra);
+  --azure-ink: #ffffff;
+  --coral-ink: #ffffff;
+  --sage: #2f5d3a;
+  --butter: #ffe8b8;
+  --blush: #ffddd1;
+  --hairline: var(--ink-faint);
+  --mute: var(--ink-mute);
+
+  /* shadcn mapped to brand */
+  --background: var(--cream);
+  --foreground: var(--ink);
+  --card: var(--paper);
+  --card-foreground: var(--ink);
+  --popover: var(--paper);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: #ffffff;
+  --secondary: var(--bone);
+  --secondary-foreground: var(--ink);
+  --muted: var(--bone);
+  --muted-foreground: var(--ink-mute);
+  --accent: var(--ultra);
+  --accent-foreground: #ffffff;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: var(--ink-faint);
+  --input: var(--ink-faint);
+  --ring: var(--ultra);
+  --chart-1: var(--ultra);
+  --chart-2: var(--ink);
+  --chart-3: var(--coral);
+  --chart-4: var(--citrus);
+  --chart-5: var(--ink-mute);
+  --radius: 14px;
+  --sidebar: var(--bone);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--ink);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--cream);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--ink-faint);
+  --sidebar-ring: var(--ultra);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: var(--azure);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+  }
+  html {
+    font-family: var(--font-sans);
+  }
+  ::selection {
+    background: var(--ultra);
+    color: #ffffff;
+  }
+}
+
+@layer utilities {
+  /* ─── Type scale ──────────────────────────────────────────── */
+
+  .display-xl {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(72px, 14vw, 200px);
+    letter-spacing: -0.05em;
+    line-height: 0.92;
+  }
+  .display-l {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(60px, 9vw, 132px);
+    letter-spacing: -0.04em;
+    line-height: 0.94;
+  }
+  .display-m {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(44px, 6vw, 80px);
+    letter-spacing: -0.04em;
+    line-height: 0.98;
+  }
+  .display-architecture {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(120px, 18vw, 296px);
+    letter-spacing: -0.06em;
+    line-height: 0.86;
+  }
+  .h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(30px, 3.2vw, 36px);
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+  }
+  .h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(22px, 2.4vw, 26px);
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+  }
+  .body-l {
+    font-family: var(--font-sans);
+    font-weight: 400;
+    font-size: clamp(17px, 1.4vw, 18px);
+    line-height: 1.55;
+  }
+  .body {
+    font-family: var(--font-sans);
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 1.55;
+  }
+  .body-s {
+    font-family: var(--font-sans);
+    font-weight: 400;
+    font-size: clamp(13.5px, 1vw, 14px);
+    line-height: 1.5;
+  }
+  .mono-eyebrow {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: clamp(10.5px, 0.9vw, 11px);
+    letter-spacing: 0.2em;
+    line-height: 1.6;
+    text-transform: uppercase;
+  }
+
+  /* ─── Italic accent ───────────────────────────────────────── */
+
+  .italic-accent {
+    font-family: var(--font-italic);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ultra);
+    font-size: 1.05em;
+    letter-spacing: -0.01em;
+  }
+  .italic-accent--noir {
+    color: #ffffff;
+  }
+
+  /* ─── Hairline ────────────────────────────────────────────── */
+
+  .hairline {
+    border-color: var(--ink-faint);
+  }
+  .hairline-noir {
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+
+  /* ─── Section background — soft dot field with vignette ────── */
+
+  .section-grid-bg {
+    background-image: radial-gradient(
+      currentColor 1px,
+      transparent 1.2px
+    );
+    background-size: 28px 28px;
+    background-position: 0 0;
+    opacity: 0.16;
+    mask-image: radial-gradient(
+      ellipse 90% 70% at 50% 40%,
+      black 25%,
+      transparent 92%
+    );
+    -webkit-mask-image: radial-gradient(
+      ellipse 90% 70% at 50% 40%,
+      black 25%,
+      transparent 92%
+    );
+  }
+
+  /* ─── Ghosted section number ──────────────────────────────── */
+
+  .ghosted-num {
+    position: absolute;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(160px, 22vw, 280px);
+    line-height: 0.86;
+    letter-spacing: -0.06em;
+    color: var(--ultra-tint);
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* ─── Grain overlay (for noir surfaces) ───────────────────── */
+
+  .grain-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+    opacity: 0.18;
+  }
+
+  /* ─── Section reveal stagger keyframes ────────────────────── */
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .rise { animation: rise 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .rise-delay-1 { animation-delay: 120ms; }
+  .rise-delay-2 { animation-delay: 240ms; }
+
+  [data-reveal] {
+    animation: rise 720ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  /* ─── Reduced motion ──────────────────────────────────────── */
+
+  @media (prefers-reduced-motion: reduce) {
+    .rise,
+    [data-reveal] {
+      animation: none !important;
+    }
+  }
+
+  /* ─── Legacy aliases — kept until per-surface migrations ──── */
+
+  .font-serif {
+    font-family: var(--font-sans);
+  }
+  .display {
+    font-family: var(--font-display);
+    letter-spacing: -0.035em;
+    line-height: 0.94;
+    font-weight: 800;
+  }
+  .display-italic {
+    font-family: var(--font-italic);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ultra);
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    font-size: 0.7rem;
+    font-weight: 500;
+  }
+  .marker {
+    font-family: var(--font-display);
+    font-weight: 600;
+    color: var(--ink);
+    background: var(--citrus);
+    padding: 0.35rem 0.7rem;
+    border-radius: 0.6rem;
+    transform: rotate(-3deg);
+    border: 1.5px solid var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
+    display: inline-block;
+    white-space: nowrap;
+    font-size: 0.8rem;
+    letter-spacing: -0.01em;
+  }
+  .chapter-num {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(3rem, 6vw, 4.5rem);
+    line-height: 0.9;
+    color: var(--ultra);
+    letter-spacing: -0.055em;
+  }
+  .paper-grain {
+    background-image:
+      radial-gradient(rgba(10, 10, 10, 0.05) 1px, transparent 1px);
+    background-size: 3px 3px;
+  }
+  .text-display {
+    font-size: clamp(72px, 11vw, 180px);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 0.9;
+    font-family: var(--font-display);
+  }
+  .link-underline {
+    position: relative;
+  }
+  .link-underline::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: -4px;
+    height: 2px;
+    background: var(--ink);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .link-underline:hover::after { transform: scaleX(1); }
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-33.3333%); }
+  }
+  .animate-marquee {
+    animation: marquee 40s linear infinite;
+    will-change: transform;
+  }
+  @keyframes drift-x {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  .drift { animation: drift-x 30s linear infinite; }
+  @keyframes float-tilt {
+    0%, 100% { transform: rotate(-1.8deg) translateY(0); }
+    50%      { transform: rotate(-1.4deg) translateY(-6px); }
+  }
+  .float-tilt { animation: float-tilt 7s ease-in-out infinite; }
+
+  .btn-chunk {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    background: var(--ultra);
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+    padding: 1rem 1.5rem;
+    border-radius: 999px;
+    border: 2px solid var(--ink);
+    box-shadow: 4px 5px 0 0 var(--ink);
+    transition: transform 90ms ease, box-shadow 90ms ease;
+  }
+  .btn-chunk:hover { transform: translateY(-1px); box-shadow: 5px 6px 0 0 var(--ink); }
+  .btn-chunk:active { transform: translate(2px, 3px); box-shadow: 1px 2px 0 0 var(--ink); }
+  .btn-ghost-ink {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.75rem 1.1rem;
+    border-radius: 999px;
+    border: 1.5px solid var(--ink);
+    background: transparent;
+    color: var(--ink);
+    font-weight: 500;
+    transition: background 140ms, color 140ms;
+  }
+  .btn-ghost-ink:hover { background: var(--ink); color: #fff; }
+
+  details.concept > summary { list-style: none; cursor: pointer; }
+  details.concept > summary::-webkit-details-marker { display: none; }
+  details.concept > summary .caret {
+    transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  details.concept[open] > summary .caret {
+    transform: rotate(90deg);
+  }
+  details.concept > .concept-body {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  details.concept[open] > .concept-body { grid-template-rows: 1fr; }
+  details.concept > .concept-body > div { overflow: hidden; }
+}
