@@ -1674,9 +1674,10 @@ Write it warmly and simply, in letter format. It MUST keep: a casual greeting to
 Lucent, the "finishing up at 4:12 AM" line, that Jerey pulled the parts from the
 repo and tweaked/wired them up, a plain-English summary of what it does, a note
 that since Lucent will be pulling the repo **fresh** he'll need to **download the
-packages** first to run it (and that Jerey will help him get it set up), the
-"have a look and change anything you see fit" reassurance, the good-luck sign-off,
-and a signature **— Jerey**. Do **NOT** include any "ideas for next time"
+packages** first to run it, a **ready-to-paste prompt he can give to Claude** to
+do the whole setup, a note that Jerey will help if he gets stuck, the "have a look
+and change anything you see fit" reassurance, the good-luck sign-off, and a
+signature **— Jerey**. Do **NOT** include any "ideas for next time"
 section. Use this as the template (fill the bracket from the smoke test):
 
 ```markdown
@@ -1700,8 +1701,19 @@ the pieces together so it actually runs. In plain terms, here's what it does now
   and **toss** the rest.
 
 To run it: you'll be pulling the repo down fresh, so you'll need to **download all
-the packages first** before it'll start up[ — and there's one tiny extra step].
-Don't stress about the setup, I'll walk you through getting it running.
+the packages first** before it'll start up. Easiest way — open the project in
+Claude and paste it this:
+
+> Set up and run this project for me. It's a Next.js app. Please:
+> 1. Run `npm install`
+> 2. Run `npx playwright install chromium`
+> 3. Copy `.env.example` to `.env` and tell me which keys I need to fill in
+> 4. After I add the keys, run `npm run setup:db` to create the database tables + storage
+> 5. Start it with `npm run dev` and give me the local link
+> If anything errors, fix it and tell me what you changed.
+
+Don't stress about it — I'll walk you through getting it running too if you get
+stuck.
 
 Have a look whenever you get a chance, and **change anything you see fit** — none
 of it's set in stone.
