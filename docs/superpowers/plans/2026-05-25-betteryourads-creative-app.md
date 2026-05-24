@@ -1652,73 +1652,77 @@ git add -A
 git commit -m "feat: library with keep/dismiss"
 ```
 
-### Task 19: README handoff note (non-technical) + final smoke
+### Task 19: Letter to Lucent (non-technical) + final smoke
 
 **Files:**
-- Modify: `README.md`
+- Create: `For-Lucent.md`  (a NEW markdown file — do **not** create or rewrite `README.md`)
 
-> This is the LAST task. The README must be readable by someone who does **not**
-> understand code at all. Two parts: a short plain-English handoff note at the
-> very top, then the technical setup below it.
+> This is the LAST task. `For-Lucent.md` is a warm little **letter**, addressed to
+> **Lucent**, written **by Jerey**, readable by someone who does **not** understand
+> code at all. No jargon. It is a personal note, not technical documentation.
 
-- [ ] **Step 1: Run the full smoke test first** (so the note can report real status)
+- [ ] **Step 1: Run the full smoke test first** (so the letter can report real status)
 
 Fresh `npm run dev`: login → onboard a real URL → dashboard shows
 concepts/colors/vibe → full JSON page → select concepts + upload inspiration →
 batch renders → library keep/dismiss. Note whether the Supabase schema was
 auto-applied or still needs the one manual paste (from Task 4 Step 5).
 
-- [ ] **Step 2: Write the plain-English handoff at the top of `README.md`**
+- [ ] **Step 2: Write `For-Lucent.md` as a letter**
 
-Write it warmly and simply (no jargon). It MUST include, in this spirit:
+Write it warmly and simply, in letter format. It MUST keep: the greeting to
+Lucent, the "finishing up at 4:12 AM" line, a plain-English summary of what was
+built, what (if anything) Lucent must do to run it, next-step ideas, the "change
+anything you don't like" reassurance, the good-luck sign-off, and a signature
+**— Jerey**. Use this as the template (fill the bracket from the smoke test):
 
 ```markdown
-# BetterYourAds
+# For Lucent
 
-> **A note for you (finishing up at 4:12 AM)**
->
-> Hey — I built the first working version of the ad tool overnight. In plain terms,
-> here's what it now does:
->
-> - You type in a company name and its website, and the app automatically "reads"
->   that website — its colours, its logo, what it sells, who it's for — and saves
->   all of that.
-> - From that, it gives you **5 ready-made ad ideas** for the brand.
-> - You pick the ideas you like, upload one example ad as inspiration, and the app
->   **creates real ad images** for you.
-> - Everything you make lands in a **Library**, where you can **keep** the ones you
->   like and **throw away** the ones you don't.
->
-> **What you need to do to run it:** [fill in the actual outcome from the smoke test —
-> e.g. "everything's ready, just run it" OR "do this one 30-second step first:
-> open Supabase, paste in one block of text — exact instructions are further down"].
->
-> **Next steps / ideas for later:** sorting the 5 ideas by audience "awareness stage",
-> polishing the look, and letting you download the finished ads in bulk.
->
-> **This is a starting point — change anything you don't like.** Nothing here is
-> permanent; if a wording, colour, or step feels off, it can be adjusted.
->
-> I can't see how this turned out since I ran it overnight, but — good luck on
-> everything today. 🙌
+Hey Lucent,
+
+I'm finishing up at **4:12 AM** — wanted to leave you a note so you know what
+landed overnight.
+
+I got the first working version of the ad tool built. In plain terms, here's what
+it does now:
+
+- You type in a company name and its website, and the app automatically "reads"
+  that website — its colours, its logo, what it sells, and who it's for — and
+  saves all of it.
+- From that, it hands you **5 ready-made ad ideas** for the brand.
+- You pick the ideas you like, drop in one example ad as inspiration, and the app
+  **generates real ad images** for you.
+- Everything you make collects in a **Library**, where you can **keep** the ones
+  you love and **toss** the ones you don't.
+
+**To run it:** [fill from the smoke test — e.g. "it's all ready, just start it up"
+OR "there's one tiny 30-second step first — open Supabase and paste in one block
+of text; I've left the exact steps next to this note"].
+
+**A few ideas for next time:** grouping the 5 ad ideas by how familiar the
+audience already is with the product, smoothing out the look, and adding a way to
+download all your finished ads at once.
+
+None of this is set in stone — **if there's anything you don't like, it can be
+changed.** Wording, colours, the steps, any of it.
+
+I can't see how it turned out since I'm running this overnight, but — good luck
+with everything today. You've got this. 🙌
+
+— Jerey
 ```
 
-Replace the bracketed `[...]` with the real smoke-test outcome. Keep the tone, the
-4:12 AM line, the "change anything you don't like" line, and the good-luck sign-off.
+Replace the bracketed `[...]` with the real smoke-test outcome. If a manual
+Supabase paste is still needed, also write a short plain-English `SETUP.md` with
+those exact steps (so the letter can point to it) — but still do **not** create a
+`README.md`.
 
-- [ ] **Step 3: Below the note, add the technical setup section**
-
-`## Setup` with: `npm install`, `npx playwright install chromium`, copy
-`.env.example` → `.env` and fill keys, `npm run setup:db` (and, if it printed the
-manual-paste message, the exact steps to paste `supabase/migrations/0001_initial.sql`
-into the Supabase SQL editor), then `npm run dev`. Document the shared-password
-gate and the flow (onboard → dashboard → batch → library).
-
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
-git add README.md
-git commit -m "docs: plain-English overnight handoff note + setup"
+git add For-Lucent.md SETUP.md 2>/dev/null; git add For-Lucent.md
+git commit -m "docs: letter to Lucent (overnight handoff)"
 ```
 
 ---
