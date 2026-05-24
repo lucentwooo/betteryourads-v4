@@ -134,7 +134,10 @@ Library query: `state in ('inbox','kept')`. Keep → `kept`; Dismiss → `dismis
    grounded prompt (measured site data + page text + strategist prompt) → fire
    the 3 parallel OpenRouter agents → merge into the brand-extraction JSON.
    Persist `brands` row (identity, 5 colors, brand_vibe, full `extraction_json`)
-   and 5 `concepts` rows.
+   and 5 `concepts` rows. **The concepts are not generated separately** — they
+   are parsed straight out of the extraction JSON at
+   `static_ad_creative_recommendations.ad_concepts` (the strategist prompt already
+   produces 5 of them), each tagged with its `awareness_stage`.
 2. **Stage two — concept → prompt** (inside the batch worker): for each selected
    concept, call the vision model with `(Stage-2 prompt + brand extraction JSON +
    that concept + inspiration image + logo)` → render-ready `ad_prompt`. Stored
