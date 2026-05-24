@@ -76,9 +76,18 @@
   a { color: var(--accent); }
   .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
 </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/auth.js"></script>
 </head>
 <body>
 <div class="wrap">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">
+    <a href="/library.html" style="font-size:13px;">📁 My Ad Library</a>
+    <span style="font-size:13px;color:var(--muted);">
+      <span id="authUserEmail"></span>
+      <button id="signOutBtn" style="width:auto;padding:4px 10px;margin-left:8px;">Sign out</button>
+    </span>
+  </div>
   <h1>OpenRouter MVP</h1>
   <p class="sub">Enter a website URL and get a grounded analysis. Colors &amp; fonts are extracted from the live page. Models and API keys are configured server-side in <code>.env</code> — nothing secret touches the browser.</p>
 
@@ -1300,7 +1309,7 @@ Return only valid JSON.`;
     sendEl.textContent = "Loading site…";
     setResult("Loading the website in a real browser and extracting exact colors, fonts, and text…", "empty");
     try {
-      const exRes = await fetch("/extract", {
+      const exRes = await Auth.authedFetch("/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: url }),
@@ -1361,7 +1370,7 @@ Return only valid JSON.`;
         "containing EXACTLY these top-level keys and NOTHING else: " + JSON.stringify(group.keys) + ".\n" +
         "Use the exact sub-structure defined for those keys in the schema above, and follow every extraction rule. " +
         "Do NOT include any other top-level keys. Do NOT wrap the JSON in markdown fences.";
-      const res = await fetch("/chat", {
+      const res = await Auth.authedFetch("/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1585,7 +1594,7 @@ Return only valid JSON.`;
     const started = Date.now();
 
     try {
-      const genRes = await fetch("/kie/generate", {
+      const genRes = await Auth.authedFetch("/kie/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1608,7 +1617,7 @@ Return only valid JSON.`;
       let urls = [];
       while (Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 3000));
-        const pollRes = await fetch("/kie/result?taskId=" + encodeURIComponent(taskId));
+        const pollRes = await Auth.authedFetch("/kie/result?taskId=" + encodeURIComponent(taskId));
         const poll = await pollRes.json();
         if (!pollRes.ok) { setStage3("Polling failed: " + (poll.error || ("HTTP " + pollRes.status)), "error"); return; }
         const state = String(poll.state || "").toLowerCase();
@@ -1634,6 +1643,20 @@ Return only valid JSON.`;
     }
   }
   generateImageEl.addEventListener("click", generateImage);
+
+  // ===== Auth gate: reveal the app only for an approved, signed-in user =====
+  let currentUserId = null;     // set once approved; used for brand upserts
+  let currentBrandId = null;    // most-recent saved brand for this session
+
+  document.getElementById("signOutBtn").addEventListener("click", function () { Auth.signOut(); });
+
+  Auth.guard().then(function (ctx) {
+    currentUserId = ctx.userId;
+    document.getElementById("authUserEmail").textContent = ctx.session.user.email;
+    if (typeof loadBrands === "function") loadBrands();
+  }).catch(function (e) {
+    document.getElementById("result").textContent = "Auth error: " + e.message;
+  });
 </script>
 </body>
 </html>
