@@ -9,7 +9,7 @@
 Build a fresh, lean Next.js app inside the `betteryourads-v4` repo that:
 
 1. Onboards a brand by running v4's existing Playwright **website-DNA extraction** ("stage one") and stores the result in Supabase.
-2. Generates **5 ad concepts** from that extraction — one per Eugene Schwartz awareness stage — and classifies an overall **brand vibe**.
+2. Surfaces the **5 ad concepts** Stage 1 already produces (awareness-stage grouping deferred to post-MVP) and reads an overall **brand vibe** from the extraction.
 3. Lets the user **batch-generate creatives**: pick concepts + upload one inspiration image; for each concept it builds a concept-specific Stage-2 ad prompt and renders it through KIE (Stage 3).
 4. Collects every creative in a single **Library** screen where they can be **kept or dismissed**.
 
@@ -51,8 +51,10 @@ logic is ported into the new app rather than kept running.
 | Foundation | Fresh Next.js build; port the reference look, re-implement only the screens we need. |
 | Auth | One **shared password** gate → signed httpOnly session cookie checked in middleware. Supabase accessed **server-side only** with the service-role key. Single tenant. |
 | Runtime | **Local Node** (`next dev` / `next start`) so Playwright headless Chromium extraction runs as in v4 today. Not Vercel/serverless. |
-| Concepts | The Stage-1 strategist already emits **5 ad concepts**. Keep those 5; extend the schema so each carries an `awareness_stage` (instructed: one per stage) plus a top-level `brand_vibe`. |
-| Batch output | One creative **per selected concept**. Each concept builds its own Stage-2 prompt from (that concept + brand JSON + inspiration image + logo), then renders via KIE. |
+| Prompts | Stage 1 and Stage 2 prompts are reused **verbatim** from v4 — no schema edits, no added fields. |
+| Concepts | The Stage-1 strategist already emits **5 ad concepts**. Keep those 5 exactly as produced and **display them as-is**. **Awareness-stage grouping is deferred to post-MVP** — for this MVP the 5 concepts are not tagged or grouped by stage. |
+| Brand vibe | Read from the extraction's existing `visual_brand_system.ui_style.overall_mood` field — no new prompt or LLM call. Surfaced on the dashboard. |
+| Batch output | One creative **per selected concept**. Each concept feeds the **unchanged** Stage-2 prompt as input (concept passed via the prompt's existing `OPTIONAL_USER_DIRECTION` slot, alongside the full Stage-1 brand JSON + inspiration image + logo), then renders via KIE. |
 | Long-running work | Synchronous route handlers + **status rows the client polls** (same pattern v4 uses for KIE). No queue/worker. |
 | Image persistence | KIE URLs expire (~24h), so logos, inspiration images, and generated creatives are **downloaded into Supabase Storage**; the DB stores the storage path. |
 
@@ -86,8 +88,9 @@ Library**.
    - Brand overview: logo, the 5 named colors, brand vibe + one-line note.
    - **Extraction JSON preview** (small snippet) with a "view full extraction"
      link.
-   - **Production workspace:** the 5 awareness-stage concepts as cards;
-     multi-select concepts to start a batch.
+   - **Production workspace:** the 5 concepts (as Stage 1 produced them) shown as
+     cards; multi-select concepts to start a batch. (No awareness grouping in the
+     MVP.)
 3. **Extraction JSON** (`/dashboard/brand/[id]/extraction`) — **separate page**
    showing the entire stored extraction JSON (read-only, formatted).
 4. **Generate / Batch** (`/dashboard/brand/[id]/batch/[batchId]`) — **separate
@@ -111,10 +114,11 @@ server-side service-role key). Tables:
   color_primary, color_secondary, color_accent, color_background, color_text,
   extraction_json (jsonb, full Stage-1 output), created_at`
 - **concepts**
-  `id, brand_id (fk), awareness_stage (unaware|problem_aware|solution_aware|
-  product_aware|most_aware), name, headline, subheadline, cta, angle, hook,
+  `id, brand_id (fk), name, headline, subheadline, cta, angle, hook,
   proof_point, visual_metaphor, suggested_layout, rationale, raw (jsonb),
   created_at`
+  (Plus a nullable `awareness_stage` column reserved for the deferred awareness
+  feature — left null and unused in the MVP.)
 - **batches**
   `id, brand_id (fk), inspiration_image_path, status (running|done|partial),
   created_at, completed_at`
@@ -137,7 +141,9 @@ Library query: `state in ('inbox','kept')`. Keep → `kept`; Dismiss → `dismis
    and 5 `concepts` rows. **The concepts are not generated separately** — they
    are parsed straight out of the extraction JSON at
    `static_ad_creative_recommendations.ad_concepts` (the strategist prompt already
-   produces 5 of them), each tagged with its `awareness_stage`.
+   produces 5 of them) and stored as-is. **`brand_vibe`** is read from the
+   extraction's existing `visual_brand_system.ui_style.overall_mood`. Neither
+   the Stage-1 prompt nor its schema is modified.
 2. **Stage two — concept → prompt** (inside the batch worker): for each selected
    concept, call the vision model with `(Stage-2 prompt + brand extraction JSON +
    that concept + inspiration image + logo)` → render-ready `ad_prompt`. Stored
@@ -147,21 +153,28 @@ Library query: `state in ('inbox','kept')`. Keep → `kept`; Dismiss → `dismis
    `recordInfo` → download the result → upload to the `creatives` bucket → mark
    the creative `done`. Client polls batch/creative status.
 
-## 8. Prompt adaptations
+## 8. Prompt usage (no modifications)
 
-- **Stage-1 strategist prompt:** extend the output schema so each of the 5
-  `ad_concepts` includes an `awareness_stage` (instruct it to produce exactly one
-  concept per stage), and add a top-level `brand_vibe` (single primary label +
-  one-line note). Reuse v4's parallel-agent grouping. Drop nothing else from the
-  extraction (the full JSON is still stored and viewable).
-- **Stage-2 prompt:** v4's Stage-2 is driven purely by a reference image; here it
-  is **concept-driven** — the selected concept supplies the angle/copy/awareness
-  framing, while the inspiration image supplies layout/composition. The prompt is
-  adjusted to take the concept as primary intent and the inspiration image as the
-  layout template.
-- Visual DNA simplified per request: **only** the 5 named colors
-  (primary/secondary/accent/background/text) and the logo are surfaced; typography
-  references and the full palette are not.
+Both LLM prompts are reused **verbatim** from v4. Nothing about their text or
+output schema changes.
+
+- **Stage-1 strategist prompt:** used exactly as in v4 (same 3 parallel-agent
+  grouping). It produces the full brand-extraction JSON, including the 5
+  `ad_concepts` and `visual_brand_system.ui_style.overall_mood`. We read concepts
+  and brand vibe out of that output — we do not ask it for anything new.
+- **Stage-2 prompt:** used exactly as in v4. Per the existing template it takes
+  `BRAND_EXTRACTION_JSON` (the full Stage-1 output) + the inspiration image, and
+  emits the render-ready `ad_prompt`. To make each batch creative
+  concept-specific without editing the prompt, the selected concept is passed
+  through the prompt's existing **`OPTIONAL_USER_DIRECTION`** input. Its output
+  feeds Stage 3.
+- **Stage-3 (KIE):** the Stage-2 `ad_prompt` + inspiration image + logo →
+  image-to-image render, as in v4.
+- **Visual DNA display only:** the full extraction is still stored. The
+  dashboard merely *surfaces* a subset — the 5 named colors
+  (primary/secondary/accent/background/text), the logo, and the brand vibe;
+  typography references and the rest of the palette aren't shown. This is a UI
+  choice, not a prompt/extraction change.
 
 ## 9. Secrets (`.env`, server-only)
 
