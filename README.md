@@ -47,3 +47,34 @@ The **analysis prompt is baked in** (collapsible section to view/edit/reset).
 - Only the entered URL is rendered; sub-pages are not crawled by the browser (use the
   `:online` option for those).
 - Logos detected via `<img>` tags only; inline-SVG logos won't be picked up.
+
+## Customer logins & saved ads (Supabase)
+
+This app uses Supabase for magic-link login, saved brand analyses, and an ad Library.
+
+### One-time Supabase setup
+
+1. **Create the database structure.** In your Supabase dashboard, open **SQL Editor**,
+   paste the contents of `supabase/schema.sql`, and click **Run**. (Safe to re-run.)
+2. **Allow the login redirect.** Go to **Authentication → URL Configuration**. Set
+   **Site URL** to `http://localhost:8787` and add `http://localhost:8787` to
+   **Redirect URLs**.
+3. **Keys.** Ensure `.env` has `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and
+   `SUPABASE_SERVICE_ROLE_KEY` (the service-role key is secret, server-only).
+4. **Run with a fixed port** so the magic-link redirect stays valid:
+   `PORT=8787 node server.js`.
+
+### Approving a user (demo gate)
+
+Anyone can request a magic link, but the app stays locked until you approve them:
+
+1. Have the person sign in once (so their row is created).
+2. In the dashboard, open **Table Editor → `profiles`**, find their email, and tick
+   **`approved`** (set it to `true`). They get access on their next page load.
+
+### What gets saved
+
+- **Brands** (`brands` table): each analyzed website's brand JSON. Switch between them
+  with the "Your saved brands" dropdown.
+- **Ads** (`ads` table + private `ads` storage bucket): every generated image, copied off
+  KIE so it doesn't expire. Browse them on the **My Ad Library** page.
