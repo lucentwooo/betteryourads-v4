@@ -1484,7 +1484,7 @@ Return only valid JSON.`;
     const started = Date.now();
 
     try {
-      const res = await fetch("/chat", {
+      const res = await Auth.authedFetch("/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
