@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OpenRouter MVP</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #1a1d27;
+    --border: #2b2f3d;
+    --text: #e6e8ee;
+    --muted: #8a90a2;
+    --accent: #6c8cff;
+    --accent-hover: #5a7bff;
+    --error: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 24px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 16px 0 6px; }
+  input, select, textarea, button {
+    font-family: inherit;
+    font-size: 14px;
+    width: 100%;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  textarea { resize: vertical; min-height: 110px; }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+  button {
+    cursor: pointer;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    font-weight: 600;
+    margin-top: 20px;
+    transition: background 0.15s;
+  }
+  button:hover:not(:disabled) { background: var(--accent-hover); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .result {
+    margin-top: 24px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    min-height: 60px;
+    font-size: 14px;
+  }
+  .result.empty { color: var(--muted); }
+  .result.error { color: var(--error); border-color: var(--error); }
+  .meta { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  a { color: var(--accent); }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>OpenRouter MVP</h1>
+  <p class="sub">Enter a website URL, pick a model, get a grounded analysis. Colors &amp; fonts are extracted from the live page; your API key stays in this browser.</p>
+
+  <label for="apiKey">OpenRouter API key</label>
+  <input id="apiKey" type="password" placeholder="sk-or-v1-..." autocomplete="off" />
+  <p class="hint">Get one at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>. Saved locally in your browser only.</p>
+
+  <div class="row">
+    <div>
+      <label for="model">Model</label>
+      <select id="model"></select>
+    </div>
+    <div>
+      <label for="customModel">…or custom model ID</label>
+      <input id="customModel" type="text" placeholder="vendor/model-name" autocomplete="off" />
+    </div>
+  </div>
+  <p class="hint">Custom ID overrides the dropdown. Browse all models at <a href="https://openrouter.ai/models" target="_blank" rel="noopener">openrouter.ai/models</a>.</p>
+
+  <label for="websiteUrl">Website URL to analyze</label>
+  <input id="websiteUrl" type="url" placeholder="https://example.com" autocomplete="off" />
+  <label style="display:flex; align-items:center; gap:8px; margin-top:8px; cursor:pointer;">
+    <input id="webBrowse" type="checkbox" style="width:auto; margin:0;" />
+    <span>Also web-search other pages (pricing, case studies) — adds <code>:online</code>, costs extra</span>
+  </label>
+  <p class="hint">On Send, the page is loaded in a real browser and its <strong>exact colors, fonts, and text</strong> are extracted and fed to the model — so colors are measured, not guessed. Web search above is optional and only supplements pages beyond the one you entered.</p>
+
+  <details>
+    <summary style="cursor:pointer; color:var(--muted); font-size:13px; margin-top:16px;">Analysis prompt (baked in — click to view or edit)</summary>
+    <textarea id="prompt" style="margin-top:8px;"></textarea>
+    <p class="hint"><a href="#" id="resetPrompt">Reset to default prompt</a></p>
+  </details>
+
+  <button id="send">Send</button>
+
+  <label>Result <span style="color:var(--muted)">(Stage 1 — brand extraction JSON)</span></label>
+  <div id="result" class="result empty">Result will appear here.</div>
+  <div id="meta" class="meta"></div>
+
+  <hr style="border:none; border-top:1px solid var(--border); margin:36px 0 8px;" />
+
+  <h1 style="font-size:18px;">Stage 2 — Reference ad → on-brand ad prompt</h1>
+  <p class="sub">Recreates a reference ad's layout as an on-brand ad prompt for the brand analyzed above. Uses the Stage 1 result as <code>BRAND_EXTRACTION_JSON</code> automatically. Requires a vision model (Gemini 2.5 Pro/Flash, GPT-4o) — text-only models can't see the image.</p>
+
+  <div id="stage1Status" class="hint" style="margin-bottom:8px;"></div>
+
+  <label for="refImage">Reference ad image</label>
+  <input id="refImage" type="file" accept="image/*" style="padding:8px;" />
+  <div id="refPreview" style="margin-top:8px;"></div>
+
+  <label for="stage2Model">Stage 2 model <span style="color:var(--muted)">(vision-capable only)</span></label>
+  <select id="stage2Model"></select>
+  <p class="hint">Independent of the Stage 1 model above. Only models that can read the reference image are listed, so this stage won't 404 on a text-only model.</p>
+
+  <label for="userDirection">User direction <span style="color:var(--muted)">(optional)</span></label>
+  <textarea id="userDirection" style="min-height:60px;" placeholder="e.g. Campaign goal, target customer, preferred angle, CTA, aspect ratio (1:1 / 4:5 / 9:16), specific feature to promote..."></textarea>
+
+  <details>
+    <summary style="cursor:pointer; color:var(--muted); font-size:13px; margin-top:16px;">Stage 2 prompt (baked in — click to view or edit)</summary>
+    <textarea id="stage2Prompt" style="margin-top:8px;"></textarea>
+    <p class="hint"><a href="#" id="resetStage2">Reset to default prompt</a></p>
+  </details>
+
+  <button id="generateAd">Generate ad prompt</button>
+
+  <label>Stage 2 result <span style="color:var(--muted)">(render-ready ad prompt JSON)</span></label>
+  <div id="stage2Result" class="result empty">The render-ready ad prompt JSON will appear here.</div>
+  <div id="stage2Meta" class="meta"></div>
+</div>
+
+<script>
+  const MODELS = [
+    "anthropic/claude-3.5-sonnet",
+    "anthropic/claude-3-haiku",
+    "openai/gpt-4o",
+    "openai/gpt-4o-mini",
+    "google/gemini-2.5-pro",
+    "google/gemini-2.5-flash",
+    "google/gemini-flash-1.5",
+    "meta-llama/llama-3.1-70b-instruct",
+    "mistralai/mistral-large",
+    "deepseek/deepseek-v4-flash",
+    "deepseek/deepseek-chat",
+  ];
+
+  // Stage 2 sends an image, so it MUST use a vision-capable model. Text-only
+  // models (llama, mistral, deepseek) return a 404 "no endpoints support image
+  // input", so they're deliberately excluded from this list.
+  const VISION_MODELS = [
+    "google/gemini-2.5-pro",
+    "google/gemini-2.5-flash",
+    "google/gemini-2.5-flash-lite",
+    "google/gemini-flash-1.5",
+    "openai/gpt-4o",
+    "openai/gpt-4o-mini",
+    "openai/gpt-5-nano",
+    "anthropic/claude-3.5-sonnet",
+    "anthropic/claude-3-haiku",
+  ];
+
+  const STRATEGIST_PROMPT = `You are a senior SaaS ad strategist, brand analyst, conversion copywriter, and visual creative director.
+
+Your job is to extract all information needed to create high-performing static Meta ads for a SaaS company.
+
+Analyze the provided website, landing page, product pages, pricing page, case studies, testimonials, docs, security pages, comparison pages, and any available public sources. Extract only information that can be supported by the source material. Do not invent claims, numbers, customer logos, testimonials, features, pricing, or guarantees.
+
+The goal is to produce a structured creative intelligence profile that can later be used to generate premium static ad prompts.
+
+Analyze the company across these categories:
+
+1. Brand Identity
+
+Extract:
+- Brand name
+- Product name, if different
+- Website URL
+- Main landing page URL
+- SaaS category
+- One-line description
+- Primary customer
+- Primary industry or vertical, if clear
+- Primary job title or buyer persona, if clear
+- Primary outcome promised
+- Main positioning statement
+- Short explanation of what the product does
+
+For each item, include:
+- Extracted value
+- Source URL or source location
+- Confidence: high, medium, or low
+
+2. Visual Brand System
+
+Extract:
+- Logo assets
+- Favicon
+- Icon-only logo if available
+- Wordmark if available
+- Light logo version if available
+- Dark logo version if available
+- Primary colors
+- Secondary colors
+- Accent colors
+- Neutral colors
+- CTA button colors
+- Background colors
+- Text colors
+- Gradient usage
+- Glow or lighting effects
+- Texture usage
+- Font families if detectable
+- Heading typography style
+- Body typography style
+- Button typography style
+- Headline casing style
+- Button style
+- Card style
+- Corner radius style
+- Border style
+- Shadow style
+- Icon style
+- Illustration style
+- Screenshot style
+- UI style
+- Spacing style
+- Layout style
+- Overall brand mood
+
+For colors, provide hex codes wherever possible.
+
+For typography, provide font names if detectable. If not detectable, describe the style, for example: modern geometric sans, rounded bold sans, technical mono-inspired, elegant serif, enterprise neutral sans.
+
+For visual style, describe the brand in plain language, for example:
+- clean enterprise SaaS
+- colorful modern SaaS
+- dark technical developer tool
+- minimal AI startup
+- playful productivity tool
+- premium fintech SaaS
+
+Do not overgeneralize. Use evidence from the website.
+
+3. Product Representation
+
+Extract:
+- Product screenshots
+- Dashboard visuals
+- Feature UI visuals
+- Workflow visuals
+- Integration visuals
+- Data visualization visuals
+- Charts, tables, automations, boards, cards, timelines, or other recognizable UI objects
+- Main product interface pattern
+- Most visually recognizable product elements
+- Product visuals that would work well in a static ad
+- Product visuals that should be avoided because they are confusing, low quality, or unclear
+
+For each product visual, describe:
+- What it shows
+- What product benefit it communicates
+- Where it was found
+- Whether it is suitable for use in an ad
+
+4. Offer DNA
+
+Extract:
+- Product being promoted
+- Main problem solved
+- Main promise
+- Main use case
+- Target customer
+- Target industry
+- Target role
+- Key features
+- Key benefits
+- Pricing model
+- Plan names
+- Free trial availability
+- Demo availability
+- Entry offer
+- Primary CTA
+- Secondary CTA
+- Sales motion: self-serve, sales-led, demo-led, hybrid, unknown
+- Risk reversal, if any
+- Guarantee, if any
+- Onboarding promise
+- Time-to-value claim, if any
+- Setup complexity claims, if any
+- Integrations
+- Main differentiator
+
+Important:
+Only include pricing, guarantees, trials, metrics, and claims if they are visible in the source material. If not found, mark as unknown.
+
+5. Messaging Foundation
+
+Extract:
+- Homepage headline
+- Homepage subheadline
+- Main value propositions
+- Secondary value propositions
+- Main features
+- Main benefits
+- Main use cases
+- Main customer segments
+- Main pain points mentioned by the brand
+- Main outcomes mentioned by the brand
+- Main objections answered on the website
+- FAQ themes
+- CTA language
+- Repeated phrases
+- Messaging patterns
+- Headline patterns
+- Tone of voice
+
+For tone of voice, do not produce a vague brand voice document. Instead, describe how the brand communicates in practical ad-writing terms:
+- short and punchy vs detailed and explanatory
+- emotional vs rational
+- technical vs simple
+- playful vs serious
+- founder-led vs corporate
+- direct response vs brand-led
+- problem-led vs outcome-led
+- feature-led vs benefit-led
+
+6. Proof Library
+
+Extract:
+- Customer logos
+- Testimonials
+- Customer quotes
+- Case study metrics
+- ROI claims
+- Usage numbers
+- Review ratings
+- Security certifications
+- Compliance badges
+- Press mentions
+- Awards
+- Funding or credibility markers
+- Named customers
+- Named industries
+- Before/after claims
+
+For every proof point, include:
+- Exact proof
+- Source
+- Whether it includes a number
+- Whether it includes a customer name
+- Whether it is safe to use directly in an ad
+- Any required context or disclaimer
+- Confidence level
+
+Do not rewrite proof in a stronger way than the source supports.
+
+7. Customer DNA From Website
+
+Extract customer insights that are visible on the website:
+- Pains mentioned
+- Desired outcomes mentioned
+- Objections addressed
+- Buying triggers implied
+- Alternatives mentioned
+- Use cases mentioned
+- Decision criteria implied
+- Customer language from testimonials
+- Customer language from case studies
+- Exact phrases from reviews or quotes
+
+Separate:
+A. What the brand says about customers
+B. What real customers say in testimonials or case studies
+
+8. External Customer Research Recommendations
+
+Based on the SaaS category, identify where customer research should be performed next.
+
+Recommend:
+- Relevant subreddits
+- Review sites
+- Communities
+- Search queries
+- Competitor review pages
+- YouTube search terms
+- LinkedIn search terms
+- G2/Capterra comparison pages
+
+Then list what to look for:
+- Pain points
+- Objections
+- Buying triggers
+- Complaints about alternatives
+- Desired outcomes
+- Exact customer phrases
+- Decision criteria
+
+Do not invent customer research findings unless actual external sources are provided. If you do not have external source access, provide research targets and search queries only.
+
+9. Competitor and Alternative Intelligence
+
+Extract from the website and obvious category context:
+- Direct competitors mentioned
+- Alternative tools mentioned
+- Manual alternatives implied
+- Comparison pages
+- Competitor claims
+- Differentiators
+- Category norms
+- What the product claims to replace
+- What workflow or tool category it is competing against
+
+If competitor data is not available from the website, recommend what competitor research should be done next.
+
+10. Claim and Compliance Constraints
+
+Extract:
+- Claims clearly supported by the website
+- Claims that require proof
+- Claims that are not supported
+- Claims that should not be made
+- Legal or compliance restrictions
+- Required disclaimers
+- Correct product terminology
+- Correct feature names
+- Correct plan names
+- Terms that may misrepresent the product
+- Security or privacy constraints
+- Competitor mention risks
+
+Important:
+Be conservative. If a claim is not explicitly supported, do not mark it as allowed.
+
+11. Static Ad Creative Inputs
+
+Based on all extracted information, recommend:
+- Best customer segment for ads
+- Best pain point to lead with
+- Best desired outcome to promise
+- Best proof point to use
+- Best product visual to use
+- Best CTA to use
+- Best visual metaphor
+- Best ad angle
+- Best layout direction
+- Best background treatment
+- Best typography direction
+- Best logo placement
+- Best product screenshot treatment
+- Best negative constraints
+
+Create 5 static ad concept directions. For each, provide:
+- Concept name
+- Target customer
+- Pain point
+- Desired outcome
+- Hook
+- Main promise
+- Proof point
+- Visual metaphor
+- Suggested layout
+- Suggested headline
+- Suggested subheadline
+- Suggested CTA
+- Product visual to use
+- Brand style notes
+- Negative constraints
+- Why this concept should work
+
+12. Final Output Format
+
+Return the output in clean JSON using this structure:
+
+{
+  "brand_identity": {
+    "brand_name": "",
+    "product_name": "",
+    "website_url": "",
+    "landing_page_url": "",
+    "category": "",
+    "one_line_description": "",
+    "primary_customer": "",
+    "primary_industry": "",
+    "primary_role": "",
+    "primary_outcome": "",
+    "positioning_statement": "",
+    "confidence": ""
+  },
+  "visual_brand_system": {
+    "logos": [],
+    "colors": {
+      "primary": [],
+      "secondary": [],
+      "accent": [],
+      "neutral": [],
+      "background": [],
+      "text": [],
+      "cta": []
+    },
+    "typography": {
+      "font_families": [],
+      "heading_style": "",
+      "body_style": "",
+      "button_style": "",
+      "casing_style": ""
+    },
+    "ui_style": {
+      "button_style": "",
+      "card_style": "",
+      "corner_radius": "",
+      "border_style": "",
+      "shadow_style": "",
+      "icon_style": "",
+      "illustration_style": "",
+      "screenshot_style": "",
+      "spacing_style": "",
+      "layout_style": "",
+      "overall_mood": ""
+    }
+  },
+  "product_representation": {
+    "screenshots": [],
+    "dashboard_visuals": [],
+    "feature_visuals": [],
+    "workflow_visuals": [],
+    "integration_visuals": [],
+    "recommended_ad_visuals": [],
+    "visuals_to_avoid": []
+  },
+  "offer_dna": {
+    "product": "",
+    "main_problem_solved": "",
+    "main_promise": "",
+    "main_use_case": "",
+    "target_customer": "",
+    "target_industry": "",
+    "target_role": "",
+    "key_features": [],
+    "key_benefits": [],
+    "pricing_model": "",
+    "plans": [],
+    "free_trial": "",
+    "demo_available": "",
+    "entry_offer": "",
+    "primary_cta": "",
+    "secondary_cta": "",
+    "sales_motion": "",
+    "risk_reversal": "",
+    "guarantee": "",
+    "onboarding_promise": "",
+    "time_to_value": "",
+    "integrations": [],
+    "main_differentiator": ""
+  },
+  "messaging_foundation": {
+    "homepage_headline": "",
+    "homepage_subheadline": "",
+    "value_props": [],
+    "features": [],
+    "benefits": [],
+    "use_cases": [],
+    "customer_segments": [],
+    "pain_points_mentioned": [],
+    "outcomes_mentioned": [],
+    "objections_addressed": [],
+    "faq_themes": [],
+    "cta_language": [],
+    "repeated_phrases": [],
+    "headline_patterns": [],
+    "tone_notes": []
+  },
+  "proof_library": {
+    "customer_logos": [],
+    "testimonials": [],
+    "case_study_metrics": [],
+    "roi_claims": [],
+    "usage_numbers": [],
+    "review_ratings": [],
+    "security_badges": [],
+    "press_mentions": [],
+    "awards": [],
+    "safe_ad_proof_points": []
+  },
+  "customer_dna_from_website": {
+    "brand_claims_about_customers": [],
+    "real_customer_quotes": [],
+    "pains": [],
+    "desired_outcomes": [],
+    "objections": [],
+    "buying_triggers": [],
+    "alternatives": [],
+    "decision_criteria": [],
+    "exact_phrases": []
+  },
+  "external_customer_research_plan": {
+    "recommended_subreddits": [],
+    "review_sites": [],
+    "communities": [],
+    "search_queries": [],
+    "competitor_review_targets": [],
+    "what_to_extract": []
+  },
+  "competitor_intelligence": {
+    "direct_competitors": [],
+    "indirect_competitors": [],
+    "manual_alternatives": [],
+    "comparison_pages": [],
+    "differentiators": [],
+    "category_norms": [],
+    "research_needed": []
+  },
+  "claim_constraints": {
+    "allowed_claims": [],
+    "claims_requiring_proof": [],
+    "unsupported_claims": [],
+    "forbidden_claims": [],
+    "required_disclaimers": [],
+    "correct_terms": [],
+    "terms_to_avoid": [],
+    "compliance_notes": []
+  },
+  "static_ad_creative_recommendations": {
+    "best_customer_segment": "",
+    "best_pain_point": "",
+    "best_desired_outcome": "",
+    "best_proof_point": "",
+    "best_product_visual": "",
+    "best_cta": "",
+    "best_visual_metaphor": "",
+    "best_layout_direction": "",
+    "best_background_treatment": "",
+    "best_logo_placement": "",
+    "negative_constraints": [],
+    "ad_concepts": [
+      {
+        "concept_name": "",
+        "target_customer": "",
+        "pain_point": "",
+        "desired_outcome": "",
+        "hook": "",
+        "main_promise": "",
+        "proof_point": "",
+        "visual_metaphor": "",
+        "suggested_layout": "",
+        "suggested_headline": "",
+        "suggested_subheadline": "",
+        "suggested_cta": "",
+        "product_visual_to_use": "",
+        "brand_style_notes": [],
+        "negative_constraints": [],
+        "why_this_should_work": ""
+      }
+    ]
+  },
+  "missing_information": {
+    "must_ask_client": [],
+    "nice_to_have": [],
+    "not_found_on_website": []
+  },
+  "source_map": [
+    {
+      "field": "",
+      "value": "",
+      "source_url": "",
+      "confidence": ""
+    }
+  ]
+}
+
+Rules:
+- Do not hallucinate.
+- If information is missing, mark it as unknown.
+- Use exact wording from the website when extracting claims, testimonials, CTAs, and proof.
+- Include source URLs wherever possible.
+- Be conservative with claims.
+- Prioritize information that helps create high-performing static Meta ads.
+- Avoid generic brand strategy fluff.
+- Focus on what will help generate a specific, premium, on-brand static SaaS ad.`;
+
+  const STAGE2_PROMPT = `You are a senior SaaS performance creative director, brand designer, static ad strategist, and AI image prompt engineer.
+
+Your job is to analyze a reference ad image and transform it into a new on-brand static Meta ad for a SaaS company using the provided brand research.
+
+You are not copying the brand, logo, product, colors, or claims from the reference ad.
+
+You are copying the creative structure:
+- Composition
+- Layout
+- Visual hierarchy
+- Object placement
+- Depth
+- Spacing
+- Typography relationships
+- Background treatment
+- General art direction
+- Ad format logic
+
+Then you are translating that structure into the target brand using the brand extraction JSON.
+
+Inputs:
+
+1. REFERENCE_AD_IMAGE
+This is the ad image whose layout and composition should be replicated.
+
+2. BRAND_EXTRACTION_JSON
+This contains the target brand's identity, visual system, product representation, offer DNA, messaging foundation, proof library, customer DNA, competitor intelligence, and claim constraints.
+
+3. OPTIONAL_CUSTOMER_RESEARCH_JSON
+This may include customer pain points, desired outcomes, objections, buying triggers, complaints about alternatives, and exact customer language.
+
+4. OPTIONAL_PERFORMANCE_MEMORY_JSON
+This may include past winning hooks, losing hooks, creative patterns, best-performing layouts, best-performing offers, audience segments, and performance notes.
+
+5. OPTIONAL_USER_DIRECTION
+This may include campaign goal, target customer, landing page, offer, preferred angle, CTA, aspect ratio, or specific product feature to promote.
+
+Your task:
+
+Create a detailed AI image generation prompt that recreates the reference ad's structure, but makes it fully on-brand for the target SaaS company.
+
+The final output should be a render-ready JSON image prompt.
+
+Important rules:
+
+1. Do not copy the reference brand.
+Do not use the reference brand's logo, product name, headline, colors, customer claims, product UI, icons, or trademarked visual assets.
+
+2. Copy the composition, not the brand.
+Replicate the reference ad's layout, hierarchy, spatial relationships, object types, depth, pacing, and design logic.
+
+3. Make the new ad on-brand.
+Use the target brand's colors, logo, typography style, UI style, product screenshots, claims, CTA language, and visual mood from BRAND_EXTRACTION_JSON.
+
+4. Do not hallucinate claims.
+Only use proof, metrics, logos, customer names, ratings, guarantees, feature names, and product claims if they are supported by BRAND_EXTRACTION_JSON or the provided customer research.
+
+5. If proof is unavailable, use a pain-led, outcome-led, or product-led ad instead of inventing proof.
+
+6. If the reference ad uses a visual metaphor, translate the metaphor into the target brand's product category and customer pain.
+
+7. If the reference ad uses a product visual, replace it with a target-brand product screenshot, dashboard visual, UI card, workflow diagram, integration visual, or abstract SaaS visual metaphor.
+
+8. If the reference ad uses people, devices, 3D objects, or icons, only keep those elements if they make sense for the target brand and campaign goal.
+
+9. The final prompt must be specific enough for an image model to render a high-quality static ad with minimal ambiguity.
+
+Step 1: Analyze the reference ad image
+
+Extract the following from the reference image:
+
+- Canvas shape and aspect ratio
+- Overall composition
+- Main visual hierarchy
+- Logo placement
+- Headline placement
+- Subheadline placement
+- CTA placement, if present
+- Product visual placement
+- Proof placement, if present
+- Background style
+- Color treatment
+- Typography relationship
+- Number of text blocks
+- Main visual objects
+- Depth order
+- Cropping rules
+- Whitespace rules
+- Alignment rules
+- Mood
+- Polish level
+- Texture
+- Lighting
+- Shadows
+- Borders
+- Corner radius
+- Object density
+- What makes the ad visually strong
+
+Describe the reference as a reusable layout template.
+
+Do not include the original brand name, original copy, original logo, or original claims in the final ad prompt unless they also belong to the target brand.
+
+Step 2: Analyze the target brand
+
+From BRAND_EXTRACTION_JSON, extract:
+
+- Brand name
+- Product name
+- SaaS category
+- Target customer
+- Primary customer pain
+- Desired outcome
+- Main product promise
+- Main use case
+- Main CTA
+- Brand colors
+- Logo assets
+- Typography style
+- UI style
+- Button style
+- Card style
+- Corner radius style
+- Shadow style
+- Background style
+- Product screenshots
+- Dashboard visuals
+- Integration visuals
+- Workflow visuals
+- Proof points
+- Claim constraints
+- Terms to use
+- Terms to avoid
+
+Step 3: Choose the ad angle
+
+Choose one strong angle based on the target brand's research.
+
+Prioritize in this order:
+
+1. Customer pain
+2. Desired outcome
+3. Product promise
+4. Proof point
+5. Objection handling
+6. Differentiation from alternatives
+
+Create:
+
+- Target customer
+- Customer pain
+- Desired outcome
+- Belief gap
+- Main angle
+- Creative hypothesis
+- Headline
+- Subheadline
+- Proof line, if supported
+- CTA, if useful
+
+The headline should be short, visual, and clear.
+The subheadline should explain the promise.
+The copy should fit the reference ad's text structure.
+
+If the reference ad has:
+- One headline only, create one headline only
+- Headline plus subheadline, create both
+- Headline plus proof badge, create both
+- CTA button, create a CTA button
+- No CTA button, do not force one unless required by USER_DIRECTION
+
+Step 4: Translate the reference composition into the target brand
+
+Create a new ad prompt that keeps the reference ad's:
+
+- Layout structure
+- Spatial balance
+- Text hierarchy
+- Object arrangement
+- Depth structure
+- Cropping logic
+- Visual rhythm
+- Overall polish level
+
+But replace with target-brand elements:
+
+- Target brand logo
+- Target brand colors
+- Target brand typography style
+- Target product visuals
+- Target product promise
+- Target customer pain
+- Target CTA
+- Target proof
+- Target visual metaphor
+
+Step 5: Define the visual metaphor
+
+If the reference ad has a central visual idea, map it to the target SaaS brand.
+
+Examples:
+- Many app icons around one central app tile becomes "many messy workflows consolidated into one platform"
+- Dashboard card becomes "clarity, visibility, analytics, control"
+- Notification badges become "overload, missed tasks, chaos, urgency"
+- Split screen becomes "old way versus new way"
+- Floating cards become "automation, connected systems, lightweight workflow"
+- Testimonial card becomes "trust and proof"
+- Metric card becomes "measurable outcome"
+
+Create a visual metaphor that matches the customer pain and product promise.
+
+Step 6: Define exact render instructions
+
+The final JSON image prompt must include:
+
+- Goal
+- Canvas
+- Overall style
+- Background
+- Layout
+- Copy
+- Typography
+- Elements
+- Product visual direction
+- Precision notes
+- Negative prompt
+
+Make the prompt highly specific.
+
+For every major element, include:
+- Name
+- Type
+- Position
+- Size
+- Content
+- Style
+- Colors
+- Typography
+- Shadow
+- Border
+- Corner radius
+- Relationship to other elements
+
+If exact x/y coordinates are not necessary, use precise relative placement instead.
+
+Step 7: Add safeguards
+
+Include negative constraints:
+
+- No original reference brand
+- No original reference logo
+- No original reference copy
+- No unsupported claims
+- No fake metrics
+- No fake customer logos
+- No fake UI data
+- No distorted text
+- No extra text
+- No clutter
+- No low-resolution output
+- No off-brand colors
+- No generic AI aesthetic
+- No warped logo
+- No unreadable product UI
+- No irrelevant objects
+- No unnecessary people or devices unless the reference structure requires them and the target brand supports them
+
+Final output:
+
+Return only valid JSON in this structure:
+
+{
+  "reference_ad_analysis": {
+    "aspect_ratio": "",
+    "composition_summary": "",
+    "layout_template": "",
+    "visual_hierarchy": "",
+    "text_structure": "",
+    "logo_placement": "",
+    "main_visual_placement": "",
+    "background_style": "",
+    "typography_relationship": "",
+    "color_strategy": "",
+    "depth_and_layering": "",
+    "cropping_rules": "",
+    "spacing_rules": "",
+    "mood": "",
+    "what_to_replicate": [],
+    "what_not_to_copy": []
+  },
+  "brand_translation_strategy": {
+    "target_brand": "",
+    "product_category": "",
+    "target_customer": "",
+    "customer_pain": "",
+    "desired_outcome": "",
+    "main_promise": "",
+    "proof_point_used": "",
+    "cta": "",
+    "creative_angle": "",
+    "creative_hypothesis": "",
+    "visual_metaphor": "",
+    "why_this_matches_the_reference": "",
+    "why_this_fits_the_brand": ""
+  },
+  "ad_prompt": {
+    "goal": "",
+    "canvas": {
+      "width": 1080,
+      "height": 1080,
+      "aspect_ratio": "1:1",
+      "format": "static Meta ad",
+      "safe_margin": "Keep all important text and logos within 80 px of canvas edges"
+    },
+    "overall_style": {
+      "look": "",
+      "mood": "",
+      "render_quality": "high resolution, crisp typography, premium SaaS ad quality",
+      "lighting": "",
+      "texture": "",
+      "brand_fit_notes": ""
+    },
+    "background": {
+      "type": "",
+      "color_palette": {
+        "primary": [],
+        "secondary": [],
+        "accent": [],
+        "neutral": []
+      },
+      "treatment": "",
+      "gradient": "",
+      "glow_shapes": [],
+      "texture": "",
+      "avoid": ""
+    },
+    "layout": {
+      "template_name": "",
+      "composition": "",
+      "text_position": "",
+      "visual_position": "",
+      "logo_position": "",
+      "proof_position": "",
+      "cta_position": "",
+      "depth_order": [],
+      "cropping": "",
+      "alignment": "",
+      "visual_balance": "",
+      "reference_structure_notes": ""
+    },
+    "copy": {
+      "brand_name": "",
+      "headline": "",
+      "subheadline": "",
+      "proof_line": "",
+      "cta": "",
+      "copy_notes": ""
+    },
+    "typography": {
+      "headline": { "font_style": "", "font_size": "", "font_weight": "", "letter_spacing": "", "line_height": "", "color": "" },
+      "subheadline": { "font_style": "", "font_size": "", "font_weight": "", "letter_spacing": "", "line_height": "", "color": "" },
+      "proof_line": { "font_style": "", "font_size": "", "font_weight": "", "color": "" },
+      "cta": { "font_style": "", "font_size": "", "font_weight": "", "color": "" }
+    },
+    "elements": [
+      {
+        "name": "",
+        "type": "",
+        "position": { "x": "", "y": "", "width": "", "height": "" },
+        "content": {},
+        "style": { "fill": "", "border": "", "corner_radius": "", "shadow": "", "opacity": "", "blur": "" },
+        "typography": {},
+        "relationship_to_reference": "",
+        "notes": ""
+      }
+    ],
+    "product_visual_direction": {
+      "visual_type": "",
+      "source_asset_to_use": "",
+      "what_it_should_show": "",
+      "what_benefit_it_communicates": "",
+      "treatment": "",
+      "avoid": ""
+    },
+    "precision_notes": {
+      "text_alignment": "",
+      "visual_hierarchy": "",
+      "mobile_readability": "",
+      "brand_consistency": "",
+      "claim_safety": "",
+      "logo_rules": "",
+      "reference_replication_rules": "",
+      "do_not_add": []
+    },
+    "negative_prompt": ""
+  },
+  "assumptions": [],
+  "missing_inputs_that_would_improve_output": [],
+  "source_fields_used": []
+}
+
+Before returning the JSON, check:
+
+- Did you copy the reference composition without copying the reference brand?
+- Does the new ad use the target brand's visual system?
+- Is the ad still understandable in one second?
+- Is the headline short and strong?
+- Is the customer pain or product promise clear?
+- Are all claims supported?
+- Is the product category obvious?
+- Is the visual metaphor connected to the offer?
+- Is the prompt specific enough for image generation?
+- Are negative constraints strong enough?
+
+Return only valid JSON.`;
+
+  const $ = (id) => document.getElementById(id);
+  const apiKeyEl = $("apiKey");
+  const modelEl = $("model");
+  const customModelEl = $("customModel");
+  const promptEl = $("prompt");
+  const sendEl = $("send");
+  const websiteUrlEl = $("websiteUrl");
+  const webBrowseEl = $("webBrowse");
+  const resultEl = $("result");
+  const metaEl = $("meta");
+  // Stage 2 elements
+  const refImageEl = $("refImage");
+  const refPreviewEl = $("refPreview");
+  const stage2ModelEl = $("stage2Model");
+  const userDirectionEl = $("userDirection");
+  const stage2PromptEl = $("stage2Prompt");
+  const generateAdEl = $("generateAd");
+  const stage2ResultEl = $("stage2Result");
+  const stage2MetaEl = $("stage2Meta");
+  const stage1StatusEl = $("stage1Status");
+
+  let lastStage1Output = null; // brand extraction JSON from Stage 1
+  let refImageDataUrl = null;  // base64 data URL of the uploaded reference ad
+
+  // Populate model dropdown
+  for (const m of MODELS) {
+    const opt = document.createElement("option");
+    opt.value = m;
+    opt.textContent = m;
+    modelEl.appendChild(opt);
+  }
+
+  // Restore saved values
+  apiKeyEl.value = localStorage.getItem("or_api_key") || "";
+  const savedModel = localStorage.getItem("or_model");
+  if (savedModel && MODELS.includes(savedModel)) modelEl.value = savedModel;
+  websiteUrlEl.value = localStorage.getItem("or_url") || "";
+  const savedBrowse = localStorage.getItem("or_browse");
+  if (savedBrowse !== null) webBrowseEl.checked = savedBrowse === "1";
+  promptEl.value = localStorage.getItem("or_prompt") || STRATEGIST_PROMPT;
+
+  // Persist on change
+  apiKeyEl.addEventListener("input", () => localStorage.setItem("or_api_key", apiKeyEl.value.trim()));
+  modelEl.addEventListener("change", () => localStorage.setItem("or_model", modelEl.value));
+  websiteUrlEl.addEventListener("input", () => localStorage.setItem("or_url", websiteUrlEl.value.trim()));
+  webBrowseEl.addEventListener("change", () => localStorage.setItem("or_browse", webBrowseEl.checked ? "1" : "0"));
+  promptEl.addEventListener("input", () => localStorage.setItem("or_prompt", promptEl.value));
+  $("resetPrompt").addEventListener("click", (e) => {
+    e.preventDefault();
+    promptEl.value = STRATEGIST_PROMPT;
+    localStorage.setItem("or_prompt", STRATEGIST_PROMPT);
+  });
+
+  // --- Stage 2 restore/persist ---
+  // Populate the vision-only model dropdown (default to gemini-2.5-pro).
+  for (const m of VISION_MODELS) {
+    const opt = document.createElement("option");
+    opt.value = m;
+    opt.textContent = m;
+    stage2ModelEl.appendChild(opt);
+  }
+  const savedStage2Model = localStorage.getItem("or_stage2_model");
+  stage2ModelEl.value = (savedStage2Model && VISION_MODELS.includes(savedStage2Model))
+    ? savedStage2Model
+    : "google/gemini-2.5-pro";
+  stage2ModelEl.addEventListener("change", () => localStorage.setItem("or_stage2_model", stage2ModelEl.value));
+
+  stage2PromptEl.value = localStorage.getItem("or_stage2_prompt") || STAGE2_PROMPT;
+  lastStage1Output = localStorage.getItem("or_stage1") || null;
+  stage2PromptEl.addEventListener("input", () => localStorage.setItem("or_stage2_prompt", stage2PromptEl.value));
+  $("resetStage2").addEventListener("click", (e) => {
+    e.preventDefault();
+    stage2PromptEl.value = STAGE2_PROMPT;
+    localStorage.setItem("or_stage2_prompt", STAGE2_PROMPT);
+  });
+
+  function updateStage1Status() {
+    if (lastStage1Output) {
+      stage1StatusEl.textContent = "✓ Stage 1 result loaded (" + lastStage1Output.length + " chars) — it will be used as BRAND_EXTRACTION_JSON.";
+      stage1StatusEl.style.color = "var(--accent)";
+    } else {
+      stage1StatusEl.textContent = "No Stage 1 result yet. Run an analysis above first, or it can't fill BRAND_EXTRACTION_JSON.";
+      stage1StatusEl.style.color = "var(--muted)";
+    }
+  }
+  updateStage1Status();
+
+  function setResult(text, kind) {
+    resultEl.textContent = text;
+    resultEl.className = "result" + (kind ? " " + kind : "");
+  }
+  function setStage2(text, kind) {
+    stage2ResultEl.textContent = text;
+    stage2ResultEl.className = "result" + (kind ? " " + kind : "");
+  }
+  // Pull JSON out of a model reply that may be wrapped in ```json ... ``` fences.
+  function stripFences(s) {
+    const m = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    return (m ? m[1] : s).trim();
+  }
+  // Parse JSON tolerantly: strip fences, else grab the outermost { ... } block.
+  function parseJsonLoose(s) {
+    const cleaned = stripFences(s);
+    try { return JSON.parse(cleaned); } catch (e) {}
+    const a = cleaned.indexOf("{"), b = cleaned.lastIndexOf("}");
+    if (a >= 0 && b > a) return JSON.parse(cleaned.slice(a, b + 1));
+    throw new Error("no JSON object found in response");
+  }
+
+  async function send() {
+    const key = apiKeyEl.value.trim();
+    let model = customModelEl.value.trim() || modelEl.value;
+    let prompt = promptEl.value.trim();
+    const url = websiteUrlEl.value.trim();
+    const browse = webBrowseEl.checked;
+
+    if (!key) { setResult("Enter your OpenRouter API key first.", "error"); return; }
+    if (!url) { setResult("Enter a website URL to analyze.", "error"); return; }
+    if (!prompt) prompt = STRATEGIST_PROMPT;
+
+    // Guard: this page must be served by server.js, not opened as a file.
+    if (location.protocol === "file:") {
+      setResult("This page was opened directly as a file, so it can't reach the extractor backend.\n\n" +
+        "Run `node server.js` in the project folder, then open the http://localhost:<port> URL it prints (e.g. http://localhost:8787).", "error");
+      return;
+    }
+
+    sendEl.disabled = true;
+    metaEl.textContent = "";
+
+    // Step 1: extract REAL data (exact colors/fonts/text) from the live page
+    // via the local backend, so the model isn't guessing.
+    let extracted = null;
+    sendEl.textContent = "Loading site…";
+    setResult("Loading the website in a real browser and extracting exact colors, fonts, and text…", "empty");
+    try {
+      const exRes = await fetch("/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: url }),
+      });
+      const raw = await exRes.text();
+      let exData;
+      try { exData = JSON.parse(raw); }
+      catch (e) {
+        setResult("The backend at " + location.origin + "/extract returned an unexpected (non-JSON) response.\n\n" +
+          "This usually means " + location.origin + " is being served by a different program, not server.js.\n" +
+          "Open the exact http://localhost:<port> URL that `node server.js` printed.\n\n" +
+          "First 200 chars of the response:\n" + raw.slice(0, 200), "error");
+        sendEl.disabled = false; sendEl.textContent = "Send"; return;
+      }
+      if (!exRes.ok) {
+        setResult("Couldn't extract the site: " + (exData.error || exRes.status), "error");
+        sendEl.disabled = false; sendEl.textContent = "Send"; return;
+      }
+      extracted = exData;
+    } catch (err) {
+      setResult("Couldn't reach the extractor backend at " + location.origin + "/extract.\n\n" +
+        "Make sure `node server.js` is running and that you opened the http://localhost:<port> URL it printed.\n\n" + err.message, "error");
+      sendEl.disabled = false; sendEl.textContent = "Send"; return;
+    }
+
+    // Step 2: build the grounded prompt.
+    let fullPrompt = "Website to analyze: " + (extracted.finalUrl || url) + "\n\n";
+    fullPrompt += "=== MEASURED SITE DATA (authoritative) ===\n";
+    fullPrompt += "These values were extracted directly from the live rendered page. " +
+      "Use these EXACT hex codes and font names. Do NOT invent or alter colors. " +
+      "Counts indicate how often/prominently each color appears.\n\n";
+    fullPrompt += JSON.stringify({
+      title: extracted.title,
+      description: extracted.description,
+      colors: extracted.colors,
+      cssColorVariables: extracted.cssColorVariables,
+      fonts: extracted.fonts,
+      logos: extracted.logos,
+    }, null, 2);
+    fullPrompt += "\n\n=== PAGE TEXT ===\n" + (extracted.text || "") + "\n=== END SITE DATA ===\n\n";
+    fullPrompt += prompt;
+    prompt = fullPrompt;
+
+    // The grounded base prompt (instructions + measured site data) is shared by all agents.
+    const basePrompt = prompt;
+    let agentModel = model;
+    if (browse && !agentModel.endsWith(":online")) agentModel += ":online";
+
+    // 3 balanced parallel agents — each produces only its slice of the JSON.
+    const AGENT_GROUPS = [
+      { name: "A", keys: ["brand_identity", "visual_brand_system", "product_representation", "offer_dna"] },
+      { name: "B", keys: ["messaging_foundation", "proof_library", "customer_dna_from_website", "external_customer_research_plan", "competitor_intelligence", "claim_constraints"] },
+      { name: "C", keys: ["static_ad_creative_recommendations", "missing_information", "source_map"] },
+    ];
+
+    async function runAgent(group) {
+      const directive =
+        "\n\n=== PARALLEL EXTRACTION DIRECTIVE (this OVERRIDES the output-format instructions above) ===\n" +
+        "You are one of several parallel workers analyzing this same site. Return a SINGLE valid JSON object " +
+        "containing EXACTLY these top-level keys and NOTHING else: " + JSON.stringify(group.keys) + ".\n" +
+        "Use the exact sub-structure defined for those keys in the schema above, and follow every extraction rule. " +
+        "Do NOT include any other top-level keys. Do NOT wrap the JSON in markdown fences.";
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: agentModel,
+          messages: [{ role: "user", content: basePrompt + directive }],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error("Agent " + group.name + ": " + (data?.error?.message || ("HTTP " + res.status)));
+      const content = data?.choices?.[0]?.message?.content;
+      if (!content) throw new Error("Agent " + group.name + ": empty response");
+      return { group, obj: parseJsonLoose(content), tokens: data?.usage?.total_tokens || 0 };
+    }
+
+    sendEl.textContent = "Analyzing (3 agents)…";
+    setResult("Running 3 parallel agents with " + agentModel + " — extracting all 12 sections concurrently…", "empty");
+    const started = Date.now();
+
+    // Fire all three at once; allSettled so one failure doesn't lose the others.
+    const settled = await Promise.allSettled(AGENT_GROUPS.map(runAgent));
+
+    const merged = {};
+    const errors = [];
+    let totalTokens = 0;
+    settled.forEach((r) => {
+      if (r.status === "fulfilled") {
+        Object.assign(merged, r.value.obj);
+        totalTokens += r.value.tokens;
+      } else {
+        errors.push((r.reason && r.reason.message) ? r.reason.message : String(r.reason));
+      }
+    });
+
+    if (Object.keys(merged).length === 0) {
+      setResult("All agents failed:\n- " + errors.join("\n- "), "error");
+      sendEl.disabled = false; sendEl.textContent = "Send"; return;
+    }
+
+    const mergedStr = JSON.stringify(merged, null, 2);
+    setResult(mergedStr + (errors.length
+      ? "\n\n/* WARNING — some sections did not return:\n- " + errors.join("\n- ") + "\n   Re-run to retry the missing sections. */"
+      : ""));
+
+    // Capture merged JSON for Stage 2 (used as BRAND_EXTRACTION_JSON).
+    lastStage1Output = mergedStr;
+    localStorage.setItem("or_stage1", mergedStr);
+    updateStage1Status();
+
+    const secs = ((Date.now() - started) / 1000).toFixed(1);
+    let meta = agentModel + " · 3 parallel agents · " + secs + "s";
+    if (totalTokens) meta += " · " + totalTokens + " tokens";
+    if (errors.length) meta += " · " + errors.length + " group(s) failed";
+    metaEl.textContent = meta;
+
+    sendEl.disabled = false;
+    sendEl.textContent = "Send";
+  }
+
+  sendEl.addEventListener("click", send);
+  // Ctrl/Cmd+Enter to send
+  promptEl.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") send();
+  });
+
+  // ===== Stage 2: reference ad image -> on-brand ad prompt =====
+  refImageEl.addEventListener("change", () => {
+    const f = refImageEl.files && refImageEl.files[0];
+    if (!f) { refImageDataUrl = null; refPreviewEl.innerHTML = ""; return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      refImageDataUrl = reader.result; // data:image/...;base64,...
+      refPreviewEl.innerHTML =
+        '<img src="' + refImageDataUrl + '" alt="reference ad" ' +
+        'style="max-width:200px; max-height:200px; border:1px solid var(--border); border-radius:8px;" />';
+    };
+    reader.readAsDataURL(f);
+  });
+
+  async function generateAd() {
+    const key = apiKeyEl.value.trim();
+    // Stage 2 has its own vision-only picker — it does NOT reuse the Stage 1 model.
+    const model = stage2ModelEl.value;
+    const direction = userDirectionEl.value.trim();
+    let stage2 = stage2PromptEl.value.trim() || STAGE2_PROMPT;
+
+    if (!key) { setStage2("Enter your OpenRouter API key first (top of the page).", "error"); return; }
+    if (!lastStage1Output) { setStage2("Run Stage 1 first — its brand-extraction JSON is required as BRAND_EXTRACTION_JSON.", "error"); return; }
+    if (!refImageDataUrl) { setStage2("Upload a reference ad image first.", "error"); return; }
+
+    // Assemble the text part: prompt + brand JSON + optional direction.
+    let text = stage2 +
+      "\n\n=== BRAND_EXTRACTION_JSON ===\n" + stripFences(lastStage1Output);
+    if (direction) text += "\n\n=== OPTIONAL_USER_DIRECTION ===\n" + direction;
+    text += "\n\n=== REFERENCE_AD_IMAGE ===\nThe reference ad image is attached to this message. Analyze it as REFERENCE_AD_IMAGE.";
+
+    generateAdEl.disabled = true;
+    generateAdEl.textContent = "Generating…";
+    stage2MetaEl.textContent = "";
+    setStage2("Analyzing the reference image and generating the on-brand ad prompt with " + model + "…", "empty");
+    const started = Date.now();
+
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: model,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: text },
+              { type: "image_url", image_url: { url: refImageDataUrl } },
+            ],
+          }],
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        const msg = data?.error?.message || JSON.stringify(data);
+        let hint = "";
+        if (/image|vision|modal|content/i.test(msg)) {
+          hint = "\n\nThis model may not accept images. Pick a vision model (e.g. google/gemini-2.5-pro or openai/gpt-4o).";
+        }
+        setStage2("Error " + res.status + ": " + msg + hint, "error");
+        return;
+      }
+
+      const content = data?.choices?.[0]?.message?.content;
+      if (!content) { setStage2("No content returned. Raw response:\n" + JSON.stringify(data, null, 2), "error"); return; }
+
+      setStage2(content);
+      const secs = ((Date.now() - started) / 1000).toFixed(1);
+      let meta = model + " · " + secs + "s";
+      if (data?.usage?.total_tokens) meta += " · " + data.usage.total_tokens + " tokens";
+      stage2MetaEl.textContent = meta;
+    } catch (err) {
+      setStage2("Request failed: " + err.message, "error");
+    } finally {
+      generateAdEl.disabled = false;
+      generateAdEl.textContent = "Generate ad prompt";
+    }
+  }
+
+  generateAdEl.addEventListener("click", generateAd);
+</script>
+</body>
+</html>
