@@ -213,7 +213,8 @@ app.post("/chat", async (req, res) => {
 
 // Upload a base64 image to KIE and return a public URL it can fetch (temp, 3 days).
 async function kieUploadBase64(apiKey, base64Data, fileName) {
-  const r = await fetch("https://api.kie.ai/api/file-base64-upload", {
+  // The base64-upload service is hosted on kieai.redpandaai.co — api.kie.ai 404s for this path.
+  const r = await fetch("https://kieai.redpandaai.co/api/file-base64-upload", {
     method: "POST",
     headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
     body: JSON.stringify({ base64Data, uploadPath: "images/ad-stage3", fileName }),

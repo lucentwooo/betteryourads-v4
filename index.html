@@ -115,9 +115,6 @@
   <input id="refImage" type="file" accept="image/*" style="padding:8px;" />
   <div id="refPreview" style="margin-top:8px;"></div>
 
-  <label for="userDirection">User direction <span style="color:var(--muted)">(optional)</span></label>
-  <textarea id="userDirection" style="min-height:60px;" placeholder="e.g. Campaign goal, target customer, preferred angle, CTA, aspect ratio (1:1 / 4:5 / 9:16), specific feature to promote..."></textarea>
-
   <details>
     <summary style="cursor:pointer; color:var(--muted); font-size:13px; margin-top:16px;">Stage 2 prompt (baked in — click to view or edit)</summary>
     <textarea id="stage2Prompt" style="margin-top:8px;"></textarea>
@@ -729,13 +726,16 @@ This is the ad image whose layout and composition should be replicated.
 2. BRAND_EXTRACTION_JSON
 This contains the target brand's identity, visual system, product representation, offer DNA, messaging foundation, proof library, customer DNA, competitor intelligence, and claim constraints.
 
-3. OPTIONAL_CUSTOMER_RESEARCH_JSON
+3. BRAND_LOGO_IMAGE
+The target brand's official logo is also attached as a separate image input. Use this exact logo file in the final ad. Do not redraw, recreate, restyle, recolor, or reinterpret the logo. Place it as provided.
+
+4. OPTIONAL_CUSTOMER_RESEARCH_JSON
 This may include customer pain points, desired outcomes, objections, buying triggers, complaints about alternatives, and exact customer language.
 
-4. OPTIONAL_PERFORMANCE_MEMORY_JSON
+5. OPTIONAL_PERFORMANCE_MEMORY_JSON
 This may include past winning hooks, losing hooks, creative patterns, best-performing layouts, best-performing offers, audience segments, and performance notes.
 
-5. OPTIONAL_USER_DIRECTION
+6. OPTIONAL_USER_DIRECTION
 This may include campaign goal, target customer, landing page, offer, preferred angle, CTA, aspect ratio, or specific product feature to promote.
 
 Your task:
@@ -753,20 +753,23 @@ Do not use the reference brand's logo, product name, headline, colors, customer 
 Replicate the reference ad's layout, hierarchy, spatial relationships, object types, depth, pacing, and design logic.
 
 3. Make the new ad on-brand.
-Use the target brand's colors, logo, typography style, UI style, product screenshots, claims, CTA language, and visual mood from BRAND_EXTRACTION_JSON.
+Use the target brand's colors, logo, typography style, UI style, product screenshots, claims, CTA language, and visual mood from BRAND_EXTRACTION_JSON. Use the attached BRAND_LOGO_IMAGE as-is.
 
 4. Do not hallucinate claims.
 Only use proof, metrics, logos, customer names, ratings, guarantees, feature names, and product claims if they are supported by BRAND_EXTRACTION_JSON or the provided customer research.
 
-5. If proof is unavailable, use a pain-led, outcome-led, or product-led ad instead of inventing proof.
+5. Do not hallucinate UI, mascots, or brand assets.
+Do not invent product screenshots, dashboards, charts, graphs, data values, button labels, feature names, menu items, or any other UI content unless that exact UI is provided in BRAND_EXTRACTION_JSON or as an attached asset. Do not invent brand mascots, characters, avatars, illustrated personas, or any creature/figure that represents the brand unless it is explicitly part of the brand's existing identity in BRAND_EXTRACTION_JSON. If a product visual is needed but no real UI asset is available, use an abstract SaaS visual metaphor instead (geometric shapes, abstract cards, workflow diagrams without invented data).
 
-6. If the reference ad uses a visual metaphor, translate the metaphor into the target brand's product category and customer pain.
+6. If proof is unavailable, use a pain-led, outcome-led, or product-led ad instead of inventing proof.
 
-7. If the reference ad uses a product visual, replace it with a target-brand product screenshot, dashboard visual, UI card, workflow diagram, integration visual, or abstract SaaS visual metaphor.
+7. If the reference ad uses a visual metaphor, translate the metaphor into the target brand's product category and customer pain.
 
-8. If the reference ad uses people, devices, 3D objects, or icons, only keep those elements if they make sense for the target brand and campaign goal.
+8. If the reference ad uses a product visual, replace it with a target-brand product screenshot, dashboard visual, UI card, workflow diagram, integration visual, or abstract SaaS visual metaphor — only using assets supported by BRAND_EXTRACTION_JSON.
 
-9. The final prompt must be specific enough for an image model to render a high-quality static ad with minimal ambiguity.
+9. If the reference ad uses people, devices, 3D objects, or icons, only keep those elements if they make sense for the target brand and campaign goal.
+
+10. The final prompt must be specific enough for an image model to render a high-quality static ad with minimal ambiguity.
 
 Step 1: Analyze the reference ad image
 
@@ -887,10 +890,10 @@ Create a new ad prompt that keeps the reference ad's:
 
 But replace with target-brand elements:
 
-- Target brand logo
+- Target brand logo (use the attached BRAND_LOGO_IMAGE)
 - Target brand colors
 - Target brand typography style
-- Target product visuals
+- Target product visuals (only from real provided assets)
 - Target product promise
 - Target customer pain
 - Target CTA
@@ -956,7 +959,11 @@ Include negative constraints:
 - No unsupported claims
 - No fake metrics
 - No fake customer logos
-- No fake UI data
+- No fake or invented UI
+- No invented dashboards, charts, or data values
+- No invented feature names, menu items, or button labels
+- No invented brand mascots, characters, avatars, or illustrated personas
+- No redrawing or restyling of the attached brand logo
 - No distorted text
 - No extra text
 - No clutter
@@ -1060,30 +1067,73 @@ Return only valid JSON in this structure:
       "copy_notes": ""
     },
     "typography": {
-      "headline": { "font_style": "", "font_size": "", "font_weight": "", "letter_spacing": "", "line_height": "", "color": "" },
-      "subheadline": { "font_style": "", "font_size": "", "font_weight": "", "letter_spacing": "", "line_height": "", "color": "" },
-      "proof_line": { "font_style": "", "font_size": "", "font_weight": "", "color": "" },
-      "cta": { "font_style": "", "font_size": "", "font_weight": "", "color": "" }
+      "headline": {
+        "font_style": "",
+        "font_size": "",
+        "font_weight": "",
+        "letter_spacing": "",
+        "line_height": "",
+        "color": ""
+      },
+      "subheadline": {
+        "font_style": "",
+        "font_size": "",
+        "font_weight": "",
+        "letter_spacing": "",
+        "line_height": "",
+        "color": ""
+      },
+      "proof_line": {
+        "font_style": "",
+        "font_size": "",
+        "font_weight": "",
+        "color": ""
+      },
+      "cta": {
+        "font_style": "",
+        "font_size": "",
+        "font_weight": "",
+        "color": ""
+      }
     },
     "elements": [
       {
         "name": "",
         "type": "",
-        "position": { "x": "", "y": "", "width": "", "height": "" },
+        "position": {
+          "x": "",
+          "y": "",
+          "width": "",
+          "height": ""
+        },
         "content": {},
-        "style": { "fill": "", "border": "", "corner_radius": "", "shadow": "", "opacity": "", "blur": "" },
+        "style": {
+          "fill": "",
+          "border": "",
+          "corner_radius": "",
+          "shadow": "",
+          "opacity": "",
+          "blur": ""
+        },
         "typography": {},
         "relationship_to_reference": "",
         "notes": ""
       }
     ],
+    "brand_logo_usage": {
+      "source": "Use the attached BRAND_LOGO_IMAGE exactly as provided",
+      "placement": "",
+      "size": "",
+      "clear_space": "",
+      "rules": "Do not redraw, restyle, recolor, distort, crop, or reinterpret the logo. Place the provided logo file directly into the canvas."
+    },
     "product_visual_direction": {
       "visual_type": "",
       "source_asset_to_use": "",
       "what_it_should_show": "",
       "what_benefit_it_communicates": "",
       "treatment": "",
-      "avoid": ""
+      "avoid": "Do not invent UI elements, fake dashboards, fake data, fake charts, fake feature names, or brand mascots not provided in the brand assets"
     },
     "precision_notes": {
       "text_alignment": "",
@@ -1091,7 +1141,8 @@ Return only valid JSON in this structure:
       "mobile_readability": "",
       "brand_consistency": "",
       "claim_safety": "",
-      "logo_rules": "",
+      "logo_rules": "Use the attached brand logo image directly. Do not recreate, redraw, restyle, or alter it.",
+      "ui_and_mascot_rules": "Do not hallucinate any UI, dashboards, charts, data, feature names, menu items, mascots, characters, avatars, or illustrated brand personas. Only use assets explicitly provided in BRAND_EXTRACTION_JSON or attached files.",
       "reference_replication_rules": "",
       "do_not_add": []
     },
@@ -1106,6 +1157,8 @@ Before returning the JSON, check:
 
 - Did you copy the reference composition without copying the reference brand?
 - Does the new ad use the target brand's visual system?
+- Is the attached brand logo used as-is, not redrawn?
+- Did you avoid hallucinating UI, dashboards, data, feature names, or mascots?
 - Is the ad still understandable in one second?
 - Is the headline short and strong?
 - Is the customer pain or product promise clear?
@@ -1128,7 +1181,6 @@ Return only valid JSON.`;
   // Stage 2 elements
   const refImageEl = $("refImage");
   const refPreviewEl = $("refPreview");
-  const userDirectionEl = $("userDirection");
   const stage2PromptEl = $("stage2Prompt");
   const generateAdEl = $("generateAd");
   const stage2ResultEl = $("stage2Result");
@@ -1398,16 +1450,14 @@ Return only valid JSON.`;
   });
 
   async function generateAd() {
-    const direction = userDirectionEl.value.trim();
     let stage2 = stage2PromptEl.value.trim() || STAGE2_PROMPT;
 
     if (!lastStage1Output) { setStage2("Run Stage 1 first — its brand-extraction JSON is required as BRAND_EXTRACTION_JSON.", "error"); return; }
     if (!refImageDataUrl) { setStage2("Upload a reference ad image first.", "error"); return; }
 
-    // Assemble the text part: prompt + brand JSON + optional direction.
+    // Assemble the text part: prompt + brand JSON.
     let text = stage2 +
       "\n\n=== BRAND_EXTRACTION_JSON ===\n" + stripFences(lastStage1Output);
-    if (direction) text += "\n\n=== OPTIONAL_USER_DIRECTION ===\n" + direction;
     text += "\n\n=== REFERENCE_AD_IMAGE ===\nThe reference ad image is attached to this message. Analyze it as REFERENCE_AD_IMAGE.";
 
     generateAdEl.disabled = true;
