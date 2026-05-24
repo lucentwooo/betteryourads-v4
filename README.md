@@ -17,12 +17,13 @@ npx playwright install chromium
 node server.js
 ```
 
-Then open the **`http://localhost:<port>`** URL it prints (default **8787**) in your browser.
+Then open the **`http://localhost:<port>`** URL it prints (default **3000**) in your browser.
 
 > **Important:** open that exact URL — do NOT double-click `index.html` (a `file://` page
-> can't reach the backend) and don't assume port 3000 (another app uses it on this machine).
-> If 8787 is busy, the server auto-picks the next free port and prints it. Override with
-> `$env:PORT=9000; node server.js`.
+> can't reach the backend).
+> If 3000 is busy, the server auto-picks the next free port and prints it. Override with
+> `$env:PORT=9000; node server.js`. Whatever port you use must match the redirect URL
+> registered in Supabase (see below).
 
 ## Use
 
@@ -57,12 +58,12 @@ This app uses Supabase for magic-link login, saved brand analyses, and an ad Lib
 1. **Create the database structure.** In your Supabase dashboard, open **SQL Editor**,
    paste the contents of `supabase/schema.sql`, and click **Run**. (Safe to re-run.)
 2. **Allow the login redirect.** Go to **Authentication → URL Configuration**. Set
-   **Site URL** to `http://localhost:8787` and add `http://localhost:8787` to
+   **Site URL** to `http://localhost:3000` and add `http://localhost:3000` to
    **Redirect URLs**.
 3. **Keys.** Ensure `.env` has `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and
    `SUPABASE_SERVICE_ROLE_KEY` (the service-role key is secret, server-only).
-4. **Run with a fixed port** so the magic-link redirect stays valid:
-   `PORT=8787 node server.js`.
+4. **Run** (the default port is now 3000): `node server.js`. To pin it explicitly,
+   `PORT=3000 node server.js`. Keep the port matching the redirect URL above.
 
 ### Approving a user (demo gate)
 

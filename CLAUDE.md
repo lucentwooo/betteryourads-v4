@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm run setup   # npm install + npx playwright install chromium (one-time)
-npm start       # node server.js — serves UI and proxies APIs on :8787
+npm start       # node server.js — serves UI and proxies APIs on :3000
 PORT=9000 npm start   # override port (auto-increments if busy, up to 20 tries)
 ```
 

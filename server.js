@@ -394,4 +394,4 @@ function start(port, attemptsLeft) {
   });
 }
 
-start(Number(process.env.PORT) || 8787, 20);
+start(Number(process.env.PORT) || 3000, 20);
