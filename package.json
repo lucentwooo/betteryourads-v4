@@ -1,15 +1,34 @@
 {
-  "name": "openrouter-site-analyzer",
-  "version": "1.0.0",
+  "name": "betteryourads-v4",
   "private": true,
-  "description": "Analyze a website with an OpenRouter LLM, grounded on real extracted colors/fonts/text.",
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "setup": "npm install && npx playwright install chromium"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "playwright": "^1.48.0"
+    "next": "^16.2.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "@supabase/supabase-js": "^2.105.1",
+    "playwright": "^1.48.0",
+    "lucide-react": "^0.460.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4",
+    "@tailwindcss/postcss": "^4",
+    "vitest": "^4.1.6",
+    "pg": "^8.13.0",
+    "dotenv": "^16.4.5"
   }
 }

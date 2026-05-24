@@ -9,6 +9,7 @@
 **Tech Stack:** Next.js 16, React 19, TypeScript, Tailwind v4, shadcn/ui, `@supabase/supabase-js`, Playwright, `next/font` (Bricolage Grotesque / Instrument Serif / JetBrains Mono), Vitest.
 
 **Reference source line ranges** (for verbatim ports — paths relative to repo root):
+
 - `index.html` 183–699 = `STRATEGIST_PROMPT`; 701–1171 = `STAGE2_PROMPT`
 - `index.html` 1266–1277 = `stripFences` + `parseJsonLoose`; 1351–1411 = 3-agent grouping/merge; 1521–1534 = `mapAspectRatio`
 - `server.js` 52–142 = `extractFromPage`; 144–173 = extract handler; 215–229 = `kieUploadBase64`; 232–301 = KIE generate/result
@@ -70,6 +71,7 @@ tests/                  # vitest unit tests for pure helpers
 ### Task 1: Move legacy files, scaffold Next.js
 
 **Files:**
+
 - Move: `index.html` → `legacy/index.html`, `server.js` → `legacy/server.js`
 - Create: `package.json`, `tsconfig.json`, `next.config.ts`, `.gitignore` (update)
 
@@ -128,6 +130,7 @@ git mv server.js legacy/server.js
 npm install
 npx playwright install chromium
 ```
+
 Expected: installs complete; `node_modules` present.
 
 - [ ] **Step 4: Create tsconfig.json**
@@ -170,6 +173,7 @@ export default nextConfig;
 - [ ] **Step 6: Update .gitignore**
 
 Append:
+
 ```
 node_modules
 .next
@@ -186,6 +190,7 @@ git commit -m "chore: move v4 to legacy/, scaffold Next.js app"
 ### Task 2: Fonts + design tokens
 
 **Files:**
+
 - Create: `src/lib/fonts.ts`, `src/app/globals.css`, `postcss.config.mjs`, `src/app/layout.tsx`, `src/lib/utils.ts`
 
 - [ ] **Step 1: postcss.config.mjs**
@@ -198,12 +203,34 @@ export default config;
 - [ ] **Step 2: src/lib/fonts.ts** (map Google fonts onto the reference CSS variable names)
 
 ```ts
-import { Bricolage_Grotesque, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import {
+  Bricolage_Grotesque,
+  Instrument_Serif,
+  JetBrains_Mono,
+} from "next/font/google";
 
-export const display = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-general-sans", display: "swap" });
-export const bricolage = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-bricolage", display: "swap" });
-export const instrumentSerif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "italic", variable: "--font-instrument-serif", display: "swap" });
-export const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono", display: "swap" });
+export const display = Bricolage_Grotesque({
+  subsets: ["latin"],
+  variable: "--font-general-sans",
+  display: "swap",
+});
+export const bricolage = Bricolage_Grotesque({
+  subsets: ["latin"],
+  variable: "--font-bricolage",
+  display: "swap",
+});
+export const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: "400",
+  style: "italic",
+  variable: "--font-instrument-serif",
+  display: "swap",
+});
+export const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains-mono",
+  display: "swap",
+});
 ```
 
 - [ ] **Step 3: src/app/globals.css**
@@ -215,22 +242,41 @@ Copy `../_betteryourads-ref/src/app/globals.css` verbatim, then delete the first
 ```ts
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 ```
 
 - [ ] **Step 5: src/app/layout.tsx**
 
 ```tsx
 import type { Metadata } from "next";
-import { display, instrumentSerif, bricolage, jetbrainsMono } from "@/lib/fonts";
+import {
+  display,
+  instrumentSerif,
+  bricolage,
+  jetbrainsMono,
+} from "@/lib/fonts";
 import "./globals.css";
 
-export const metadata: Metadata = { title: "BetterYourAds", description: "Stage-one-driven ad creative generation." };
+export const metadata: Metadata = {
+  title: "BetterYourAds",
+  description: "Stage-one-driven ad creative generation.",
+};
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en" className={`${display.variable} ${instrumentSerif.variable} ${bricolage.variable} ${jetbrainsMono.variable} h-full antialiased`}>
-      <body className="min-h-full bg-[var(--cream)] text-[var(--ink)]">{children}</body>
+    <html
+      lang="en"
+      className={`${display.variable} ${instrumentSerif.variable} ${bricolage.variable} ${jetbrainsMono.variable} h-full antialiased`}
+    >
+      <body className="min-h-full bg-[var(--cream)] text-[var(--ink)]">
+        {children}
+      </body>
     </html>
   );
 }
@@ -251,6 +297,7 @@ git commit -m "feat: tailwind v4 + ported design tokens + fonts + root layout"
 ### Task 3: Env access + .env.example
 
 **Files:**
+
 - Create: `src/lib/env.ts`, update `.env.example`
 
 - [ ] **Step 1: .env.example**
@@ -317,6 +364,7 @@ git commit -m "feat: typed env access + .env.example"
 ### Task 4: Supabase admin client + schema migration
 
 **Files:**
+
 - Create: `src/lib/supabase.ts`, `supabase/migrations/0001_initial.sql`
 
 - [ ] **Step 1: src/lib/supabase.ts**
@@ -413,23 +461,36 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!url || !serviceKey) { console.error("Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY"); process.exit(1); }
+if (!url || !serviceKey) {
+  console.error("Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY");
+  process.exit(1);
+}
 
 const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
 
 // 1. Buckets (idempotent).
 for (const name of ["logos", "inspiration", "creatives"]) {
   const { error } = await sb.storage.createBucket(name, { public: true });
-  if (error && !/already exists/i.test(error.message)) console.warn(`bucket ${name}: ${error.message}`);
+  if (error && !/already exists/i.test(error.message))
+    console.warn(`bucket ${name}: ${error.message}`);
   else console.log(`bucket ${name}: ok`);
 }
 
 // 2. Schema (only if a DB connection string is provided).
 const dbUrl = process.env.SUPABASE_DB_URL;
-const sqlPath = join(__dirname, "..", "supabase", "migrations", "0001_initial.sql");
+const sqlPath = join(
+  __dirname,
+  "..",
+  "supabase",
+  "migrations",
+  "0001_initial.sql",
+);
 if (dbUrl) {
   const { default: pg } = await import("pg");
-  const client = new pg.Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
+  const client = new pg.Client({
+    connectionString: dbUrl,
+    ssl: { rejectUnauthorized: false },
+  });
   await client.connect();
   await client.query(readFileSync(sqlPath, "utf8"));
   await client.end();
@@ -460,12 +521,14 @@ git commit -m "feat: supabase admin client + schema + automated setup script"
 ### Task 5: Shared-password auth (cookie + middleware + login)
 
 **Files:**
+
 - Create: `src/lib/auth.ts`, `src/middleware.ts`, `src/app/api/login/route.ts`, `src/app/login/page.tsx`
 - Test: `tests/auth.test.ts`
 
 - [ ] **Step 1: Write failing test for sign/verify**
 
 `tests/auth.test.ts`:
+
 ```ts
 import { describe, it, expect } from "vitest";
 import { signSession, verifySession } from "@/lib/auth";
@@ -489,6 +552,7 @@ describe("session cookie", () => {
 - [ ] **Step 2: Add vitest config + run to confirm failure**
 
 Create `vitest.config.ts`:
+
 ```ts
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
@@ -497,6 +561,7 @@ export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
 });
 ```
+
 Run: `npm test`
 Expected: FAIL — `signSession`/`verifySession` not found.
 
@@ -507,14 +572,23 @@ const enc = new TextEncoder();
 const PAYLOAD = "ok";
 
 async function hmac(secret: string, msg: string): Promise<string> {
-  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
   const sig = await crypto.subtle.sign("HMAC", key, enc.encode(msg));
   return Buffer.from(new Uint8Array(sig)).toString("hex");
 }
 export async function signSession(secret: string): Promise<string> {
   return `${PAYLOAD}.${await hmac(secret, PAYLOAD)}`;
 }
-export async function verifySession(token: string | undefined, secret: string): Promise<boolean> {
+export async function verifySession(
+  token: string | undefined,
+  secret: string,
+): Promise<boolean> {
   if (!token) return false;
   const [payload, sig] = token.split(".");
   if (payload !== PAYLOAD || !sig) return false;
@@ -535,7 +609,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { verifySession, SESSION_COOKIE } from "@/lib/auth";
 
 export async function middleware(req: NextRequest) {
-  const ok = await verifySession(req.cookies.get(SESSION_COOKIE)?.value, process.env.SESSION_SECRET ?? "");
+  const ok = await verifySession(
+    req.cookies.get(SESSION_COOKIE)?.value,
+    process.env.SESSION_SECRET ?? "",
+  );
   if (ok) return NextResponse.next();
   const url = req.nextUrl.clone();
   url.pathname = "/login";
@@ -561,7 +638,10 @@ export async function POST(req: Request) {
   }
   const res = NextResponse.json({ ok: true });
   res.cookies.set(SESSION_COOKIE, await signSession(env.sessionSecret()), {
-    httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30,
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
   });
   return res;
 }
@@ -581,18 +661,33 @@ export default function LoginPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const res = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
     if (res.ok) router.push("/onboarding");
     else setError((await res.json()).error ?? "Login failed");
   }
   return (
     <main className="grid min-h-screen place-items-center px-6">
-      <form onSubmit={submit} className="w-full max-w-sm rounded-[1.3rem] border hairline bg-card p-6">
+      <form
+        onSubmit={submit}
+        className="w-full max-w-sm rounded-[1.3rem] border hairline bg-card p-6"
+      >
         <h1 className="display text-2xl">Enter password</h1>
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-          className="mt-4 h-11 w-full rounded-xl border-hairline bg-paper px-3" placeholder="Password" autoFocus />
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="mt-4 h-11 w-full rounded-xl border-hairline bg-paper px-3"
+          placeholder="Password"
+          autoFocus
+        />
         {error && <p className="mt-2 text-sm text-coral">{error}</p>}
-        <button className="btn-chunk mt-4 w-full justify-center" type="submit">Continue</button>
+        <button className="btn-chunk mt-4 w-full justify-center" type="submit">
+          Continue
+        </button>
       </form>
     </main>
   );
@@ -613,11 +708,12 @@ git commit -m "feat: shared-password gate (signed cookie + middleware + login)"
 ### Task 6: App shell (Wordmark, BrandSwitcher, AppHeader, app layout)
 
 **Files:**
+
 - Create: `src/components/Wordmark.tsx`, `src/components/BrandSwitcher.tsx`, `src/components/AppHeader.tsx`, `src/app/(app)/layout.tsx`
 
 - [ ] **Step 1: src/components/Wordmark.tsx**
 
-Port `../_betteryourads-ref/src/components/ui/wordmark.tsx` verbatim, changing the import `@/lib/utils` (already exists). Keep the `better`*your*`ads` markup.
+Port `../_betteryourads-ref/src/components/ui/wordmark.tsx` verbatim, changing the import `@/lib/utils` (already exists). Keep the `better`_your_`ads` markup.
 
 - [ ] **Step 2: src/components/BrandSwitcher.tsx** (client)
 
@@ -627,20 +723,35 @@ import Link from "next/link";
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 
-export function BrandSwitcher({ brands, activeId }: { brands: { id: string; name: string }[]; activeId?: string }) {
+export function BrandSwitcher({
+  brands,
+  activeId,
+}: {
+  brands: { id: string; name: string }[];
+  activeId?: string;
+}) {
   const [open, setOpen] = useState(false);
   const active = brands.find((b) => b.id === activeId);
   if (brands.length === 0) return null;
   return (
     <div className="relative">
-      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 rounded-full border hairline bg-paper px-3 py-1.5 text-sm">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 rounded-full border hairline bg-paper px-3 py-1.5 text-sm"
+      >
         {active?.name ?? "Select brand"} <ChevronDown className="h-3.5 w-3.5" />
       </button>
       {open && (
         <div className="absolute z-50 mt-1 min-w-48 rounded-xl border hairline bg-paper p-1 shadow">
           {brands.map((b) => (
-            <Link key={b.id} href={`/dashboard/brand/${b.id}`} onClick={() => setOpen(false)}
-              className="block rounded-lg px-3 py-2 text-sm hover:bg-cream">{b.name}</Link>
+            <Link
+              key={b.id}
+              href={`/dashboard/brand/${b.id}`}
+              onClick={() => setOpen(false)}
+              className="block rounded-lg px-3 py-2 text-sm hover:bg-cream"
+            >
+              {b.name}
+            </Link>
           ))}
         </div>
       )}
@@ -658,18 +769,27 @@ import { BrandSwitcher } from "@/components/BrandSwitcher";
 import { admin } from "@/lib/supabase";
 
 export async function AppHeader({ activeBrandId }: { activeBrandId?: string }) {
-  const { data } = await admin().from("brands").select("id, name").order("created_at", { ascending: false });
+  const { data } = await admin()
+    .from("brands")
+    .select("id, name")
+    .order("created_at", { ascending: false });
   const brands = (data ?? []) as { id: string; name: string }[];
   const active = activeBrandId ?? brands[0]?.id;
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--ink-faint)] bg-[var(--paper)]/80 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-[1280px] items-center gap-8 px-8">
-        <Link href="/onboarding"><Wordmark size="sm" /></Link>
+        <Link href="/onboarding">
+          <Wordmark size="sm" />
+        </Link>
         <BrandSwitcher brands={brands} activeId={active} />
         <nav className="ml-auto flex items-center gap-6 text-sm">
           {active && <Link href={`/dashboard/brand/${active}`}>Dashboard</Link>}
-          {active && <Link href={`/dashboard/brand/${active}/library`}>Library</Link>}
-          <Link href="/onboarding" className="text-ink/60 hover:text-ink">+ New brand</Link>
+          {active && (
+            <Link href={`/dashboard/brand/${active}/library`}>Library</Link>
+          )}
+          <Link href="/onboarding" className="text-ink/60 hover:text-ink">
+            + New brand
+          </Link>
         </nav>
       </div>
     </header>
@@ -706,12 +826,14 @@ git commit -m "feat: app shell (wordmark, brand switcher, header, app layout)"
 ### Task 7: Port prompts + pure helpers (TDD)
 
 **Files:**
+
 - Create: `src/lib/prompts.ts`, `src/lib/extract.ts`
 - Test: `tests/extract.test.ts`
 
 - [ ] **Step 1: src/lib/prompts.ts**
 
 Create two exported string constants. Copy `STRATEGIST_PROMPT` from `legacy/index.html` lines 183–699 and `STAGE2_PROMPT` from lines 701–1171, verbatim, as backtick template strings:
+
 ```ts
 export const STRATEGIST_PROMPT = `...verbatim...`;
 export const STAGE2_PROMPT = `...verbatim...`;
@@ -720,7 +842,8 @@ export const STAGE2_PROMPT = `...verbatim...`;
 - [ ] **Step 2: Write failing tests for pure helpers**
 
 `tests/extract.test.ts`:
-```ts
+
+````ts
 import { describe, it, expect } from "vitest";
 import { stripFences, parseJsonLoose, mapAspectRatio } from "@/lib/extract";
 
@@ -738,11 +861,17 @@ describe("parseJsonLoose", () => {
   });
 });
 describe("mapAspectRatio", () => {
-  it("passes supported ratios through", () => { expect(mapAspectRatio("16:9")).toBe("16:9"); });
-  it("maps 4:5 to nearest portrait 3:4", () => { expect(mapAspectRatio("4:5")).toBe("3:4"); });
-  it("defaults junk to auto", () => { expect(mapAspectRatio("banana")).toBe("auto"); });
+  it("passes supported ratios through", () => {
+    expect(mapAspectRatio("16:9")).toBe("16:9");
+  });
+  it("maps 4:5 to nearest portrait 3:4", () => {
+    expect(mapAspectRatio("4:5")).toBe("3:4");
+  });
+  it("defaults junk to auto", () => {
+    expect(mapAspectRatio("banana")).toBe("auto");
+  });
 });
-```
+````
 
 - [ ] **Step 3: Run to confirm failure**
 
@@ -752,22 +881,26 @@ Expected: FAIL — module/exports missing.
 - [ ] **Step 4: Implement src/lib/extract.ts**
 
 Port from legacy: `stripFences` + `parseJsonLoose` (index.html 1266–1277) and `mapAspectRatio` (index.html 1521–1534) as named exports. Also port `extractFromPage` (server.js 52–142) as a named export `extractFromPage` (a plain function to run inside `page.evaluate`). Example for the pure helpers:
-```ts
+
+````ts
 export function stripFences(s: string): string {
   const m = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
   return (m ? m[1] : s).trim();
 }
 export function parseJsonLoose(s: string): unknown {
   const cleaned = stripFences(s);
-  try { return JSON.parse(cleaned); } catch {}
-  const a = cleaned.indexOf("{"), b = cleaned.lastIndexOf("}");
+  try {
+    return JSON.parse(cleaned);
+  } catch {}
+  const a = cleaned.indexOf("{"),
+    b = cleaned.lastIndexOf("}");
   if (a >= 0 && b > a) return JSON.parse(cleaned.slice(a, b + 1));
   throw new Error("no JSON object found in response");
 }
 export function mapAspectRatio(ar?: string): string {
   if (!ar) return "auto";
   const s = String(ar).trim();
-  if (["1:1","16:9","9:16","4:3","3:4"].includes(s)) return s;
+  if (["1:1", "16:9", "9:16", "4:3", "3:4"].includes(s)) return s;
   const m = s.match(/(\d+(?:\.\d+)?)\s*[:x/]\s*(\d+(?:\.\d+)?)/);
   if (m) {
     const r = parseFloat(m[1]) / parseFloat(m[2]);
@@ -779,7 +912,7 @@ export function mapAspectRatio(ar?: string): string {
   return "auto";
 }
 // + extractFromPage ported verbatim from legacy/server.js 52-142
-```
+````
 
 - [ ] **Step 5: Run to confirm pass**
 
@@ -796,6 +929,7 @@ git commit -m "feat: port prompts + extraction helpers (tested)"
 ### Task 8: Playwright browser singleton + stage-1 runner
 
 **Files:**
+
 - Create: `src/lib/browser.ts`, `src/lib/stage1.ts`
 
 - [ ] **Step 1: src/lib/browser.ts**
@@ -812,6 +946,7 @@ export function getBrowser(): Promise<Browser> {
 - [ ] **Step 2: src/lib/stage1.ts** (extract page data + 3-agent analysis)
 
 Port the grounded-prompt assembly + `AGENT_GROUPS`/`runAgent`/merge from `legacy/index.html` 1330–1411 into a server function. Signature:
+
 ```ts
 import { getBrowser } from "@/lib/browser";
 import { extractFromPage, parseJsonLoose } from "@/lib/extract";
@@ -819,14 +954,41 @@ import { STRATEGIST_PROMPT } from "@/lib/prompts";
 import { env } from "@/lib/env";
 
 const AGENT_GROUPS = [
-  { name: "A", keys: ["brand_identity","visual_brand_system","product_representation","offer_dna"] },
-  { name: "B", keys: ["messaging_foundation","proof_library","customer_dna_from_website","external_customer_research_plan","competitor_intelligence","claim_constraints"] },
-  { name: "C", keys: ["static_ad_creative_recommendations","missing_information","source_map"] },
+  {
+    name: "A",
+    keys: [
+      "brand_identity",
+      "visual_brand_system",
+      "product_representation",
+      "offer_dna",
+    ],
+  },
+  {
+    name: "B",
+    keys: [
+      "messaging_foundation",
+      "proof_library",
+      "customer_dna_from_website",
+      "external_customer_research_plan",
+      "competitor_intelligence",
+      "claim_constraints",
+    ],
+  },
+  {
+    name: "C",
+    keys: [
+      "static_ad_creative_recommendations",
+      "missing_information",
+      "source_map",
+    ],
+  },
 ];
 
 export async function extractSite(url: string) {
   const browser = await getBrowser();
-  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const ctx = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+  });
   try {
     const page = await ctx.newPage();
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
@@ -835,18 +997,30 @@ export async function extractSite(url: string) {
     const data = await page.evaluate(extractFromPage);
     data.finalUrl = page.url();
     return data;
-  } finally { await ctx.close().catch(() => {}); }
+  } finally {
+    await ctx.close().catch(() => {});
+  }
 }
 
-async function runAgent(basePrompt: string, group: typeof AGENT_GROUPS[number]) {
+async function runAgent(
+  basePrompt: string,
+  group: (typeof AGENT_GROUPS)[number],
+) {
   const directive = `\n\n=== PARALLEL EXTRACTION DIRECTIVE (OVERRIDES output-format above) ===\nReturn a SINGLE valid JSON object containing EXACTLY these top-level keys and nothing else: ${JSON.stringify(group.keys)}. No markdown fences.`;
   const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
-    headers: { Authorization: `Bearer ${env.openrouterKey()}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: env.stage1Model(), messages: [{ role: "user", content: basePrompt + directive }] }),
+    headers: {
+      Authorization: `Bearer ${env.openrouterKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: env.stage1Model(),
+      messages: [{ role: "user", content: basePrompt + directive }],
+    }),
   });
   const json = await r.json();
-  if (!r.ok) throw new Error(`Agent ${group.name}: ${json?.error?.message ?? r.status}`);
+  if (!r.ok)
+    throw new Error(`Agent ${group.name}: ${json?.error?.message ?? r.status}`);
   const content = json?.choices?.[0]?.message?.content;
   if (!content) throw new Error(`Agent ${group.name}: empty`);
   return parseJsonLoose(content) as Record<string, unknown>;
@@ -856,16 +1030,34 @@ export async function runStage1(url: string) {
   const extracted = await extractSite(url);
   const base =
     `Website to analyze: ${extracted.finalUrl || url}\n\n=== MEASURED SITE DATA (authoritative) ===\nUse these EXACT hex codes and font names.\n\n` +
-    JSON.stringify({ title: extracted.title, description: extracted.description, colors: extracted.colors, cssColorVariables: extracted.cssColorVariables, fonts: extracted.fonts, logos: extracted.logos }, null, 2) +
-    `\n\n=== PAGE TEXT ===\n${extracted.text || ""}\n=== END SITE DATA ===\n\n` + STRATEGIST_PROMPT;
-  const settled = await Promise.allSettled(AGENT_GROUPS.map((g) => runAgent(base, g)));
+    JSON.stringify(
+      {
+        title: extracted.title,
+        description: extracted.description,
+        colors: extracted.colors,
+        cssColorVariables: extracted.cssColorVariables,
+        fonts: extracted.fonts,
+        logos: extracted.logos,
+      },
+      null,
+      2,
+    ) +
+    `\n\n=== PAGE TEXT ===\n${extracted.text || ""}\n=== END SITE DATA ===\n\n` +
+    STRATEGIST_PROMPT;
+  const settled = await Promise.allSettled(
+    AGENT_GROUPS.map((g) => runAgent(base, g)),
+  );
   const merged: Record<string, unknown> = {};
   const errors: string[] = [];
   for (const s of settled) {
     if (s.status === "fulfilled") Object.assign(merged, s.value);
-    else errors.push(s.reason instanceof Error ? s.reason.message : String(s.reason));
+    else
+      errors.push(
+        s.reason instanceof Error ? s.reason.message : String(s.reason),
+      );
   }
-  if (Object.keys(merged).length === 0) throw new Error(`All agents failed: ${errors.join("; ")}`);
+  if (Object.keys(merged).length === 0)
+    throw new Error(`All agents failed: ${errors.join("; ")}`);
   return { extraction: merged, errors };
 }
 ```
@@ -880,24 +1072,41 @@ git commit -m "feat: playwright singleton + stage-1 3-agent extraction runner"
 ### Task 9: Extraction → brand fields mapping (TDD)
 
 **Files:**
+
 - Create: `src/lib/brand-map.ts`
 - Test: `tests/brand-map.test.ts`
 
 - [ ] **Step 1: Write failing test**
 
 `tests/brand-map.test.ts`:
+
 ```ts
 import { describe, it, expect } from "vitest";
 import { mapBrandFields, mapConcepts } from "@/lib/brand-map";
 
 const extraction = {
   visual_brand_system: {
-    colors: { primary: ["#111111"], secondary: ["#222222"], accent: ["#333333"], background: ["#ffffff"], text: ["#000000"] },
+    colors: {
+      primary: ["#111111"],
+      secondary: ["#222222"],
+      accent: ["#333333"],
+      background: ["#ffffff"],
+      text: ["#000000"],
+    },
     ui_style: { overall_mood: "clean enterprise SaaS" },
   },
   static_ad_creative_recommendations: {
     ad_concepts: [
-      { concept_name: "Pain Lead", suggested_headline: "Stop losing leads", suggested_cta: "Start free", hook: "h", proof_point: "p", visual_metaphor: "m", suggested_layout: "split", why_this_should_work: "because" },
+      {
+        concept_name: "Pain Lead",
+        suggested_headline: "Stop losing leads",
+        suggested_cta: "Start free",
+        hook: "h",
+        proof_point: "p",
+        visual_metaphor: "m",
+        suggested_layout: "split",
+        why_this_should_work: "because",
+      },
     ],
   },
 };
@@ -934,7 +1143,8 @@ Expected: FAIL.
 
 ```ts
 type AnyObj = Record<string, any>;
-const first = (a: unknown): string | null => (Array.isArray(a) && a.length ? String(a[0]) : null);
+const first = (a: unknown): string | null =>
+  Array.isArray(a) && a.length ? String(a[0]) : null;
 
 export function mapBrandFields(extraction: AnyObj) {
   const colors = extraction?.visual_brand_system?.colors ?? {};
@@ -950,7 +1160,8 @@ export function mapBrandFields(extraction: AnyObj) {
 }
 
 export function mapConcepts(extraction: AnyObj) {
-  const list = extraction?.static_ad_creative_recommendations?.ad_concepts ?? [];
+  const list =
+    extraction?.static_ad_creative_recommendations?.ad_concepts ?? [];
   return (list as AnyObj[]).map((c) => ({
     name: c.concept_name ?? null,
     headline: c.suggested_headline ?? null,
@@ -983,6 +1194,7 @@ git commit -m "feat: map extraction JSON -> brand fields + concept rows (tested)
 ### Task 10: `/api/extract` route (persist brand + concepts)
 
 **Files:**
+
 - Create: `src/app/api/extract/route.ts`
 
 - [ ] **Step 1: Implement route**
@@ -999,24 +1211,41 @@ export const maxDuration = 300;
 export async function POST(req: Request) {
   const { name, url, businessType } = await req.json();
   if (!name || !/^https?:\/\//i.test(url ?? "")) {
-    return NextResponse.json({ error: "name and a valid http(s) url are required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "name and a valid http(s) url are required" },
+      { status: 400 },
+    );
   }
   try {
     const { extraction, errors } = await runStage1(url);
     const fields = mapBrandFields(extraction);
     const db = admin();
-    const { data: brand, error: be } = await db.from("brands").insert({
-      name, url, business_type: businessType ?? null, extraction_json: extraction, ...fields,
-    }).select("id").single();
+    const { data: brand, error: be } = await db
+      .from("brands")
+      .insert({
+        name,
+        url,
+        business_type: businessType ?? null,
+        extraction_json: extraction,
+        ...fields,
+      })
+      .select("id")
+      .single();
     if (be) throw be;
-    const concepts = mapConcepts(extraction).map((c) => ({ ...c, brand_id: brand.id }));
+    const concepts = mapConcepts(extraction).map((c) => ({
+      ...c,
+      brand_id: brand.id,
+    }));
     if (concepts.length) {
       const { error: ce } = await db.from("concepts").insert(concepts);
       if (ce) throw ce;
     }
     return NextResponse.json({ brandId: brand.id, warnings: errors });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : String(e) },
+      { status: 500 },
+    );
   }
 }
 ```
@@ -1035,6 +1264,7 @@ git commit -m "feat: /api/extract runs stage 1 and persists brand + concepts"
 ### Task 11: Logo upload route
 
 **Files:**
+
 - Create: `src/app/api/brands/[id]/logo/route.ts`
 
 - [ ] **Step 1: Implement route**
@@ -1044,16 +1274,26 @@ import { NextResponse } from "next/server";
 import { admin } from "@/lib/supabase";
 export const runtime = "nodejs";
 
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const { id } = await params;
   const form = await req.formData();
   const file = form.get("file") as File | null;
-  if (!file) return NextResponse.json({ error: "file required" }, { status: 400 });
+  if (!file)
+    return NextResponse.json({ error: "file required" }, { status: 400 });
   const ext = (file.name.split(".").pop() || "png").toLowerCase();
   const path = `${id}/logo.${ext}`;
   const db = admin();
-  const { error } = await db.storage.from("logos").upload(path, await file.arrayBuffer(), { contentType: file.type, upsert: true });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const { error } = await db.storage
+    .from("logos")
+    .upload(path, await file.arrayBuffer(), {
+      contentType: file.type,
+      upsert: true,
+    });
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
   await db.from("brands").update({ logo_path: path }).eq("id", id);
   const { data } = db.storage.from("logos").getPublicUrl(path);
   return NextResponse.json({ logoUrl: data.publicUrl, path });
@@ -1070,30 +1310,43 @@ git commit -m "feat: brand logo upload to storage"
 ### Task 12: Onboarding UI
 
 **Files:**
+
 - Create: `src/app/(app)/onboarding/page.tsx`, `src/components/OnboardingClient.tsx`
 
 - [ ] **Step 1: src/components/OnboardingClient.tsx**
 
 Three-step client component (`business` → `researching` → `done`). Port the visual structure from `../_betteryourads-ref/src/app/(app)/onboarding/page.tsx` (the `BusinessStep` + `ResearchingStep` markup, `btn-chunk`, business-type chips). On submit:
+
 ```tsx
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const TYPES = ["saas-b2b","saas-b2c","dtc","service","other"];
+const TYPES = ["saas-b2b", "saas-b2c", "dtc", "service", "other"];
 
 export function OnboardingClient() {
   const router = useRouter();
-  const [step, setStep] = useState<"business"|"researching">("business");
-  const [name, setName] = useState(""); const [url, setUrl] = useState("");
-  const [type, setType] = useState("saas-b2b"); const [error, setError] = useState<string|null>(null);
+  const [step, setStep] = useState<"business" | "researching">("business");
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [type, setType] = useState("saas-b2b");
+  const [error, setError] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
-    e.preventDefault(); setStep("researching"); setError(null);
-    const res = await fetch("/api/extract", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, url, businessType: type }) });
+    e.preventDefault();
+    setStep("researching");
+    setError(null);
+    const res = await fetch("/api/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, url, businessType: type }),
+    });
     const data = await res.json();
-    if (!res.ok) { setError(data.error ?? "Extraction failed"); setStep("business"); return; }
+    if (!res.ok) {
+      setError(data.error ?? "Extraction failed");
+      setStep("business");
+      return;
+    }
     router.push(`/dashboard/brand/${data.brandId}`);
   }
   // ...render business form (name, url, type chips) when step==="business",
@@ -1101,6 +1354,7 @@ export function OnboardingClient() {
   //    Use the ported markup. Show {error} if present.
 }
 ```
+
 (The logo upload can also be offered here after the brand exists, or deferred to the dashboard — for MVP, upload logo on the dashboard via the existing `/api/brands/[id]/logo` route. Keep onboarding to name/url/type.)
 
 - [ ] **Step 2: src/app/(app)/onboarding/page.tsx**
@@ -1111,7 +1365,9 @@ export default function Page() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
       <div className="eyebrow text-ink/55">Onboarding · 01</div>
-      <h1 className="display mt-3 text-4xl leading-[1.05]">Tell us about <span className="display-italic">your business</span>.</h1>
+      <h1 className="display mt-3 text-4xl leading-[1.05]">
+        Tell us about <span className="display-italic">your business</span>.
+      </h1>
       <OnboardingClient />
     </main>
   );
@@ -1136,22 +1392,48 @@ git commit -m "feat: onboarding UI runs stage-one extraction"
 ### Task 13: Brand dashboard page
 
 **Files:**
+
 - Create: `src/app/(app)/dashboard/brand/[id]/page.tsx`, `src/components/ConceptCard.tsx`, `src/components/ProductionClient.tsx`
 
 - [ ] **Step 1: src/components/ConceptCard.tsx**
 
 ```tsx
 "use client";
-export type Concept = { id: string; name: string|null; headline: string|null; subheadline: string|null; cta: string|null; rationale: string|null };
-export function ConceptCard({ concept, selected, onToggle }: { concept: Concept; selected: boolean; onToggle: () => void }) {
+export type Concept = {
+  id: string;
+  name: string | null;
+  headline: string | null;
+  subheadline: string | null;
+  cta: string | null;
+  rationale: string | null;
+};
+export function ConceptCard({
+  concept,
+  selected,
+  onToggle,
+}: {
+  concept: Concept;
+  selected: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <button onClick={onToggle}
-      className={`rounded-[1.3rem] border p-5 text-left transition ${selected ? "border-[var(--ultra)] bg-[var(--ultra-tint)]" : "border-hairline bg-card hover:border-ink/40"}`}>
+    <button
+      onClick={onToggle}
+      className={`rounded-[1.3rem] border p-5 text-left transition ${selected ? "border-[var(--ultra)] bg-[var(--ultra-tint)]" : "border-hairline bg-card hover:border-ink/40"}`}
+    >
       <div className="eyebrow text-ink/50">{concept.name ?? "Concept"}</div>
       <div className="mt-2 h2">{concept.headline ?? "—"}</div>
-      {concept.subheadline && <p className="mt-1 text-sm text-ink/70">{concept.subheadline}</p>}
-      {concept.rationale && <p className="mt-3 text-xs text-ink/55">{concept.rationale}</p>}
-      {concept.cta && <span className="mt-3 inline-block rounded-full border hairline px-3 py-1 text-xs">{concept.cta}</span>}
+      {concept.subheadline && (
+        <p className="mt-1 text-sm text-ink/70">{concept.subheadline}</p>
+      )}
+      {concept.rationale && (
+        <p className="mt-3 text-xs text-ink/55">{concept.rationale}</p>
+      )}
+      {concept.cta && (
+        <span className="mt-3 inline-block rounded-full border hairline px-3 py-1 text-xs">
+          {concept.cta}
+        </span>
+      )}
     </button>
   );
 }
@@ -1165,12 +1447,24 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConceptCard, type Concept } from "@/components/ConceptCard";
 
-export function ProductionClient({ brandId, concepts }: { brandId: string; concepts: Concept[] }) {
+export function ProductionClient({
+  brandId,
+  concepts,
+}: {
+  brandId: string;
+  concepts: Concept[];
+}) {
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const router = useRouter();
-  function toggle(id: string) { setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
+  function toggle(id: string) {
+    setSel((s) => {
+      const n = new Set(s);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  }
   async function generate() {
     if (sel.size === 0 || !file) return;
     setBusy(true);
@@ -1181,16 +1475,32 @@ export function ProductionClient({ brandId, concepts }: { brandId: string; conce
     const res = await fetch("/api/batch", { method: "POST", body: fd });
     const data = await res.json();
     setBusy(false);
-    if (res.ok) router.push(`/dashboard/brand/${brandId}/batch/${data.batchId}`);
+    if (res.ok)
+      router.push(`/dashboard/brand/${brandId}/batch/${data.batchId}`);
   }
   return (
     <div>
       <div className="grid gap-4 md:grid-cols-2">
-        {concepts.map((c) => <ConceptCard key={c.id} concept={c} selected={sel.has(c.id)} onToggle={() => toggle(c.id)} />)}
+        {concepts.map((c) => (
+          <ConceptCard
+            key={c.id}
+            concept={c}
+            selected={sel.has(c.id)}
+            onToggle={() => toggle(c.id)}
+          />
+        ))}
       </div>
       <div className="mt-6 flex items-center gap-3">
-        <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-        <button className="btn-chunk" disabled={busy || sel.size === 0 || !file} onClick={generate}>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        />
+        <button
+          className="btn-chunk"
+          disabled={busy || sel.size === 0 || !file}
+          onClick={generate}
+        >
           Generate {sel.size} creative{sel.size === 1 ? "" : "s"}
         </button>
       </div>
@@ -1206,36 +1516,80 @@ import Link from "next/link";
 import { admin } from "@/lib/supabase";
 import { ProductionClient } from "@/components/ProductionClient";
 
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const db = admin();
-  const { data: brand } = await db.from("brands").select("*").eq("id", id).single();
-  const { data: concepts } = await db.from("concepts").select("*").eq("brand_id", id).order("created_at");
+  const { data: brand } = await db
+    .from("brands")
+    .select("*")
+    .eq("id", id)
+    .single();
+  const { data: concepts } = await db
+    .from("concepts")
+    .select("*")
+    .eq("brand_id", id)
+    .order("created_at");
   if (!brand) return <main className="p-12">Brand not found.</main>;
-  const swatches = [["Primary", brand.color_primary],["Secondary", brand.color_secondary],["Accent", brand.color_accent],["Background", brand.color_background],["Text", brand.color_text]] as const;
-  const logoUrl = brand.logo_path ? db.storage.from("logos").getPublicUrl(brand.logo_path).data.publicUrl : null;
+  const swatches = [
+    ["Primary", brand.color_primary],
+    ["Secondary", brand.color_secondary],
+    ["Accent", brand.color_accent],
+    ["Background", brand.color_background],
+    ["Text", brand.color_text],
+  ] as const;
+  const logoUrl = brand.logo_path
+    ? db.storage.from("logos").getPublicUrl(brand.logo_path).data.publicUrl
+    : null;
   const snippet = JSON.stringify(brand.extraction_json).slice(0, 600);
   return (
     <main className="mx-auto max-w-[1200px] px-12 py-10">
       <h1 className="display text-4xl">{brand.name}</h1>
-      <p className="mt-1 text-ink/60">{brand.url} · {brand.brand_vibe ?? "—"}</p>
+      <p className="mt-1 text-ink/60">
+        {brand.url} · {brand.brand_vibe ?? "—"}
+      </p>
       <section className="mt-6 flex flex-wrap items-center gap-4">
-        {logoUrl && <img src={logoUrl} alt="logo" className="h-12 w-12 rounded border hairline object-contain" />}
-        {swatches.map(([label, hex]) => hex && (
-          <div key={label} className="flex items-center gap-2 text-xs">
-            <span className="h-6 w-6 rounded border hairline" style={{ background: hex }} /> {label} {hex}
-          </div>
-        ))}
+        {logoUrl && (
+          <img
+            src={logoUrl}
+            alt="logo"
+            className="h-12 w-12 rounded border hairline object-contain"
+          />
+        )}
+        {swatches.map(
+          ([label, hex]) =>
+            hex && (
+              <div key={label} className="flex items-center gap-2 text-xs">
+                <span
+                  className="h-6 w-6 rounded border hairline"
+                  style={{ background: hex }}
+                />{" "}
+                {label} {hex}
+              </div>
+            ),
+        )}
       </section>
       <section className="mt-6 rounded-xl border hairline bg-card p-4">
         <div className="flex items-center justify-between">
           <span className="eyebrow text-ink/50">Extraction JSON (preview)</span>
-          <Link className="text-sm text-[var(--ultra)]" href={`/dashboard/brand/${id}/extraction`}>View full →</Link>
+          <Link
+            className="text-sm text-[var(--ultra)]"
+            href={`/dashboard/brand/${id}/extraction`}
+          >
+            View full →
+          </Link>
         </div>
-        <pre className="mt-2 overflow-hidden text-xs text-ink/60">{snippet}…</pre>
+        <pre className="mt-2 overflow-hidden text-xs text-ink/60">
+          {snippet}…
+        </pre>
       </section>
       <h2 className="h2 mt-10">Concepts</h2>
-      <div className="mt-4"><ProductionClient brandId={id} concepts={(concepts ?? []) as any} /></div>
+      <div className="mt-4">
+        <ProductionClient brandId={id} concepts={(concepts ?? []) as any} />
+      </div>
     </main>
   );
 }
@@ -1253,15 +1607,24 @@ git commit -m "feat: combined dashboard (overview + json preview + concept produ
 ### Task 14: Full extraction JSON page
 
 **Files:**
+
 - Create: `src/app/(app)/dashboard/brand/[id]/extraction/page.tsx`
 
 - [ ] **Step 1: Implement**
 
 ```tsx
 import { admin } from "@/lib/supabase";
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
-  const { data: brand } = await admin().from("brands").select("name, extraction_json").eq("id", id).single();
+  const { data: brand } = await admin()
+    .from("brands")
+    .select("name, extraction_json")
+    .eq("id", id)
+    .single();
   if (!brand) return <main className="p-12">Not found.</main>;
   return (
     <main className="mx-auto max-w-[1000px] px-12 py-10">
@@ -1288,47 +1651,90 @@ git commit -m "feat: full extraction JSON page"
 ### Task 15: KIE client + Stage-2 prompt builder
 
 **Files:**
+
 - Create: `src/lib/kie.ts`, `src/lib/stage2.ts`
 
 - [ ] **Step 1: src/lib/kie.ts**
 
 Port `kieUploadBase64`, generate (createTask), and poll (recordInfo) from `legacy/server.js` 215–301 into typed functions:
+
 ```ts
 import { env } from "@/lib/env";
 
-export async function kieUploadBase64(base64Data: string, fileName: string): Promise<string> {
+export async function kieUploadBase64(
+  base64Data: string,
+  fileName: string,
+): Promise<string> {
   const r = await fetch("https://kieai.redpandaai.co/api/file-base64-upload", {
-    method: "POST", headers: { Authorization: `Bearer ${env.kieKey()}`, "Content-Type": "application/json" },
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.kieKey()}`,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({ base64Data, uploadPath: "images/ad", fileName }),
   });
   const data = await r.json().catch(() => null);
   const url = data?.data?.downloadUrl;
-  if (!r.ok || !url) throw new Error(`image upload failed: ${data?.msg ?? r.status}`);
+  if (!r.ok || !url)
+    throw new Error(`image upload failed: ${data?.msg ?? r.status}`);
   return url;
 }
 
-export async function kieCreateTask(prompt: string, inputUrls: string[], aspect_ratio: string, resolution: string): Promise<string> {
+export async function kieCreateTask(
+  prompt: string,
+  inputUrls: string[],
+  aspect_ratio: string,
+  resolution: string,
+): Promise<string> {
   if (aspect_ratio === "1:1" && resolution === "4K") resolution = "2K";
   const r = await fetch("https://api.kie.ai/api/v1/jobs/createTask", {
-    method: "POST", headers: { Authorization: `Bearer ${env.kieKey()}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: env.kieModel(), input: { prompt: prompt.slice(0, 20000), input_urls: inputUrls, aspect_ratio, resolution } }),
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.kieKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: env.kieModel(),
+      input: {
+        prompt: prompt.slice(0, 20000),
+        input_urls: inputUrls,
+        aspect_ratio,
+        resolution,
+      },
+    }),
   });
   const data = await r.json().catch(() => null);
   const taskId = data?.data?.taskId;
-  if (!r.ok || data?.code !== 200 || !taskId) throw new Error(`KIE createTask: ${data?.msg ?? r.status}`);
+  if (!r.ok || data?.code !== 200 || !taskId)
+    throw new Error(`KIE createTask: ${data?.msg ?? r.status}`);
   return taskId;
 }
 
-export async function kiePoll(taskId: string): Promise<{ state: string; urls: string[]; failMsg?: string }> {
-  const r = await fetch(`https://api.kie.ai/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`, {
-    headers: { Authorization: `Bearer ${env.kieKey()}` },
-  });
+export async function kiePoll(
+  taskId: string,
+): Promise<{ state: string; urls: string[]; failMsg?: string }> {
+  const r = await fetch(
+    `https://api.kie.ai/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`,
+    {
+      headers: { Authorization: `Bearer ${env.kieKey()}` },
+    },
+  );
   const data = await r.json().catch(() => null);
-  if (!r.ok || data?.code !== 200) throw new Error(`KIE recordInfo: ${data?.msg ?? r.status}`);
+  if (!r.ok || data?.code !== 200)
+    throw new Error(`KIE recordInfo: ${data?.msg ?? r.status}`);
   const d = data.data ?? {};
   let urls: string[] = [];
-  if (d.resultJson) { try { const p = JSON.parse(d.resultJson); urls = p.resultUrls ?? p.result_urls ?? []; } catch {} }
-  return { state: String(d.state ?? ""), urls, failMsg: d.failMsg ?? d.failCode };
+  if (d.resultJson) {
+    try {
+      const p = JSON.parse(d.resultJson);
+      urls = p.resultUrls ?? p.result_urls ?? [];
+    } catch {}
+  }
+  return {
+    state: String(d.state ?? ""),
+    urls,
+    failMsg: d.failMsg ?? d.failCode,
+  };
 }
 ```
 
@@ -1341,17 +1747,34 @@ import { env } from "@/lib/env";
 
 type Concept = Record<string, any>;
 
-export async function buildAdPrompt(extraction: unknown, concept: Concept, inspirationDataUrl: string) {
-  const text = STAGE2_PROMPT +
+export async function buildAdPrompt(
+  extraction: unknown,
+  concept: Concept,
+  inspirationDataUrl: string,
+) {
+  const text =
+    STAGE2_PROMPT +
     `\n\n=== BRAND_EXTRACTION_JSON ===\n${JSON.stringify(extraction)}` +
     `\n\n=== OPTIONAL_USER_DIRECTION ===\nBuild this specific concept: ${JSON.stringify(concept)}` +
     `\n\n=== REFERENCE_AD_IMAGE ===\nThe reference ad image is attached. Analyze it as REFERENCE_AD_IMAGE.`;
   const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST", headers: { Authorization: `Bearer ${env.openrouterKey()}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: env.stage2Model(), messages: [{ role: "user", content: [
-      { type: "text", text },
-      { type: "image_url", image_url: { url: inspirationDataUrl } },
-    ] }] }),
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.openrouterKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: env.stage2Model(),
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text },
+            { type: "image_url", image_url: { url: inspirationDataUrl } },
+          ],
+        },
+      ],
+    }),
   });
   const json = await r.json();
   if (!r.ok) throw new Error(json?.error?.message ?? `stage2 HTTP ${r.status}`);
@@ -1374,6 +1797,7 @@ git commit -m "feat: KIE client + stage-2 concept->ad_prompt builder"
 ### Task 16: `/api/batch` — create batch, run stage 2+3 per concept
 
 **Files:**
+
 - Create: `src/app/api/batch/route.ts`
 
 - [ ] **Step 1: Implement** (inspiration uploaded to storage; one creative per concept; run sequentially, persist results, store image in `creatives` bucket)
@@ -1396,60 +1820,134 @@ async function toDataUrl(file: File): Promise<string> {
 export async function POST(req: Request) {
   const form = await req.formData();
   const brandId = String(form.get("brandId"));
-  const conceptIds: string[] = JSON.parse(String(form.get("conceptIds") ?? "[]"));
+  const conceptIds: string[] = JSON.parse(
+    String(form.get("conceptIds") ?? "[]"),
+  );
   const inspiration = form.get("inspiration") as File | null;
   if (!brandId || conceptIds.length === 0 || !inspiration) {
-    return NextResponse.json({ error: "brandId, conceptIds, inspiration required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "brandId, conceptIds, inspiration required" },
+      { status: 400 },
+    );
   }
   const db = admin();
-  const { data: brand } = await db.from("brands").select("extraction_json, logo_path").eq("id", brandId).single();
-  if (!brand) return NextResponse.json({ error: "brand not found" }, { status: 404 });
+  const { data: brand } = await db
+    .from("brands")
+    .select("extraction_json, logo_path")
+    .eq("id", brandId)
+    .single();
+  if (!brand)
+    return NextResponse.json({ error: "brand not found" }, { status: 404 });
 
   // Store inspiration + create batch.
   const inspPath = `${brandId}/${Date.now()}-insp.png`;
-  await db.storage.from("inspiration").upload(inspPath, await inspiration.arrayBuffer(), { contentType: inspiration.type, upsert: true });
-  const { data: batch } = await db.from("batches").insert({ brand_id: brandId, inspiration_image_path: inspPath }).select("id").single();
+  await db.storage
+    .from("inspiration")
+    .upload(inspPath, await inspiration.arrayBuffer(), {
+      contentType: inspiration.type,
+      upsert: true,
+    });
+  const { data: batch } = await db
+    .from("batches")
+    .insert({ brand_id: brandId, inspiration_image_path: inspPath })
+    .select("id")
+    .single();
 
   const inspirationDataUrl = await toDataUrl(inspiration);
-  const logoUrl = brand.logo_path ? db.storage.from("logos").getPublicUrl(brand.logo_path).data.publicUrl : null;
-  const { data: concepts } = await db.from("concepts").select("*").in("id", conceptIds);
+  const logoUrl = brand.logo_path
+    ? db.storage.from("logos").getPublicUrl(brand.logo_path).data.publicUrl
+    : null;
+  const { data: concepts } = await db
+    .from("concepts")
+    .select("*")
+    .in("id", conceptIds);
 
   // Kick off processing without blocking the HTTP response longer than needed:
   // we await it (maxDuration is generous) so statuses are written; the client polls.
   let failures = 0;
   for (const concept of concepts ?? []) {
-    const { data: creative } = await db.from("creatives").insert({
-      batch_id: batch.id, brand_id: brandId, concept_id: concept.id, status: "generating",
-    }).select("id").single();
+    const { data: creative } = await db
+      .from("creatives")
+      .insert({
+        batch_id: batch.id,
+        brand_id: brandId,
+        concept_id: concept.id,
+        status: "generating",
+      })
+      .select("id")
+      .single();
     try {
-      const { adPrompt, promptText, aspect } = await buildAdPrompt(brand.extraction_json, concept, inspirationDataUrl);
-      const inspKieUrl = await kieUploadBase64(inspirationDataUrl.split(",")[1], "reference.png");
+      const { adPrompt, promptText, aspect } = await buildAdPrompt(
+        brand.extraction_json,
+        concept,
+        inspirationDataUrl,
+      );
+      const inspKieUrl = await kieUploadBase64(
+        inspirationDataUrl.split(",")[1],
+        "reference.png",
+      );
       const inputs = [inspKieUrl];
       if (logoUrl) inputs.push(logoUrl);
       const resolution = env.kieResolution();
-      const taskId = await kieCreateTask(promptText, inputs, aspect, resolution);
+      const taskId = await kieCreateTask(
+        promptText,
+        inputs,
+        aspect,
+        resolution,
+      );
       // poll up to ~5 min
-      const deadline = Date.now() + 300000; let urls: string[] = [];
+      const deadline = Date.now() + 300000;
+      let urls: string[] = [];
       while (Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 3000));
         const p = await kiePoll(taskId);
-        if (p.state.toLowerCase() === "success") { urls = p.urls; break; }
-        if (p.state.toLowerCase() === "fail") throw new Error(p.failMsg ?? "KIE failed");
+        if (p.state.toLowerCase() === "success") {
+          urls = p.urls;
+          break;
+        }
+        if (p.state.toLowerCase() === "fail")
+          throw new Error(p.failMsg ?? "KIE failed");
       }
       if (!urls.length) throw new Error("timed out waiting for KIE");
       // download + store
       const imgRes = await fetch(urls[0]);
       const buf = Buffer.from(await imgRes.arrayBuffer());
       const imgPath = `${brandId}/${creative.id}.png`;
-      await db.storage.from("creatives").upload(imgPath, buf, { contentType: "image/png", upsert: true });
-      await db.from("creatives").update({ status: "done", image_path: imgPath, stage2_prompt: adPrompt, aspect_ratio: aspect, resolution, completed_at: new Date().toISOString() }).eq("id", creative.id);
+      await db.storage
+        .from("creatives")
+        .upload(imgPath, buf, { contentType: "image/png", upsert: true });
+      await db
+        .from("creatives")
+        .update({
+          status: "done",
+          image_path: imgPath,
+          stage2_prompt: adPrompt,
+          aspect_ratio: aspect,
+          resolution,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", creative.id);
     } catch (e) {
       failures++;
-      await db.from("creatives").update({ status: "failed", error: e instanceof Error ? e.message : String(e) }).eq("id", creative.id);
+      await db
+        .from("creatives")
+        .update({
+          status: "failed",
+          error: e instanceof Error ? e.message : String(e),
+        })
+        .eq("id", creative.id);
     }
   }
-  const status = failures === 0 ? "done" : failures === (concepts?.length ?? 0) ? "partial" : "partial";
-  await db.from("batches").update({ status, completed_at: new Date().toISOString() }).eq("id", batch.id);
+  const status =
+    failures === 0
+      ? "done"
+      : failures === (concepts?.length ?? 0)
+        ? "partial"
+        : "partial";
+  await db
+    .from("batches")
+    .update({ status, completed_at: new Date().toISOString() })
+    .eq("id", batch.id);
   return NextResponse.json({ batchId: batch.id });
 }
 ```
@@ -1464,6 +1962,7 @@ git commit -m "feat: batch route runs stage 2+3 per concept, persists creatives"
 ### Task 17: Batch status route + generation screen
 
 **Files:**
+
 - Create: `src/app/api/batch/[id]/route.ts`, `src/app/(app)/dashboard/brand/[id]/batch/[batchId]/page.tsx`, `src/components/BatchClient.tsx`, `src/components/CreativeTile.tsx`
 
 - [ ] **Step 1: src/app/api/batch/[id]/route.ts** (status poll)
@@ -1472,12 +1971,28 @@ git commit -m "feat: batch route runs stage 2+3 per concept, persists creatives"
 import { NextResponse } from "next/server";
 import { admin } from "@/lib/supabase";
 export const runtime = "nodejs";
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const { id } = await params;
   const db = admin();
-  const { data: batch } = await db.from("batches").select("*").eq("id", id).single();
-  const { data: creatives } = await db.from("creatives").select("*").eq("batch_id", id).order("created_at");
-  const withUrls = (creatives ?? []).map((c) => ({ ...c, imageUrl: c.image_path ? db.storage.from("creatives").getPublicUrl(c.image_path).data.publicUrl : null }));
+  const { data: batch } = await db
+    .from("batches")
+    .select("*")
+    .eq("id", id)
+    .single();
+  const { data: creatives } = await db
+    .from("creatives")
+    .select("*")
+    .eq("batch_id", id)
+    .order("created_at");
+  const withUrls = (creatives ?? []).map((c) => ({
+    ...c,
+    imageUrl: c.image_path
+      ? db.storage.from("creatives").getPublicUrl(c.image_path).data.publicUrl
+      : null,
+  }));
   return NextResponse.json({ batch, creatives: withUrls });
 }
 ```
@@ -1486,16 +2001,41 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
 ```tsx
 "use client";
-export function CreativeTile({ c, onKeep, onDismiss }: { c: any; onKeep?: () => void; onDismiss?: () => void }) {
+export function CreativeTile({
+  c,
+  onKeep,
+  onDismiss,
+}: {
+  c: any;
+  onKeep?: () => void;
+  onDismiss?: () => void;
+}) {
   return (
     <div className="rounded-[1.3rem] border hairline bg-card p-3">
-      {c.status === "generating" && <div className="grid h-64 place-items-center text-sm text-ink/50">Generating…</div>}
-      {c.status === "failed" && <div className="grid h-64 place-items-center px-3 text-sm text-coral">Failed: {c.error}</div>}
-      {c.status === "done" && c.imageUrl && <img src={c.imageUrl} alt="creative" className="w-full rounded-lg" />}
+      {c.status === "generating" && (
+        <div className="grid h-64 place-items-center text-sm text-ink/50">
+          Generating…
+        </div>
+      )}
+      {c.status === "failed" && (
+        <div className="grid h-64 place-items-center px-3 text-sm text-coral">
+          Failed: {c.error}
+        </div>
+      )}
+      {c.status === "done" && c.imageUrl && (
+        <img src={c.imageUrl} alt="creative" className="w-full rounded-lg" />
+      )}
       {(onKeep || onDismiss) && c.status === "done" && (
         <div className="mt-3 flex gap-2">
-          <button onClick={onKeep} className="btn-chunk flex-1 justify-center">Keep</button>
-          <button onClick={onDismiss} className="btn-ghost-ink flex-1 justify-center">Dismiss</button>
+          <button onClick={onKeep} className="btn-chunk flex-1 justify-center">
+            Keep
+          </button>
+          <button
+            onClick={onDismiss}
+            className="btn-ghost-ink flex-1 justify-center"
+          >
+            Dismiss
+          </button>
         </div>
       )}
     </div>
@@ -1521,16 +2061,21 @@ export function BatchClient({ batchId }: { batchId: string }) {
       if (!live) return;
       setCreatives(data.creatives ?? []);
       setStatus(data.batch?.status ?? "running");
-      if ((data.batch?.status ?? "running") === "running") setTimeout(tick, 3000);
+      if ((data.batch?.status ?? "running") === "running")
+        setTimeout(tick, 3000);
     }
     tick();
-    return () => { live = false; };
+    return () => {
+      live = false;
+    };
   }, [batchId]);
   return (
     <div>
       <p className="text-sm text-ink/55">Status: {status}</p>
       <div className="mt-4 grid gap-4 md:grid-cols-3">
-        {creatives.map((c) => <CreativeTile key={c.id} c={c} />)}
+        {creatives.map((c) => (
+          <CreativeTile key={c.id} c={c} />
+        ))}
       </div>
     </div>
   );
@@ -1542,13 +2087,24 @@ export function BatchClient({ batchId }: { batchId: string }) {
 ```tsx
 import Link from "next/link";
 import { BatchClient } from "@/components/BatchClient";
-export default async function Page({ params }: { params: Promise<{ id: string; batchId: string }> }) {
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ id: string; batchId: string }>;
+}) {
   const { id, batchId } = await params;
   return (
     <main className="mx-auto max-w-[1200px] px-12 py-10">
       <h1 className="display text-3xl">Generating creatives</h1>
-      <Link href={`/dashboard/brand/${id}/library`} className="text-sm text-[var(--ultra)]">Go to library →</Link>
-      <div className="mt-6"><BatchClient batchId={batchId} /></div>
+      <Link
+        href={`/dashboard/brand/${id}/library`}
+        className="text-sm text-[var(--ultra)]"
+      >
+        Go to library →
+      </Link>
+      <div className="mt-6">
+        <BatchClient batchId={batchId} />
+      </div>
     </main>
   );
 }
@@ -1570,6 +2126,7 @@ git commit -m "feat: batch generation screen with polling + creative tiles"
 ### Task 18: Creative state route + Library screen
 
 **Files:**
+
 - Create: `src/app/api/creatives/[id]/state/route.ts`, `src/app/(app)/dashboard/brand/[id]/library/page.tsx`, `src/components/LibraryClient.tsx`
 
 - [ ] **Step 1: src/app/api/creatives/[id]/state/route.ts**
@@ -1578,12 +2135,20 @@ git commit -m "feat: batch generation screen with polling + creative tiles"
 import { NextResponse } from "next/server";
 import { admin } from "@/lib/supabase";
 export const runtime = "nodejs";
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const { id } = await params;
   const { state } = await req.json();
-  if (!["inbox","kept","dismissed"].includes(state)) return NextResponse.json({ error: "bad state" }, { status: 400 });
-  const { error } = await admin().from("creatives").update({ state }).eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!["inbox", "kept", "dismissed"].includes(state))
+    return NextResponse.json({ error: "bad state" }, { status: 400 });
+  const { error } = await admin()
+    .from("creatives")
+    .update({ state })
+    .eq("id", id);
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
 ```
@@ -1598,8 +2163,16 @@ import { CreativeTile } from "@/components/CreativeTile";
 export function LibraryClient({ initial }: { initial: any[] }) {
   const [items, setItems] = useState(initial);
   async function setState(id: string, state: string) {
-    await fetch(`/api/creatives/${id}/state`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }) });
-    setItems((xs) => state === "dismissed" ? xs.filter((x) => x.id !== id) : xs.map((x) => x.id === id ? { ...x, state } : x));
+    await fetch(`/api/creatives/${id}/state`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ state }),
+    });
+    setItems((xs) =>
+      state === "dismissed"
+        ? xs.filter((x) => x.id !== id)
+        : xs.map((x) => (x.id === id ? { ...x, state } : x)),
+    );
   }
   const kept = items.filter((i) => i.state === "kept");
   const inbox = items.filter((i) => i.state === "inbox");
@@ -1608,15 +2181,32 @@ export function LibraryClient({ initial }: { initial: any[] }) {
       <section>
         <h2 className="h2">Inbox</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
-          {inbox.map((c) => <CreativeTile key={c.id} c={c} onKeep={() => setState(c.id, "kept")} onDismiss={() => setState(c.id, "dismissed")} />)}
-          {inbox.length === 0 && <p className="text-sm text-ink/50">No new creatives.</p>}
+          {inbox.map((c) => (
+            <CreativeTile
+              key={c.id}
+              c={c}
+              onKeep={() => setState(c.id, "kept")}
+              onDismiss={() => setState(c.id, "dismissed")}
+            />
+          ))}
+          {inbox.length === 0 && (
+            <p className="text-sm text-ink/50">No new creatives.</p>
+          )}
         </div>
       </section>
       <section>
         <h2 className="h2">Kept</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
-          {kept.map((c) => <CreativeTile key={c.id} c={c} onDismiss={() => setState(c.id, "dismissed")} />)}
-          {kept.length === 0 && <p className="text-sm text-ink/50">Nothing kept yet.</p>}
+          {kept.map((c) => (
+            <CreativeTile
+              key={c.id}
+              c={c}
+              onDismiss={() => setState(c.id, "dismissed")}
+            />
+          ))}
+          {kept.length === 0 && (
+            <p className="text-sm text-ink/50">Nothing kept yet.</p>
+          )}
         </div>
       </section>
     </div>
@@ -1629,15 +2219,32 @@ export function LibraryClient({ initial }: { initial: any[] }) {
 ```tsx
 import { admin } from "@/lib/supabase";
 import { LibraryClient } from "@/components/LibraryClient";
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const db = admin();
-  const { data } = await db.from("creatives").select("*").eq("brand_id", id).in("state", ["inbox","kept"]).eq("status","done").order("created_at", { ascending: false });
-  const items = (data ?? []).map((c) => ({ ...c, imageUrl: c.image_path ? db.storage.from("creatives").getPublicUrl(c.image_path).data.publicUrl : null }));
+  const { data } = await db
+    .from("creatives")
+    .select("*")
+    .eq("brand_id", id)
+    .in("state", ["inbox", "kept"])
+    .eq("status", "done")
+    .order("created_at", { ascending: false });
+  const items = (data ?? []).map((c) => ({
+    ...c,
+    imageUrl: c.image_path
+      ? db.storage.from("creatives").getPublicUrl(c.image_path).data.publicUrl
+      : null,
+  }));
   return (
     <main className="mx-auto max-w-[1200px] px-12 py-10">
       <h1 className="display text-3xl">Library</h1>
-      <div className="mt-6"><LibraryClient initial={items} /></div>
+      <div className="mt-6">
+        <LibraryClient initial={items} />
+      </div>
     </main>
   );
 }
@@ -1655,7 +2262,8 @@ git commit -m "feat: library with keep/dismiss"
 ### Task 19: Letter to Lucent (non-technical) + final smoke
 
 **Files:**
-- Create: `For-Lucent.md`  (a NEW markdown file — do **not** create or rewrite `README.md`)
+
+- Create: `For-Lucent.md` (a NEW markdown file — do **not** create or rewrite `README.md`)
 
 > This is the LAST task. `For-Lucent.md` is a warm little **letter**, addressed to
 > **Lucent**, written **by Jerey**, readable by someone who does **not** understand
@@ -1687,7 +2295,7 @@ section. Use this as the template (fill the bracket from the smoke test):
 
 Hey Lucent,
 
-Listen — I'm finishing up at **4:12 AM**. Got the first version working, so I
+Listen — I'm finishing up at **4:30 AM**. Got the first version working, so I
 wanted to leave you a quick note.
 
 Basically I pulled all the parts out of the repo, changed it up a bit, and wired
@@ -1708,11 +2316,12 @@ end, so you just need the packages and the `.env` file I'll send you. Easiest wa
 — open the project in Claude and paste it this:
 
 > Set up and run this project for me. It's a Next.js app. Please:
+>
 > 1. Run `npm install`
 > 2. Run `npx playwright install chromium`
 > 3. I'll give you a `.env` file — put it in the project root as `.env`
-> 4. Start it with `npm run dev` and give me the local link
-> If anything errors, fix it and tell me what you changed.
+> 4. Start it with `npm run dev`
+>    If anything errors, fix it and tell me what you changed.
 
 Don't stress about it — I'll send you the `.env` and walk you through it if you
 get stuck.
@@ -1720,8 +2329,7 @@ get stuck.
 Have a look whenever you get a chance, and **change anything you see fit** — none
 of it's set in stone.
 
-I can't see how it turned out since I ran it overnight, but good luck with
-everything today. 🙌
+I ran it overnight, but good luck with everything today. 🙌
 
 — Jerey
 ```
@@ -1729,8 +2337,7 @@ everything today. 🙌
 Fill the bracket from the real smoke-test outcome: if everything's ready, drop the
 "and there's one tiny extra step" clause entirely; if a manual Supabase paste is
 still needed, keep it and also write a short plain-English `SETUP.md` with those
-exact steps so Jerey can point Lucent to it. Either way, do **not** create a
-`README.md`.
+exact steps so Jerey can point Lucent to it.
 
 - [ ] **Step 3: Commit**
 
@@ -1744,6 +2351,7 @@ git commit -m "docs: letter to Lucent (overnight handoff)"
 ## Self-review
 
 **Spec coverage:**
+
 - Shared-password gate → Task 5. ✅
 - Local Node runtime + Playwright kept verbatim → Tasks 7–8 (`extractFromPage`, browser singleton), `next.config.ts` external package. ✅
 - Stage 1 prompt verbatim, 3-agent merge → Tasks 7–8. ✅
@@ -1765,5 +2373,6 @@ git commit -m "docs: letter to Lucent (overnight handoff)"
 **Type consistency:** `admin()` used consistently for the Supabase client; `SESSION_COOKIE`, `signSession`/`verifySession` consistent across auth.ts/middleware/login route; `mapBrandFields`/`mapConcepts` names match between brand-map.ts, its test, and the extract route; creative `status` (generating/done/failed) vs `state` (inbox/kept/dismissed) kept distinct everywhere; `buildAdPrompt`/`kieCreateTask`/`kiePoll` signatures match their call sites in the batch route.
 
 **Notes/risks:**
+
 - The batch route processes concepts sequentially within one request (generous `maxDuration`). If a batch exceeds the limit, creatives already written keep their status; a later enhancement could move processing to a fire-and-forget pattern. Acceptable for local single-tenant MVP.
 - shadcn components are not installed; UI uses ported tokens + plain elements. If richer primitives are wanted later, run `npx shadcn init` then add components.
