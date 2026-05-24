@@ -1717,7 +1717,8 @@ Return only valid JSON.`;
         { onConflict: "user_id,website_url" }
       )
       .select().single();
-    if (!error && data) { currentBrandId = data.id; await loadBrands(); brandSwitcherEl.value = data.id; }
+    if (error) throw error; // surfaced by caller's catch as a "couldn't save brand" note
+    if (data) { currentBrandId = data.id; await loadBrands(); brandSwitcherEl.value = data.id; }
   }
 
   // ===== Auth gate: reveal the app only for an approved, signed-in user =====
