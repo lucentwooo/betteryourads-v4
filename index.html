@@ -80,23 +80,9 @@
 <body>
 <div class="wrap">
   <h1>OpenRouter MVP</h1>
-  <p class="sub">Enter a website URL, pick a model, get a grounded analysis. Colors &amp; fonts are extracted from the live page; your API key stays in this browser.</p>
+  <p class="sub">Enter a website URL and get a grounded analysis. Colors &amp; fonts are extracted from the live page. Models and API keys are configured server-side in <code>.env</code> — nothing secret touches the browser.</p>
 
-  <label for="apiKey">OpenRouter API key</label>
-  <input id="apiKey" type="password" placeholder="sk-or-v1-..." autocomplete="off" />
-  <p class="hint">Get one at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>. Saved locally in your browser only.</p>
-
-  <div class="row">
-    <div>
-      <label for="model">Model</label>
-      <select id="model"></select>
-    </div>
-    <div>
-      <label for="customModel">…or custom model ID</label>
-      <input id="customModel" type="text" placeholder="vendor/model-name" autocomplete="off" />
-    </div>
-  </div>
-  <p class="hint">Custom ID overrides the dropdown. Browse all models at <a href="https://openrouter.ai/models" target="_blank" rel="noopener">openrouter.ai/models</a>.</p>
+  <div id="activeModels" class="hint" style="margin:4px 0 16px; padding:10px 12px; border:1px solid var(--border); border-radius:8px;">Loading active configuration…</div>
 
   <label for="websiteUrl">Website URL to analyze</label>
   <input id="websiteUrl" type="url" placeholder="https://example.com" autocomplete="off" />
@@ -121,17 +107,13 @@
   <hr style="border:none; border-top:1px solid var(--border); margin:36px 0 8px;" />
 
   <h1 style="font-size:18px;">Stage 2 — Reference ad → on-brand ad prompt</h1>
-  <p class="sub">Recreates a reference ad's layout as an on-brand ad prompt for the brand analyzed above. Uses the Stage 1 result as <code>BRAND_EXTRACTION_JSON</code> automatically. Requires a vision model (Gemini 2.5 Pro/Flash, GPT-4o) — text-only models can't see the image.</p>
+  <p class="sub">Recreates a reference ad's layout as an on-brand ad prompt for the brand analyzed above. Uses the Stage 1 result as <code>BRAND_EXTRACTION_JSON</code> automatically. Runs on the vision model configured in <code>.env</code> (<code>STAGE2_MODEL</code>).</p>
 
   <div id="stage1Status" class="hint" style="margin-bottom:8px;"></div>
 
   <label for="refImage">Reference ad image</label>
   <input id="refImage" type="file" accept="image/*" style="padding:8px;" />
   <div id="refPreview" style="margin-top:8px;"></div>
-
-  <label for="stage2Model">Stage 2 model <span style="color:var(--muted)">(vision-capable only)</span></label>
-  <select id="stage2Model"></select>
-  <p class="hint">Independent of the Stage 1 model above. Only models that can read the reference image are listed, so this stage won't 404 on a text-only model.</p>
 
   <label for="userDirection">User direction <span style="color:var(--muted)">(optional)</span></label>
   <textarea id="userDirection" style="min-height:60px;" placeholder="e.g. Campaign goal, target customer, preferred angle, CTA, aspect ratio (1:1 / 4:5 / 9:16), specific feature to promote..."></textarea>
@@ -147,37 +129,59 @@
   <label>Stage 2 result <span style="color:var(--muted)">(render-ready ad prompt JSON)</span></label>
   <div id="stage2Result" class="result empty">The render-ready ad prompt JSON will appear here.</div>
   <div id="stage2Meta" class="meta"></div>
+
+  <hr style="border:none; border-top:1px solid var(--border); margin:36px 0 8px;" />
+
+  <h1 style="font-size:18px;">Stage 3 — Generate the image</h1>
+  <p class="sub">Renders the ad with KIE GPT Image 2 (image-to-image). It feeds the model three things: the Stage 2 ad prompt, your reference ad, and your brand logo. Configured in <code>.env</code> (<code>KIE_IMAGE_MODEL</code>).</p>
+
+  <div id="stage2OutStatus" class="hint" style="margin-bottom:8px;"></div>
+
+  <label for="refImage3">Reference ad image</label>
+  <input id="refImage3" type="file" accept="image/*" style="padding:8px;" />
+  <div id="refPreview3" style="margin-top:8px;"></div>
+
+  <label for="logoImage3">Brand logo</label>
+  <input id="logoImage3" type="file" accept="image/*" style="padding:8px;" />
+  <div id="logoPreview3" style="margin-top:8px;"></div>
+
+  <div class="row">
+    <div>
+      <label for="aspectRatio">Aspect ratio</label>
+      <select id="aspectRatio">
+        <option value="auto">auto (from prompt)</option>
+        <option value="1:1">1:1 (square)</option>
+        <option value="4:3">4:3 (landscape)</option>
+        <option value="3:4">3:4 (portrait)</option>
+        <option value="16:9">16:9 (wide)</option>
+        <option value="9:16">9:16 (story)</option>
+      </select>
+    </div>
+    <div>
+      <label for="resolution">Resolution</label>
+      <select id="resolution">
+        <option value="1K">1K</option>
+        <option value="2K">2K</option>
+        <option value="4K">4K (not for 1:1)</option>
+      </select>
+    </div>
+  </div>
+  <p class="hint">Aspect ratio is auto-detected from the Stage 2 prompt; resolution defaults to <code>KIE_IMAGE_RESOLUTION</code> in <code>.env</code>. Both are overridable here.</p>
+
+  <details>
+    <summary style="cursor:pointer; color:var(--muted); font-size:13px; margin-top:16px;">Image prompt sent to KIE (auto-filled from Stage 2 — click to view or edit)</summary>
+    <textarea id="stage3Prompt" style="margin-top:8px; min-height:160px;"></textarea>
+  </details>
+
+  <button id="generateImage">Generate image</button>
+
+  <label>Stage 3 result <span style="color:var(--muted)">(generated image)</span></label>
+  <div id="stage3Result" class="result empty">The generated image will appear here.</div>
+  <div id="stage3Meta" class="meta"></div>
 </div>
 
 <script>
-  const MODELS = [
-    "anthropic/claude-3.5-sonnet",
-    "anthropic/claude-3-haiku",
-    "openai/gpt-4o",
-    "openai/gpt-4o-mini",
-    "google/gemini-2.5-pro",
-    "google/gemini-2.5-flash",
-    "google/gemini-flash-1.5",
-    "meta-llama/llama-3.1-70b-instruct",
-    "mistralai/mistral-large",
-    "deepseek/deepseek-v4-flash",
-    "deepseek/deepseek-chat",
-  ];
-
-  // Stage 2 sends an image, so it MUST use a vision-capable model. Text-only
-  // models (llama, mistral, deepseek) return a 404 "no endpoints support image
-  // input", so they're deliberately excluded from this list.
-  const VISION_MODELS = [
-    "google/gemini-2.5-pro",
-    "google/gemini-2.5-flash",
-    "google/gemini-2.5-flash-lite",
-    "google/gemini-flash-1.5",
-    "openai/gpt-4o",
-    "openai/gpt-4o-mini",
-    "openai/gpt-5-nano",
-    "anthropic/claude-3.5-sonnet",
-    "anthropic/claude-3-haiku",
-  ];
+  // Models are pinned server-side in .env (Stage 1 / Stage 2 / KIE) and surfaced via /config.
 
   const STRATEGIST_PROMPT = `You are a senior SaaS ad strategist, brand analyst, conversion copywriter, and visual creative director.
 
@@ -1114,49 +1118,59 @@ Before returning the JSON, check:
 Return only valid JSON.`;
 
   const $ = (id) => document.getElementById(id);
-  const apiKeyEl = $("apiKey");
-  const modelEl = $("model");
-  const customModelEl = $("customModel");
   const promptEl = $("prompt");
   const sendEl = $("send");
   const websiteUrlEl = $("websiteUrl");
   const webBrowseEl = $("webBrowse");
   const resultEl = $("result");
   const metaEl = $("meta");
+  const activeModelsEl = $("activeModels");
   // Stage 2 elements
   const refImageEl = $("refImage");
   const refPreviewEl = $("refPreview");
-  const stage2ModelEl = $("stage2Model");
   const userDirectionEl = $("userDirection");
   const stage2PromptEl = $("stage2Prompt");
   const generateAdEl = $("generateAd");
   const stage2ResultEl = $("stage2Result");
   const stage2MetaEl = $("stage2Meta");
   const stage1StatusEl = $("stage1Status");
+  // Stage 3 elements
+  const refImage3El = $("refImage3");
+  const refPreview3El = $("refPreview3");
+  const logoImage3El = $("logoImage3");
+  const logoPreview3El = $("logoPreview3");
+  const aspectRatioEl = $("aspectRatio");
+  const resolutionEl = $("resolution");
+  const stage3PromptEl = $("stage3Prompt");
+  const generateImageEl = $("generateImage");
+  const stage3ResultEl = $("stage3Result");
+  const stage3MetaEl = $("stage3Meta");
+  const stage2OutStatusEl = $("stage2OutStatus");
 
-  let lastStage1Output = null; // brand extraction JSON from Stage 1
-  let refImageDataUrl = null;  // base64 data URL of the uploaded reference ad
+  let lastStage1Output = null;  // brand extraction JSON from Stage 1
+  let refImageDataUrl = null;   // base64 data URL of the Stage 2 reference ad
+  let refImage3DataUrl = null;  // base64 data URL of the Stage 3 reference ad
+  let logoImage3DataUrl = null; // base64 data URL of the Stage 3 brand logo
 
-  // Populate model dropdown
-  for (const m of MODELS) {
-    const opt = document.createElement("option");
-    opt.value = m;
-    opt.textContent = m;
-    modelEl.appendChild(opt);
-  }
+  // Load active server config (which models are pinned in .env). No secrets returned.
+  fetch("/config").then((r) => r.json()).then((cfg) => {
+    const esc = (s) => String(s || "—").replace(/</g, "&lt;");
+    activeModelsEl.innerHTML =
+      "Active models (server <code>.env</code>): " +
+      "Stage 1 <strong>" + esc(cfg.stage1Model) + "</strong> · " +
+      "Stage 2 <strong>" + esc(cfg.stage2Model) + "</strong> · " +
+      "Stage 3 <strong>" + esc(cfg.kieModel) + "</strong>" +
+      (cfg.openrouterConfigured ? "" : ' · <span style="color:#e06c6c;">OPENROUTER_API_KEY missing</span>') +
+      (cfg.kieConfigured ? "" : ' · <span style="color:#e06c6c;">KIE_API_KEY missing</span>');
+    if (cfg.kieResolution && ["1K", "2K", "4K"].includes(cfg.kieResolution)) resolutionEl.value = cfg.kieResolution;
+  }).catch(() => { activeModelsEl.textContent = "Could not load /config — is server.js running?"; });
 
-  // Restore saved values
-  apiKeyEl.value = localStorage.getItem("or_api_key") || "";
-  const savedModel = localStorage.getItem("or_model");
-  if (savedModel && MODELS.includes(savedModel)) modelEl.value = savedModel;
+  // Restore saved values (URL, browse toggle, editable prompts — keys/models are server-side now).
   websiteUrlEl.value = localStorage.getItem("or_url") || "";
   const savedBrowse = localStorage.getItem("or_browse");
   if (savedBrowse !== null) webBrowseEl.checked = savedBrowse === "1";
   promptEl.value = localStorage.getItem("or_prompt") || STRATEGIST_PROMPT;
 
-  // Persist on change
-  apiKeyEl.addEventListener("input", () => localStorage.setItem("or_api_key", apiKeyEl.value.trim()));
-  modelEl.addEventListener("change", () => localStorage.setItem("or_model", modelEl.value));
   websiteUrlEl.addEventListener("input", () => localStorage.setItem("or_url", websiteUrlEl.value.trim()));
   webBrowseEl.addEventListener("change", () => localStorage.setItem("or_browse", webBrowseEl.checked ? "1" : "0"));
   promptEl.addEventListener("input", () => localStorage.setItem("or_prompt", promptEl.value));
@@ -1167,18 +1181,6 @@ Return only valid JSON.`;
   });
 
   // --- Stage 2 restore/persist ---
-  // Populate the vision-only model dropdown (default to gemini-2.5-pro).
-  for (const m of VISION_MODELS) {
-    const opt = document.createElement("option");
-    opt.value = m;
-    opt.textContent = m;
-    stage2ModelEl.appendChild(opt);
-  }
-  const savedStage2Model = localStorage.getItem("or_stage2_model");
-  stage2ModelEl.value = (savedStage2Model && VISION_MODELS.includes(savedStage2Model))
-    ? savedStage2Model
-    : "google/gemini-2.5-pro";
-  stage2ModelEl.addEventListener("change", () => localStorage.setItem("or_stage2_model", stage2ModelEl.value));
 
   stage2PromptEl.value = localStorage.getItem("or_stage2_prompt") || STAGE2_PROMPT;
   lastStage1Output = localStorage.getItem("or_stage1") || null;
@@ -1223,13 +1225,10 @@ Return only valid JSON.`;
   }
 
   async function send() {
-    const key = apiKeyEl.value.trim();
-    let model = customModelEl.value.trim() || modelEl.value;
     let prompt = promptEl.value.trim();
     const url = websiteUrlEl.value.trim();
     const browse = webBrowseEl.checked;
 
-    if (!key) { setResult("Enter your OpenRouter API key first.", "error"); return; }
     if (!url) { setResult("Enter a website URL to analyze.", "error"); return; }
     if (!prompt) prompt = STRATEGIST_PROMPT;
 
@@ -1295,8 +1294,6 @@ Return only valid JSON.`;
 
     // The grounded base prompt (instructions + measured site data) is shared by all agents.
     const basePrompt = prompt;
-    let agentModel = model;
-    if (browse && !agentModel.endsWith(":online")) agentModel += ":online";
 
     // 3 balanced parallel agents — each produces only its slice of the JSON.
     const AGENT_GROUPS = [
@@ -1312,11 +1309,12 @@ Return only valid JSON.`;
         "containing EXACTLY these top-level keys and NOTHING else: " + JSON.stringify(group.keys) + ".\n" +
         "Use the exact sub-structure defined for those keys in the schema above, and follow every extraction rule. " +
         "Do NOT include any other top-level keys. Do NOT wrap the JSON in markdown fences.";
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const res = await fetch("/chat", {
         method: "POST",
-        headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: agentModel,
+          stage: 1,
+          online: browse,
           messages: [{ role: "user", content: basePrompt + directive }],
         }),
       });
@@ -1328,7 +1326,7 @@ Return only valid JSON.`;
     }
 
     sendEl.textContent = "Analyzing (3 agents)…";
-    setResult("Running 3 parallel agents with " + agentModel + " — extracting all 12 sections concurrently…", "empty");
+    setResult("Running 3 parallel agents (Stage 1 model from .env" + (browse ? " · web search on" : "") + ") — extracting all 12 sections concurrently…", "empty");
     const started = Date.now();
 
     // Fire all three at once; allSettled so one failure doesn't lose the others.
@@ -1362,7 +1360,7 @@ Return only valid JSON.`;
     updateStage1Status();
 
     const secs = ((Date.now() - started) / 1000).toFixed(1);
-    let meta = agentModel + " · 3 parallel agents · " + secs + "s";
+    let meta = "Stage 1 · 3 parallel agents · " + secs + "s";
     if (totalTokens) meta += " · " + totalTokens + " tokens";
     if (errors.length) meta += " · " + errors.length + " group(s) failed";
     metaEl.textContent = meta;
@@ -1387,18 +1385,22 @@ Return only valid JSON.`;
       refPreviewEl.innerHTML =
         '<img src="' + refImageDataUrl + '" alt="reference ad" ' +
         'style="max-width:200px; max-height:200px; border:1px solid var(--border); border-radius:8px;" />';
+      // Convenience: reuse the same reference ad in Stage 3 unless one was picked there.
+      if (!refImage3DataUrl) {
+        refImage3DataUrl = reader.result;
+        refPreview3El.innerHTML =
+          '<img src="' + reader.result + '" alt="reference ad" ' +
+          'style="max-width:200px; max-height:200px; border:1px solid var(--border); border-radius:8px;" />' +
+          '<div class="hint">Reused from Stage 2 — change above to override.</div>';
+      }
     };
     reader.readAsDataURL(f);
   });
 
   async function generateAd() {
-    const key = apiKeyEl.value.trim();
-    // Stage 2 has its own vision-only picker — it does NOT reuse the Stage 1 model.
-    const model = stage2ModelEl.value;
     const direction = userDirectionEl.value.trim();
     let stage2 = stage2PromptEl.value.trim() || STAGE2_PROMPT;
 
-    if (!key) { setStage2("Enter your OpenRouter API key first (top of the page).", "error"); return; }
     if (!lastStage1Output) { setStage2("Run Stage 1 first — its brand-extraction JSON is required as BRAND_EXTRACTION_JSON.", "error"); return; }
     if (!refImageDataUrl) { setStage2("Upload a reference ad image first.", "error"); return; }
 
@@ -1411,15 +1413,15 @@ Return only valid JSON.`;
     generateAdEl.disabled = true;
     generateAdEl.textContent = "Generating…";
     stage2MetaEl.textContent = "";
-    setStage2("Analyzing the reference image and generating the on-brand ad prompt with " + model + "…", "empty");
+    setStage2("Analyzing the reference image and generating the on-brand ad prompt (Stage 2 model from .env)…", "empty");
     const started = Date.now();
 
     try {
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const res = await fetch("/chat", {
         method: "POST",
-        headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: model,
+          stage: 2,
           messages: [{
             role: "user",
             content: [
@@ -1435,7 +1437,7 @@ Return only valid JSON.`;
         const msg = data?.error?.message || JSON.stringify(data);
         let hint = "";
         if (/image|vision|modal|content/i.test(msg)) {
-          hint = "\n\nThis model may not accept images. Pick a vision model (e.g. google/gemini-2.5-pro or openai/gpt-4o).";
+          hint = "\n\nThe Stage 2 model (STAGE2_MODEL in .env) may not accept images. Set it to a vision model, e.g. openai/gpt-5-nano or google/gemini-2.5-pro.";
         }
         setStage2("Error " + res.status + ": " + msg + hint, "error");
         return;
@@ -1446,9 +1448,12 @@ Return only valid JSON.`;
 
       setStage2(content);
       const secs = ((Date.now() - started) / 1000).toFixed(1);
-      let meta = model + " · " + secs + "s";
+      let meta = "Stage 2 · " + secs + "s";
       if (data?.usage?.total_tokens) meta += " · " + data.usage.total_tokens + " tokens";
       stage2MetaEl.textContent = meta;
+
+      // Hand the render-ready ad prompt to Stage 3.
+      prepareStage3(content);
     } catch (err) {
       setStage2("Request failed: " + err.message, "error");
     } finally {
@@ -1458,6 +1463,127 @@ Return only valid JSON.`;
   }
 
   generateAdEl.addEventListener("click", generateAd);
+
+  // ===== Stage 3: ad prompt + reference ad + brand logo -> generated image (KIE GPT Image 2) =====
+
+  // KIE GPT Image 2 supports: auto, 1:1, 9:16, 16:9, 4:3, 3:4. Map the Stage 2
+  // canvas aspect ratio (which may be 4:5, 2:3, etc.) to the nearest supported value.
+  function mapAspectRatio(ar) {
+    if (!ar) return "auto";
+    const s = String(ar).trim();
+    if (["1:1", "16:9", "9:16", "4:3", "3:4"].includes(s)) return s;
+    const m = s.match(/(\d+(?:\.\d+)?)\s*[:x\/]\s*(\d+(?:\.\d+)?)/);
+    if (m) {
+      const r = parseFloat(m[1]) / parseFloat(m[2]);
+      if (!isFinite(r) || r <= 0) return "auto";
+      if (Math.abs(r - 1) < 0.05) return "1:1";
+      if (r > 1) return r >= 1.55 ? "16:9" : "4:3";   // landscape
+      return r <= 0.62 ? "9:16" : "3:4";              // portrait (e.g. 4:5 -> 3:4)
+    }
+    return "auto";
+  }
+
+  // Pull the render-ready `ad_prompt` object out of the Stage 2 JSON into the Stage 3 prompt box.
+  function prepareStage3(stage2Content) {
+    let parsed = null;
+    try { parsed = parseJsonLoose(stage2Content); } catch (e) {}
+    if (parsed && parsed.ad_prompt) {
+      stage3PromptEl.value = JSON.stringify(parsed.ad_prompt, null, 2);
+      const ar = parsed.ad_prompt.canvas && parsed.ad_prompt.canvas.aspect_ratio;
+      const mapped = mapAspectRatio(ar);
+      aspectRatioEl.value = mapped;
+      stage2OutStatusEl.style.color = "var(--accent)";
+      stage2OutStatusEl.textContent = "✓ Stage 2 ad prompt loaded (aspect ratio " + mapped + (ar ? ' from "' + ar + '"' : "") + "). Edit it below if needed, then add images and Generate.";
+    } else {
+      stage3PromptEl.value = stripFences(stage2Content);
+      stage2OutStatusEl.style.color = "var(--muted)";
+      stage2OutStatusEl.textContent = "Loaded the Stage 2 output as the image prompt (no ad_prompt field found) — review it below.";
+    }
+  }
+
+  function readImageFile(input, assign, previewEl, label) {
+    const f = input.files && input.files[0];
+    if (!f) { assign(null); previewEl.innerHTML = ""; return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      assign(reader.result); // data:image/...;base64,...
+      previewEl.innerHTML =
+        '<img src="' + reader.result + '" alt="' + label + '" ' +
+        'style="max-width:200px; max-height:200px; border:1px solid var(--border); border-radius:8px;" />';
+    };
+    reader.readAsDataURL(f);
+  }
+  refImage3El.addEventListener("change", () => readImageFile(refImage3El, (u) => { refImage3DataUrl = u; }, refPreview3El, "reference ad"));
+  logoImage3El.addEventListener("change", () => readImageFile(logoImage3El, (u) => { logoImage3DataUrl = u; }, logoPreview3El, "brand logo"));
+
+  function setStage3(text, kind) {
+    stage3ResultEl.textContent = text;
+    stage3ResultEl.className = "result" + (kind ? " " + kind : "");
+  }
+  stage2OutStatusEl.textContent = "Run Stage 2 above to auto-fill the image prompt here.";
+
+  async function generateImage() {
+    const prompt = stage3PromptEl.value.trim();
+    if (!prompt) { setStage3("No image prompt yet. Run Stage 2 (it auto-fills this), or type one in.", "error"); return; }
+    if (!refImage3DataUrl) { setStage3("Upload a reference ad image for Stage 3.", "error"); return; }
+    if (!logoImage3DataUrl) { setStage3("Upload a brand logo for Stage 3.", "error"); return; }
+
+    generateImageEl.disabled = true;
+    generateImageEl.textContent = "Generating…";
+    stage3MetaEl.textContent = "";
+    setStage3("Uploading images and creating the generation task…", "empty");
+    const started = Date.now();
+
+    try {
+      const genRes = await fetch("/kie/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: prompt,
+          referenceImage: refImage3DataUrl,
+          logoImage: logoImage3DataUrl,
+          aspect_ratio: aspectRatioEl.value,
+          resolution: resolutionEl.value,
+        }),
+      });
+      const gen = await genRes.json();
+      if (!genRes.ok || !gen.taskId) {
+        setStage3("Couldn't start generation: " + (gen.error || ("HTTP " + genRes.status)), "error");
+        return;
+      }
+      const taskId = gen.taskId;
+
+      // Poll for the result (~every 3s, up to ~2 minutes).
+      const deadline = Date.now() + 120000;
+      let urls = [];
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const pollRes = await fetch("/kie/result?taskId=" + encodeURIComponent(taskId));
+        const poll = await pollRes.json();
+        if (!pollRes.ok) { setStage3("Polling failed: " + (poll.error || ("HTTP " + pollRes.status)), "error"); return; }
+        const state = String(poll.state || "").toLowerCase();
+        if (state === "success") { urls = poll.urls || []; break; }
+        if (state === "fail") { setStage3("Generation failed: " + (poll.failMsg || "unknown error"), "error"); return; }
+        setStage3("Generating… state: " + (poll.state || "?") + (poll.progress != null ? " · progress " + poll.progress : ""), "empty");
+      }
+
+      if (!urls.length) { setStage3("Timed out after 2 minutes waiting for the image. The task may still finish on KIE.", "error"); return; }
+
+      const secs = ((Date.now() - started) / 1000).toFixed(1);
+      stage3ResultEl.className = "result";
+      stage3ResultEl.innerHTML =
+        urls.map((u) => '<a href="' + u + '" target="_blank" rel="noopener"><img src="' + u + '" alt="generated ad" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:8px;" /></a>').join("") +
+        '<div class="hint">Image link(s) — KIE URLs expire in ~24h, so download to keep:<br>' +
+        urls.map((u) => '<a href="' + u + '" target="_blank" rel="noopener">' + u + "</a>").join("<br>") + "</div>";
+      stage3MetaEl.textContent = "KIE GPT Image 2 · " + secs + "s · " + aspectRatioEl.value + " · " + resolutionEl.value;
+    } catch (err) {
+      setStage3("Request failed: " + err.message, "error");
+    } finally {
+      generateImageEl.disabled = false;
+      generateImageEl.textContent = "Generate image";
+    }
+  }
+  generateImageEl.addEventListener("click", generateImage);
 </script>
 </body>
 </html>

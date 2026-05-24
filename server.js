@@ -1,17 +1,42 @@
 /**
- * Serves index.html and exposes POST /extract.
+ * Serves index.html and proxies all third-party API calls so that secrets
+ * (OpenRouter + KIE keys) live ONLY in .env on the server, never in the browser.
  *
- * /extract loads a URL in a real headless Chromium browser and reads the
- * RENDERED page: exact computed colors, CSS color variables, fonts, logos,
- * and readable text. These exact values are what ground the LLM so it stops
- * guessing hex codes.
+ *   /extract       loads a URL in headless Chromium and reads the RENDERED page
+ *                  (exact computed colors, CSS color vars, fonts, logos, text).
+ *   /config        non-secret config (which models are active) for the UI.
+ *   /chat          OpenRouter chat-completions proxy (Stage 1 + Stage 2).
+ *   /kie/generate  KIE GPT-Image-2 image-to-image task creation (Stage 3).
+ *   /kie/result    KIE task polling (Stage 3).
  */
+const fs = require("fs");
 const path = require("path");
 const express = require("express");
 const { chromium } = require("playwright");
 
+// ── Minimal .env loader (no dependency). Real process.env wins over the file. ──
+function loadEnv() {
+  try {
+    const txt = fs.readFileSync(path.join(__dirname, ".env"), "utf8");
+    for (const line of txt.split(/\r?\n/)) {
+      const t = line.trim();
+      if (!t || t.startsWith("#")) continue;
+      const eq = t.indexOf("=");
+      if (eq < 0) continue;
+      const k = t.slice(0, eq).trim();
+      let v = t.slice(eq + 1).trim();
+      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+      if (!(k in process.env)) process.env[k] = v;
+    }
+  } catch (e) {
+    // No .env file — rely on real environment variables.
+  }
+}
+loadEnv();
+
 const app = express();
-app.use(express.json({ limit: "1mb" }));
+// Base64 images (reference ad, logo, Stage 2 vision input) make request bodies large.
+app.use(express.json({ limit: "25mb" }));
 app.use(express.static(__dirname)); // serves index.html at /
 
 // Launch one browser and reuse it across requests.
@@ -144,6 +169,133 @@ app.post("/extract", async (req, res) => {
     res.status(500).json({ error: e.message || String(e) });
   } finally {
     if (context) await context.close().catch(() => {});
+  }
+});
+
+// ── Non-secret config so the UI can show which models are active. ──
+app.get("/config", (req, res) => {
+  res.json({
+    stage1Model: process.env.STAGE1_MODEL || "",
+    stage2Model: process.env.STAGE2_MODEL || "",
+    kieModel: process.env.KIE_IMAGE_MODEL || "",
+    kieResolution: process.env.KIE_IMAGE_RESOLUTION || "1K",
+    openrouterConfigured: !!process.env.OPENROUTER_API_KEY,
+    kieConfigured: !!process.env.KIE_API_KEY,
+  });
+});
+
+// ── OpenRouter proxy. Model is pinned per-stage from .env; key never leaves the server. ──
+app.post("/chat", async (req, res) => {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: { message: "OPENROUTER_API_KEY is not set in .env" } });
+
+  const { stage, messages, online } = req.body || {};
+  if (!Array.isArray(messages)) return res.status(400).json({ error: { message: "messages array is required" } });
+
+  let model = Number(stage) === 2 ? process.env.STAGE2_MODEL : process.env.STAGE1_MODEL;
+  if (!model) return res.status(500).json({ error: { message: "Model for stage " + stage + " is not set in .env" } });
+  // Stage 1 can opt into web search via :online. Stage 2 sends an image, where :online conflicts.
+  if (online && Number(stage) !== 2 && !model.endsWith(":online")) model += ":online";
+
+  try {
+    const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ model, messages }),
+    });
+    // Forward OpenRouter's response verbatim so the client reads the usual shape.
+    const text = await r.text();
+    res.status(r.status).type("application/json").send(text);
+  } catch (e) {
+    res.status(502).json({ error: { message: e.message || String(e) } });
+  }
+});
+
+// Upload a base64 image to KIE and return a public URL it can fetch (temp, 3 days).
+async function kieUploadBase64(apiKey, base64Data, fileName) {
+  const r = await fetch("https://api.kie.ai/api/file-base64-upload", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ base64Data, uploadPath: "images/ad-stage3", fileName }),
+  });
+  let data;
+  try { data = await r.json(); } catch (e) { data = null; }
+  const url = data && data.data && data.data.downloadUrl;
+  if (!r.ok || !url) {
+    throw new Error("image upload failed: " + ((data && (data.msg || data.message)) || "HTTP " + r.status));
+  }
+  return url;
+}
+
+// ── KIE Stage 3: image-to-image generation from the Stage 2 prompt + reference ad + logo. ──
+app.post("/kie/generate", async (req, res) => {
+  const apiKey = process.env.KIE_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: "KIE_API_KEY is not set in .env" });
+
+  const model = process.env.KIE_IMAGE_MODEL || "gpt-image-2-image-to-image";
+  let { prompt, referenceImage, logoImage, aspect_ratio, resolution } = req.body || {};
+  if (!prompt || !String(prompt).trim()) return res.status(400).json({ error: "prompt is required" });
+  if (!referenceImage) return res.status(400).json({ error: "reference image is required" });
+  if (!logoImage) return res.status(400).json({ error: "brand logo is required" });
+
+  resolution = resolution || process.env.KIE_IMAGE_RESOLUTION || "1K";
+  aspect_ratio = aspect_ratio || "auto";
+  if (aspect_ratio === "1:1" && resolution === "4K") resolution = "2K"; // KIE forbids this combo
+
+  try {
+    // Reference ad first, brand logo second.
+    const input_urls = [
+      await kieUploadBase64(apiKey, referenceImage, "reference.png"),
+      await kieUploadBase64(apiKey, logoImage, "logo.png"),
+    ];
+    const r = await fetch("https://api.kie.ai/api/v1/jobs/createTask", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        input: { prompt: String(prompt).slice(0, 20000), input_urls, aspect_ratio, resolution },
+      }),
+    });
+    let data;
+    try { data = await r.json(); } catch (e) { data = null; }
+    const taskId = data && data.data && data.data.taskId;
+    if (!r.ok || (data && data.code !== 200) || !taskId) {
+      return res.status(502).json({ error: (data && (data.msg || data.message)) || "KIE createTask HTTP " + r.status });
+    }
+    res.json({ taskId });
+  } catch (e) {
+    res.status(502).json({ error: e.message || String(e) });
+  }
+});
+
+// ── KIE Stage 3 polling. ──
+app.get("/kie/result", async (req, res) => {
+  const apiKey = process.env.KIE_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: "KIE_API_KEY is not set in .env" });
+
+  const taskId = String(req.query.taskId || "");
+  if (!taskId) return res.status(400).json({ error: "taskId is required" });
+
+  try {
+    const r = await fetch("https://api.kie.ai/api/v1/jobs/recordInfo?taskId=" + encodeURIComponent(taskId), {
+      headers: { Authorization: "Bearer " + apiKey },
+    });
+    let data;
+    try { data = await r.json(); } catch (e) { data = null; }
+    if (!r.ok || (data && data.code !== 200)) {
+      return res.status(502).json({ error: (data && (data.msg || data.message)) || "KIE recordInfo HTTP " + r.status });
+    }
+    const d = (data && data.data) || {};
+    let urls = [];
+    if (d.resultJson) {
+      try {
+        const p = JSON.parse(d.resultJson);
+        urls = p.resultUrls || p.result_urls || [];
+      } catch (e) {}
+    }
+    res.json({ state: d.state || "", progress: d.progress, urls, failMsg: d.failMsg || d.failCode || "" });
+  } catch (e) {
+    res.status(502).json({ error: e.message || String(e) });
   }
 });
 
