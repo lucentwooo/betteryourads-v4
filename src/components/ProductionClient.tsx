@@ -13,6 +13,7 @@ export function ProductionClient({
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   function toggle(id: string) {
     setSel((s) => {
@@ -24,15 +25,24 @@ export function ProductionClient({
   async function generate() {
     if (sel.size === 0 || !file) return;
     setBusy(true);
-    const fd = new FormData();
-    fd.append("brandId", brandId);
-    fd.append("conceptIds", JSON.stringify([...sel]));
-    fd.append("inspiration", file);
-    const res = await fetch("/api/batch", { method: "POST", body: fd });
-    const data = await res.json();
-    setBusy(false);
-    if (res.ok)
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("brandId", brandId);
+      fd.append("conceptIds", JSON.stringify([...sel]));
+      fd.append("inspiration", file);
+      const res = await fetch("/api/batch", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Generation failed");
+        return;
+      }
       router.push(`/dashboard/brand/${brandId}/batch/${data.batchId}`);
+    } catch {
+      setError("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
   }
   return (
     <div>
@@ -60,6 +70,7 @@ export function ProductionClient({
           Generate {sel.size} creative{sel.size === 1 ? "" : "s"}
         </button>
       </div>
+      {error && <p className="mt-3 text-sm text-coral">{error}</p>}
     </div>
   );
 }
