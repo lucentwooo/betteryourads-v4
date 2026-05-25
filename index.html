@@ -1213,6 +1213,7 @@ Return only valid JSON.`;
   const stage2OutStatusEl = $("stage2OutStatus");
 
   let lastStage1Output = null;  // brand extraction JSON from Stage 1
+  let forceReanalyze = false;   // one-shot: set by "Re-analyze this site" to skip the saved-brand reuse
   let refImageDataUrl = null;   // base64 data URL of the Stage 2 reference ad
   let refImage3DataUrl = null;  // base64 data URL of the Stage 3 reference ad
   let logoImage3DataUrl = null; // base64 data URL of the Stage 3 brand logo
@@ -1289,6 +1290,22 @@ Return only valid JSON.`;
     throw new Error("no JSON object found in response");
   }
 
+  // Normalize a URL for matching saved brands: prepend https:// if no scheme, then
+  // return hostname (without a leading www.) + pathname (trailing slash removed), lowercased.
+  function normalizeUrl(u) {
+    let s = String(u || "").trim();
+    if (!s) return "";
+    if (!/^https?:\/\//i.test(s)) s = "https://" + s;
+    try {
+      const parsed = new URL(s);
+      const host = parsed.hostname.replace(/^www\./i, "");
+      const path = parsed.pathname.replace(/\/+$/, "");
+      return (host + path).toLowerCase();
+    } catch (e) {
+      return s.toLowerCase();
+    }
+  }
+
   async function send() {
     let prompt = promptEl.value.trim();
     const url = websiteUrlEl.value.trim();
@@ -1303,6 +1320,32 @@ Return only valid JSON.`;
         "Run `node server.js` in the project folder, then open the http://localhost:<port> URL it prints (e.g. http://localhost:8787).", "error");
       return;
     }
+
+    // Reuse a previously-analyzed brand for this URL instead of paying for a fresh analysis.
+    // Skipped when the user clicked "Re-analyze this site" (forceReanalyze).
+    if (!forceReanalyze) {
+      const typed = normalizeUrl(url);
+      const match = savedBrands.find((b) => b.website_url && normalizeUrl(b.website_url) === typed);
+      if (match) {
+        const str = JSON.stringify(match.analysis, null, 2);
+        lastStage1Output = str;
+        currentBrandId = match.id;
+        localStorage.setItem("or_stage1", str);
+        setResult(str);
+        updateStage1Status();
+        brandSwitcherEl.value = match.id;
+        metaEl.innerHTML = "✓ Loaded your saved brand — no re-analysis needed. " +
+          '<a href="#" id="reanalyzeLink">Re-analyze this site</a>';
+        document.getElementById("reanalyzeLink").addEventListener("click", function (e) {
+          e.preventDefault();
+          forceReanalyze = true;
+          send();
+        });
+        return; // skip /extract and /chat
+      }
+    }
+    // Committing to a real analysis — the force-refresh flag has done its job (one-shot).
+    forceReanalyze = false;
 
     sendEl.disabled = true;
     metaEl.textContent = "";
@@ -1676,12 +1719,14 @@ Return only valid JSON.`;
 
   // ===== Brands: list / switch / save =====
   const brandSwitcherEl = document.getElementById("brandSwitcher");
+  let savedBrands = [];  // in-memory copy of the user's brands, so send() can match a URL without a refetch
 
   async function loadBrands() {
     if (!Auth.client) return;
     const { data, error } = await Auth.client
       .from("brands").select("id,name,website_url,analysis").order("updated_at", { ascending: false });
     if (error) return;
+    savedBrands = data || [];
     brandSwitcherEl.innerHTML = '<option value="">— New brand (analyze a URL below) —</option>';
     (data || []).forEach(function (b) {
       const opt = document.createElement("option");
