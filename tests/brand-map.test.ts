@@ -48,4 +48,12 @@ describe("mapConcepts", () => {
     expect(c[0].headline).toBe("Stop losing leads");
     expect(c[0].cta).toBe("Start free");
   });
+  it("returns [] when ad_concepts is missing", () => {
+    expect(mapConcepts({})).toEqual([]);
+  });
+  it("returns [] when ad_concepts is not an array", () => {
+    expect(
+      mapConcepts({ static_ad_creative_recommendations: { ad_concepts: "oops" } }),
+    ).toEqual([]);
+  });
 });

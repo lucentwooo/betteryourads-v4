@@ -16,9 +16,9 @@ export function mapBrandFields(extraction: AnyObj) {
 }
 
 export function mapConcepts(extraction: AnyObj) {
-  const list =
-    extraction?.static_ad_creative_recommendations?.ad_concepts ?? [];
-  return (list as AnyObj[]).map((c) => ({
+  const raw = extraction?.static_ad_creative_recommendations?.ad_concepts;
+  const list: AnyObj[] = Array.isArray(raw) ? raw : [];
+  return list.map((c) => ({
     name: c.concept_name ?? null,
     headline: c.suggested_headline ?? null,
     subheadline: c.suggested_subheadline ?? null,
