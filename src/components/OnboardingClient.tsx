@@ -31,18 +31,23 @@ export function OnboardingClient() {
     e.preventDefault();
     setStep("researching");
     setError(null);
-    const res = await fetch("/api/extract", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, url, businessType: type }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error ?? "Extraction failed");
+    try {
+      const res = await fetch("/api/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, url, businessType: type }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Extraction failed");
+        setStep("business");
+        return;
+      }
+      router.push(`/dashboard/brand/${data.brandId}`);
+    } catch {
+      setError("Couldn't reach the server. Check your connection and try again.");
       setStep("business");
-      return;
     }
-    router.push(`/dashboard/brand/${data.brandId}`);
   }
 
   if (step === "researching") {
@@ -127,10 +132,10 @@ export function OnboardingClient() {
                   aria-pressed={active}
                   onClick={() => setType(t)}
                   className={cn(
-                    "rounded-full px-3 py-1.5 text-sm transition-colors",
+                    "rounded-full border px-3 py-1.5 text-sm transition-colors",
                     active
                       ? "border-ink bg-ink text-[var(--paper)]"
-                      : "border hairline bg-paper text-ink hover:bg-cream",
+                      : "hairline bg-paper text-ink hover:bg-cream",
                   )}
                 >
                   {TYPE_LABELS[t]}
