@@ -25,15 +25,19 @@ export function CreativeTile({
       )}
       {(onKeep || onDismiss) && c.status === "done" && (
         <div className="mt-3 flex gap-2">
-          <button onClick={onKeep} className="btn-chunk flex-1 justify-center">
-            Keep
-          </button>
-          <button
-            onClick={onDismiss}
-            className="btn-ghost-ink flex-1 justify-center"
-          >
-            Dismiss
-          </button>
+          {onKeep && (
+            <button onClick={onKeep} className="btn-chunk flex-1 justify-center">
+              Keep
+            </button>
+          )}
+          {onDismiss && (
+            <button
+              onClick={onDismiss}
+              className="btn-ghost-ink flex-1 justify-center"
+            >
+              Dismiss
+            </button>
+          )}
         </div>
       )}
     </div>

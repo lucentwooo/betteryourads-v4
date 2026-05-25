@@ -5,16 +5,23 @@ import { CreativeTile } from "@/components/CreativeTile";
 export function LibraryClient({ initial }: { initial: any[] }) {
   const [items, setItems] = useState(initial);
   async function setState(id: string, state: string) {
-    await fetch(`/api/creatives/${id}/state`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ state }),
-    });
-    setItems((xs) =>
-      state === "dismissed"
-        ? xs.filter((x) => x.id !== id)
-        : xs.map((x) => (x.id === id ? { ...x, state } : x)),
-    );
+    try {
+      const res = await fetch(`/api/creatives/${id}/state`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state }),
+      });
+      // Only move the tile once the DB write succeeds, so the UI never
+      // diverges from persisted state (it would otherwise revert on refresh).
+      if (!res.ok) return;
+      setItems((xs) =>
+        state === "dismissed"
+          ? xs.filter((x) => x.id !== id)
+          : xs.map((x) => (x.id === id ? { ...x, state } : x)),
+      );
+    } catch {
+      // Network error: leave the UI unchanged so it stays in sync with the DB.
+    }
   }
   const kept = items.filter((i) => i.state === "kept");
   const inbox = items.filter((i) => i.state === "inbox");
