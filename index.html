@@ -1668,24 +1668,30 @@ Return only valid JSON.`;
   async function runStage2(mode) {
     const base = stage2PromptEl.value.trim() || STAGE2_PROMPT;
     const promptText = STAGE2_MODE_RULES[mode] + "\n\n" + base;
-    const text = promptText +
+    const productAssets = productAssetDataUrls;
+    let text = promptText +
       "\n\n=== BRAND_EXTRACTION_JSON ===\n" + stripFences(lastStage1Output) +
       "\n\n=== REFERENCE_AD_IMAGE ===\nThe reference ad image is attached to this message. Analyze it as REFERENCE_AD_IMAGE.";
+    if (productAssets.length) {
+      text += "\n\n=== PRODUCT_ASSETS ===\n" +
+        productAssets.length + " real product/UI asset image(s) are attached as additional inputs AFTER the reference ad. " +
+        "These ARE the product visual — they must be used in the ad's product slot, and the same files are passed to the image renderer. " +
+        "Describe ONLY their placement and treatment (size, position, device framing) to match how the reference ad depicts its product — do NOT transcribe, summarize, or invent any UI text, labels, charts, numbers, or screen contents. " +
+        "This OVERRIDES any instruction to represent the product abstractly: do not produce an abstract/iconic stand-in. " +
+        "The generated ad_prompt's product_visual_direction MUST instruct the renderer to reproduce the attached product asset(s) faithfully and place them in the product slot, and its negative_prompt MUST forbid altering, relabeling, redrawing, recoloring, cropping, blurring, or inventing any UI, text, charts, or data inside the attached product asset(s).";
+    }
+
+    const msgContent = [
+      { type: "text", text: text },
+      { type: "image_url", image_url: { url: refImageDataUrl } },
+    ];
+    productAssets.forEach((u) => msgContent.push({ type: "image_url", image_url: { url: u } }));
 
     const started = Date.now();
     const res = await Auth.authedFetch("/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        stage: 2,
-        messages: [{
-          role: "user",
-          content: [
-            { type: "text", text: text },
-            { type: "image_url", image_url: { url: refImageDataUrl } },
-          ],
-        }],
-      }),
+      body: JSON.stringify({ stage: 2, messages: [{ role: "user", content: msgContent }] }),
     });
 
     const data = await res.json();
@@ -2149,6 +2155,7 @@ Return only valid JSON.`;
         prompt: promptText,
         referenceImage: refImage3DataUrl,
         logoImage: logoImage3DataUrl,
+        productImages: productAssetDataUrls,
         aspect_ratio: aspectRatioEl.value,
         resolution: resolutionEl.value,
       }),
