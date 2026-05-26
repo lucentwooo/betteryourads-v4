@@ -90,24 +90,33 @@ Mirror the existing `ads` table + `ads` bucket pattern.
   - RLS enabled; policy `"own brand_assets" for all using (auth.uid() = user_id) with
     check (auth.uid() = user_id)` (same shape as `own brands`).
 - **Storage bucket `brand-assets`** (private), created idempotently like `ads`.
-  Read policy scoped to the `<uid>/` prefix, identical in shape to
-  `"own ad files read"`.
+  Because uploads come from the browser (not the server), this bucket needs **read,
+  insert, and delete** policies for `authenticated` users, each scoped to the `<uid>/`
+  prefix (the `ads` bucket only needed read because the server writes it):
+  - `"own brand-asset files read"` — `for select`
+  - `"own brand-asset files write"` — `for insert ... with check`
+  - `"own brand-asset files delete"` — `for delete`
 
-### 3. Server endpoints (server.js — all behind `requireApprovedUser`)
+### 3. CRUD: browser-direct via `Auth.client` (mirrors the brands flow)
 
-- **`POST /library/brand-assets`** — body `{ brandId, image (base64 data URL or raw
-  base64), label }`. Verify the brand belongs to `req.user` (select the brand row by id
-  + user_id). Decode → upload to `brand-assets` bucket at `<uid>/<assetId>.<ext>` →
-  insert `brand_assets` row → return `{ asset, signedUrl }` (signed URL ~1h for the
-  thumbnail).
-- **`GET /library/brand-assets?brandId=`** — list the brand's assets for the user,
-  newest first, each with a fresh signed URL.
-- **`DELETE /library/brand-assets/:id`** — verify ownership, remove the storage object,
-  delete the row.
+The product-asset bytes originate as a local file **in the browser**, exactly like the
+brand-analysis JSON does. So we follow the **brands** pattern (`saveBrand`/`loadBrands`
+use `Auth.client.from("brands")...` directly under RLS) rather than the server-side
+`ads` pattern. The browser already holds the Supabase anon key + the user's JWT, and
+RLS + the storage policies above enforce per-user isolation. **No new server endpoints
+for CRUD** — less surface, fewer round-trips, and consistent with how brands work. (The
+service-role key stays server-side; the anon key is public by design, so this does not
+violate the secret-keeping invariant.)
 
-Reuse the existing base64-decode/upload approach already used by `/library/ads`
-(`Buffer.from`, `supabaseAdmin.storage.from(...).upload`). Content-type/extension
-detection mirrors `/library/ads`.
+- **Add:** downscale → `Auth.client.storage.from("brand-assets").upload(<uid>/<id>.<ext>, blob)`
+  → `Auth.client.from("brand_assets").insert({ id, brand_id, image_path, kind:'product', label })`.
+  Keep the just-uploaded base64 in memory for immediate generation use.
+- **List:** `Auth.client.from("brand_assets").select(...).eq("brand_id", currentBrandId)`,
+  then `createSignedUrl(image_path, 3600)` per row for the thumbnail `src`.
+- **Delete:** `Auth.client.storage.from("brand-assets").remove([image_path])` +
+  `Auth.client.from("brand_assets").delete().eq("id", id)`.
+- **Base64 for generation of a *saved* asset:**
+  `Auth.client.storage.from("brand-assets").download(image_path)` → blob → base64.
 
 ### 4. Generation wiring
 
@@ -119,10 +128,10 @@ preserving the order the prompt language already assumes; products follow.
 
 **Browser side:** `runKieGeneration` adds `productImages: productAssetDataUrls` to the
 POST body. Used by both `generateImage` and `batchGenerate` unchanged otherwise. When
-the user selects a *saved* asset (loaded from `GET`), the browser fetches its signed URL
-and converts to base64 so the same uniform "everything is base64" contract to
-`/kie/generate` holds (no server contract split, minimal change). Freshly-added assets
-are already base64 in memory.
+the user selects a *saved* asset, the browser loads its bytes via
+`Auth.client.storage.from("brand-assets").download(image_path)` and converts to base64,
+so the uniform "everything is base64" contract to `/kie/generate` holds (no server
+contract split, minimal change). Freshly-added assets are already base64 in memory.
 
 ### 5. Prompt changes (runtime injection — no baked-template edit, no version bump)
 
