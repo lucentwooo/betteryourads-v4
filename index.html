@@ -1928,6 +1928,121 @@ Return only valid JSON.`;
   });
   logoImage3El.addEventListener("change", () => readImageFile(logoImage3El, (u) => { logoImage3DataUrl = u; }, logoPreview3El, "brand logo"));
 
+  // ===== Product / UI assets (saved per brand) =====
+
+  function setProductAssetStatus(msg, kind) {
+    productAssetStatusEl.textContent = msg || "";
+    productAssetStatusEl.style.color = kind === "error" ? "var(--err, #c0392b)" : "";
+  }
+
+  function renderProductAssets() {
+    productAssetsListEl.innerHTML = "";
+    if (!currentBrandId) {
+      productAssetInputEl.disabled = true;
+      setProductAssetStatus("Save a brand first to attach product images.", "");
+      return;
+    }
+    productAssetInputEl.disabled = false;
+    if (!loadedProductAssets.length) {
+      setProductAssetStatus("No product images yet for this brand. Add one below.", "");
+    } else {
+      setProductAssetStatus("");
+    }
+    const selectedCount = loadedProductAssets.filter((a) => a.selected).length;
+    loadedProductAssets.forEach((a) => {
+      const tile = document.createElement("div");
+      tile.style.cssText = "position:relative; width:88px;";
+      const cap = (selectedCount >= 3 && !a.selected);
+      tile.innerHTML =
+        '<img src="' + (a.dataUrl || "") + '" alt="' + (a.label || "product") + '" style="width:88px; height:88px; object-fit:cover; border:2px solid ' +
+        (a.selected ? "var(--accent, #2d7ff9)" : "var(--border)") + '; border-radius:8px; opacity:' + (cap ? "0.4" : "1") + ';" />' +
+        '<label style="display:block; font-size:11px; margin-top:2px;"><input type="checkbox" class="pa-select"' + (a.selected ? " checked" : "") + (cap ? " disabled" : "") + ' /> use</label>' +
+        '<button type="button" class="pa-del" title="Delete" style="position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; border:none; background:#c0392b; color:#fff; cursor:pointer; line-height:1;">×</button>';
+      tile.querySelector(".pa-select").addEventListener("change", function (e) {
+        a.selected = e.target.checked;
+        recomputeSelectedProductAssets();
+        renderProductAssets();
+      });
+      tile.querySelector(".pa-del").addEventListener("click", function () { deleteProductAsset(a); });
+      productAssetsListEl.appendChild(tile);
+    });
+  }
+
+  // Load a Blob into a base64 data URL.
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(new Error("Could not read blob"));
+      r.readAsDataURL(blob);
+    });
+  }
+
+  async function loadBrandAssets() {
+    loadedProductAssets = [];
+    recomputeSelectedProductAssets();
+    if (!Auth.client || !currentBrandId) { renderProductAssets(); return; }
+    const { data, error } = await Auth.client
+      .from("brand_assets").select("id,image_path,label,created_at")
+      .eq("brand_id", currentBrandId).order("created_at", { ascending: false });
+    if (error) { setProductAssetStatus("Couldn't load product images: " + error.message, "error"); return; }
+    for (const row of data || []) {
+      let dataUrl = "";
+      const dl = await Auth.client.storage.from("brand-assets").download(row.image_path);
+      if (!dl.error && dl.data) { try { dataUrl = await blobToDataUrl(dl.data); } catch (e) {} }
+      loadedProductAssets.push({ id: row.id, image_path: row.image_path, label: row.label, dataUrl: dataUrl, selected: false });
+    }
+    recomputeSelectedProductAssets();
+    renderProductAssets();
+  }
+
+  async function addProductAsset(file) {
+    if (!Auth.client || !currentBrandId || !currentUserId) {
+      setProductAssetStatus("Save a brand first to attach product images.", "error"); return;
+    }
+    setProductAssetStatus("Uploading…", "");
+    try {
+      const dataUrl = await downscaleImageFile(file, 1600);
+      const base64 = dataUrl.split(",")[1] || "";
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      const assetId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+      const path = currentUserId + "/" + assetId + ".png";
+      const up = await Auth.client.storage.from("brand-assets").upload(path, bytes, { contentType: "image/png", upsert: false });
+      if (up.error) { setProductAssetStatus("Upload failed: " + up.error.message, "error"); return; }
+      const ins = await Auth.client.from("brand_assets")
+        .insert({ id: assetId, brand_id: currentBrandId, image_path: path, kind: "product", label: file.name || null })
+        .select().single();
+      if (ins.error) {
+        await Auth.client.storage.from("brand-assets").remove([path]); // roll back the orphan
+        setProductAssetStatus("Saving failed: " + ins.error.message, "error"); return;
+      }
+      // Auto-select the new asset if under the cap.
+      const selectedCount = loadedProductAssets.filter((a) => a.selected).length;
+      loadedProductAssets.unshift({ id: assetId, image_path: path, label: file.name || null, dataUrl: dataUrl, selected: selectedCount < 3 });
+      recomputeSelectedProductAssets();
+      renderProductAssets();
+      setProductAssetStatus("Added ✓", "");
+    } catch (e) {
+      setProductAssetStatus("Add failed: " + e.message, "error");
+    }
+  }
+
+  async function deleteProductAsset(asset) {
+    if (!Auth.client) return;
+    await Auth.client.storage.from("brand-assets").remove([asset.image_path]);
+    const del = await Auth.client.from("brand_assets").delete().eq("id", asset.id);
+    if (del.error) { setProductAssetStatus("Delete failed: " + del.error.message, "error"); return; }
+    loadedProductAssets = loadedProductAssets.filter((a) => a.id !== asset.id);
+    recomputeSelectedProductAssets();
+    renderProductAssets();
+  }
+
+  productAssetInputEl.addEventListener("change", function () {
+    const f = productAssetInputEl.files && productAssetInputEl.files[0];
+    if (f) addProductAsset(f);
+    productAssetInputEl.value = ""; // allow re-selecting the same file
+  });
+
   function setStage3(text, kind) {
     stage3ResultEl.textContent = text;
     stage3ResultEl.className = "result" + (kind ? " " + kind : "");
@@ -2506,6 +2621,7 @@ Return only valid JSON.`;
     localStorage.setItem("or_stage1", str);
     setResult(str);
     updateStage1Status();
+    loadBrandAssets();
   });
 
   async function saveBrand(websiteUrl, analysisObj) {
@@ -2521,7 +2637,7 @@ Return only valid JSON.`;
       )
       .select().single();
     if (error) throw error; // surfaced by caller's catch as a "couldn't save brand" note
-    if (data) { currentBrandId = data.id; await loadBrands(); brandSwitcherEl.value = data.id; }
+    if (data) { currentBrandId = data.id; await loadBrands(); brandSwitcherEl.value = data.id; loadBrandAssets(); }
   }
 
   // ===== Auth gate: reveal the app only for an approved, signed-in user =====
@@ -2534,6 +2650,7 @@ Return only valid JSON.`;
     currentUserId = ctx.userId;
     document.getElementById("authUserEmail").textContent = ctx.session.user.email;
     if (typeof loadBrands === "function") loadBrands();
+    renderProductAssets();
   }).catch(function (e) {
     document.getElementById("result").textContent = "Auth error: " + e.message;
   });
