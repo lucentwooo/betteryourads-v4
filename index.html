@@ -1434,12 +1434,37 @@ Return only valid JSON.`;
     const m = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
     return (m ? m[1] : s).trim();
   }
-  // Parse JSON tolerantly: strip fences, else grab the outermost { ... } block.
+  // Strip JS-style comments (// and /* */) and trailing commas that LLMs sometimes emit
+  // in "JSON", WITHOUT touching content inside string literals (so "https://x" survives).
+  function sanitizeJsonish(s) {
+    let out = "";
+    let i = 0;
+    const n = s.length;
+    let inStr = false, quote = "";
+    while (i < n) {
+      const c = s[i];
+      if (inStr) {
+        out += c;
+        if (c === "\\") { out += (s[i + 1] || ""); i += 2; continue; } // copy escaped char verbatim
+        if (c === quote) inStr = false;
+        i++; continue;
+      }
+      if (c === '"' || c === "'") { inStr = true; quote = c; out += c; i++; continue; }
+      if (c === "/" && s[i + 1] === "/") { i += 2; while (i < n && s[i] !== "\n") i++; continue; }       // drop // line comment, keep the \n
+      if (c === "/" && s[i + 1] === "*") { i += 2; while (i < n && !(s[i] === "*" && s[i + 1] === "/")) i++; i += 2; continue; } // drop /* */ block
+      out += c; i++;
+    }
+    return out.replace(/,(\s*[}\]])/g, "$1"); // drop trailing commas before } or ]
+  }
+  // Parse JSON tolerantly: strip fences; retry after removing comments/trailing commas;
+  // else grab the outermost { ... } block.
   function parseJsonLoose(s) {
     const cleaned = stripFences(s);
     try { return JSON.parse(cleaned); } catch (e) {}
-    const a = cleaned.indexOf("{"), b = cleaned.lastIndexOf("}");
-    if (a >= 0 && b > a) return JSON.parse(cleaned.slice(a, b + 1));
+    const sanitized = sanitizeJsonish(cleaned);
+    try { return JSON.parse(sanitized); } catch (e) {}
+    const a = sanitized.indexOf("{"), b = sanitized.lastIndexOf("}");
+    if (a >= 0 && b > a) { try { return JSON.parse(sanitized.slice(a, b + 1)); } catch (e) {} }
     throw new Error("no JSON object found in response");
   }
 
