@@ -82,3 +82,48 @@ create policy "own ad files read" on storage.objects
     bucket_id = 'ads'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- brand_assets: user-uploaded product / UI / mockup images, saved per brand.
+-- Bytes live in the private `brand-assets` Storage bucket; rows inserted by the
+-- browser via Auth.client (anon key + user JWT) under RLS, like `brands`.
+create table if not exists public.brand_assets (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  brand_id    uuid not null references public.brands(id) on delete cascade,
+  image_path  text not null,
+  kind        text not null default 'product',
+  label       text,
+  created_at  timestamptz not null default now()
+);
+alter table public.brand_assets enable row level security;
+drop policy if exists "own brand_assets" on public.brand_assets;
+create policy "own brand_assets" on public.brand_assets
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Storage: private bucket for product assets. Unlike `ads` (server-written, read-only
+-- policy), this bucket is written FROM THE BROWSER, so it needs read+insert+delete,
+-- each scoped to the user's <uid>/ prefix.
+insert into storage.buckets (id, name, public)
+values ('brand-assets', 'brand-assets', false)
+on conflict (id) do nothing;
+
+drop policy if exists "own brand-asset files read" on storage.objects;
+create policy "own brand-asset files read" on storage.objects
+  for select to authenticated using (
+    bucket_id = 'brand-assets'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "own brand-asset files write" on storage.objects;
+create policy "own brand-asset files write" on storage.objects
+  for insert to authenticated with check (
+    bucket_id = 'brand-assets'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "own brand-asset files delete" on storage.objects;
+create policy "own brand-asset files delete" on storage.objects
+  for delete to authenticated using (
+    bucket_id = 'brand-assets'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
