@@ -2419,8 +2419,23 @@ Return only valid JSON.`;
   }
 
   async function generateImage() {
-    const prompt = stage3PromptEl.value.trim();
-    if (!prompt) { setStage3("No image prompt yet. Run Stage 2 (it auto-fills this), or type one in.", "error"); return; }
+    const raw = stage3PromptEl.value.trim();
+    if (!raw) { setStage3("No image prompt yet. Run Stage 2 (it auto-fills this), or type one in.", "error"); return; }
+    // When product assets are attached, rewrite the ad_prompt so it points at the
+    // attached screenshot (and prepend a lead directive) — otherwise KIE follows
+    // any invented product description left in the JSON. Non-JSON prompts still
+    // get the lead directive so the instruction is never lost.
+    let prompt = raw;
+    const productCount = productAssetDataUrls.length;
+    if (productCount) {
+      let obj = null;
+      try { obj = parseJsonLoose(raw); } catch (e) {}
+      if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+        prompt = withProductFidelity(obj, productCount, "");
+      } else {
+        prompt = leadProductDirective(productCount) + "\n\n" + raw;
+      }
+    }
     if (!refImage3DataUrl) { setStage3("Upload a reference ad image for Stage 3.", "error"); return; }
     if (!logoImage3DataUrl) { setStage3("Upload a brand logo for Stage 3.", "error"); return; }
 
