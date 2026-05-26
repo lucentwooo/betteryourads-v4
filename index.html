@@ -1487,6 +1487,7 @@ Return only valid JSON.`;
         setResult(str);
         updateStage1Status();
         brandSwitcherEl.value = match.id;
+        loadBrandAssets(); // programmatic .value change doesn't fire "change", so load assets explicitly
         metaEl.innerHTML = "✓ Loaded your saved brand — no re-analysis needed. " +
           '<a href="#" id="reanalyzeLink">Re-analyze this site</a>';
         document.getElementById("reanalyzeLink").addEventListener("click", function (e) {
@@ -1959,8 +1960,11 @@ Return only valid JSON.`;
       const tile = document.createElement("div");
       tile.style.cssText = "position:relative; width:88px;";
       const cap = (selectedCount >= 3 && !a.selected);
+      // Escape the user-supplied filename before it goes into an HTML attribute (a quote
+      // in the name would otherwise break the alt="" attribute).
+      const altLabel = String(a.label || "product").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       tile.innerHTML =
-        '<img src="' + (a.dataUrl || "") + '" alt="' + (a.label || "product") + '" style="width:88px; height:88px; object-fit:cover; border:2px solid ' +
+        '<img src="' + (a.dataUrl || "") + '" alt="' + altLabel + '" style="width:88px; height:88px; object-fit:cover; border:2px solid ' +
         (a.selected ? "var(--accent, #2d7ff9)" : "var(--border)") + '; border-radius:8px; opacity:' + (cap ? "0.4" : "1") + ';" />' +
         '<label style="display:block; font-size:11px; margin-top:2px;"><input type="checkbox" class="pa-select"' + (a.selected ? " checked" : "") + (cap ? " disabled" : "") + ' /> use</label>' +
         '<button type="button" class="pa-del" title="Delete" style="position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; border:none; background:#c0392b; color:#fff; cursor:pointer; line-height:1;">×</button>';
