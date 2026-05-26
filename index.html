@@ -2236,6 +2236,63 @@ Return only valid JSON.`;
     return arr;
   }
 
+  // === product-fidelity helpers (start) ===
+  // When real product/UI screenshots are attached, KIE must place THOSE into the
+  // product slot — not draw an invented interface. These rewrite the ad_prompt so
+  // its product fields point at the attachment, and build a prominent directive,
+  // so the JSON body and the directive can't contradict each other.
+  function leadProductDirective(assetCount) {
+    if (!assetCount) return "";
+    return "IMPORTANT — PRODUCT VISUAL: " + assetCount +
+      " real product/UI screenshot image(s) are attached after the reference ad and logo. " +
+      "Place the attached screenshot into the product slot exactly. Reproduce its real UI, text, and layout faithfully. " +
+      "Do NOT draw, invent, relabel, recolor, or replace it with any other interface — no microphones, waveforms, " +
+      "chat bubbles, dashboards, or fake screens unless they appear in the attached image.";
+  }
+
+  function applyProductAssetFidelity(adPrompt, assetCount) {
+    if (!adPrompt || typeof adPrompt !== "object" || !assetCount) return adPrompt;
+
+    // 1. Point product_visual_direction at the attachment (create it if missing).
+    var pvd = adPrompt.product_visual_direction;
+    if (!pvd || typeof pvd !== "object") { pvd = {}; adPrompt.product_visual_direction = pvd; }
+    pvd.visual_type = "attached real product screenshot";
+    pvd.source_asset_to_use = "THE ATTACHED PRODUCT/UI SCREENSHOT image(s), attached after the reference ad and logo. Use them exactly as provided.";
+    pvd.what_it_should_show = "Exactly the attached product/UI screenshot, placed into the product slot.";
+    // pvd.avoid is left intact — it already forbids invented UI.
+
+    // 2. Point the product element(s) at the attachment. Any image element that is
+    // not the logo is the product slot. Over-applying is safe; under-applying
+    // reintroduces the invented-UI bug.
+    if (Array.isArray(adPrompt.elements)) {
+      adPrompt.elements.forEach(function (el) {
+        if (!el || typeof el !== "object") return;
+        var name = String(el.name || "");
+        if (el.type === "image" && !/logo/i.test(name)) {
+          el.content = { source_asset_to_use: "ATTACHED_PRODUCT_IMAGE — use the real attached screenshot exactly; do not draw or invent any UI." };
+        }
+      });
+    }
+
+    // 3. Guard against copying the reference ad's own on-device screen.
+    var guard = "Do not copy, transcribe, or reproduce any UI, text, or screen contents from the reference ad's own device/screen — the only product screen shown is the attached screenshot.";
+    var neg = typeof adPrompt.negative_prompt === "string" ? adPrompt.negative_prompt.trim() : "";
+    adPrompt.negative_prompt = neg ? neg + " " + guard : guard;
+
+    return adPrompt;
+  }
+
+  function withProductFidelity(adPrompt, assetCount, trailingDirective) {
+    applyProductAssetFidelity(adPrompt, assetCount);
+    var jsonStr = JSON.stringify(adPrompt, null, 2);
+    var lead = leadProductDirective(assetCount);
+    var out = lead ? lead + "\n\n" + jsonStr : jsonStr;
+    var trail = (trailingDirective || "").trim();
+    if (trail) out += "\n\n" + trail;
+    return out;
+  }
+  // === product-fidelity helpers (end) ===
+
   // Build the full KIE prompt string for a single angle variation.
   // baseAdPromptObj: the base ad_prompt as a plain JS object.
   // variation: one item from generateAngles() — { angle, headline, subheadline?, color_treatment? }.
