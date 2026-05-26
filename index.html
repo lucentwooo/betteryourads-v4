@@ -59,6 +59,17 @@
   }
   button:hover:not(:disabled) { background: var(--accent-hover); }
   button:disabled { opacity: 0.5; cursor: default; }
+  button.copybtn {
+    width: auto;
+    margin-top: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--panel);
+    color: var(--accent);
+    border: 1px solid var(--border);
+  }
+  button.copybtn:hover:not(:disabled) { background: var(--panel); border-color: var(--accent); }
   .result {
     margin-top: 24px;
     background: var(--panel);
@@ -75,6 +86,16 @@
   .meta { font-size: 12px; color: var(--muted); margin-top: 8px; }
   a { color: var(--accent); }
   .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .vgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; margin-top:12px; }
+  .vcard { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:12px; }
+  .vcard .angle-label { font-weight:700; color:var(--accent); font-size:12px; margin:0 0 8px; display:block; }
+  .vcard input { margin-top:4px; margin-bottom:4px; padding:6px 10px; font-size:13px; }
+  .vcard label { margin:6px 0 2px; font-size:12px; }
+  .vstatus { font-size:12px; }
+  .vstatus.queued { color:var(--muted); }
+  .vstatus.generating { color:var(--accent); }
+  .vstatus.done { color:#4caf87; }
+  .vstatus.failed { color:var(--error); }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/auth.js"></script>
@@ -128,6 +149,13 @@
   <input id="refImage" type="file" accept="image/*" style="padding:8px;" />
   <div id="refPreview" style="margin-top:8px;"></div>
 
+  <label for="stage2Mode" style="margin-top:16px;">Breakdown mode</label>
+  <select id="stage2Mode">
+    <option value="exact">Exact — recreate the reference layout faithfully</option>
+    <option value="vibe">Vibe — match the structure &amp; feel, adapt freely</option>
+  </select>
+  <p class="hint" id="stage2ModeHint" style="margin-top:6px;"></p>
+
   <details>
     <summary style="cursor:pointer; color:var(--muted); font-size:13px; margin-top:16px;">Stage 2 prompt (baked in — click to view or edit)</summary>
     <textarea id="stage2Prompt" style="margin-top:8px;"></textarea>
@@ -138,7 +166,11 @@
 
   <label>Stage 2 result <span style="color:var(--muted)">(render-ready ad prompt JSON)</span></label>
   <div id="stage2Result" class="result empty">The render-ready ad prompt JSON will appear here.</div>
+  <button type="button" id="copyStage2" class="copybtn">Copy prompt</button>
   <div id="stage2Meta" class="meta"></div>
+
+  <button type="button" id="compareModes" class="copybtn">Compare Exact vs Vibe (test)</button>
+  <div id="compareResult" style="margin-top:12px;"></div>
 
   <hr style="border:none; border-top:1px solid var(--border); margin:36px 0 8px;" />
 
@@ -181,6 +213,7 @@
   <details>
     <summary style="cursor:pointer; color:var(--muted); font-size:13px; margin-top:16px;">Image prompt sent to KIE (auto-filled from Stage 2 — click to view or edit)</summary>
     <textarea id="stage3Prompt" style="margin-top:8px; min-height:160px;"></textarea>
+    <p style="margin:0;"><button type="button" id="copyStage3" class="copybtn">Copy image prompt</button></p>
   </details>
 
   <button id="generateImage">Generate image</button>
@@ -188,6 +221,30 @@
   <label>Stage 3 result <span style="color:var(--muted)">(generated image)</span></label>
   <div id="stage3Result" class="result empty">The generated image will appear here.</div>
   <div id="stage3Meta" class="meta"></div>
+
+  <hr style="border:none; border-top:1px solid var(--border); margin:36px 0 8px;" />
+  <h1 style="font-size:18px;">Angle variations</h1>
+  <p class="sub">Generate N copy/angle variations off the current base prompt above — same format, brand, and layout; only the headline/angle changes. Run Stage 2 first to get a base prompt.</p>
+
+  <div class="row" style="align-items:flex-end;">
+    <div style="flex:0 0 auto;">
+      <label for="variationCount">Number of variations</label>
+      <select id="variationCount" style="width:auto;">
+        <option value="3">3 variations</option>
+        <option value="4">4 variations</option>
+        <option value="5" selected>5 variations</option>
+        <option value="6">6 variations</option>
+        <option value="7">7 variations</option>
+        <option value="8">8 variations</option>
+      </select>
+    </div>
+    <div style="flex:0 0 auto;">
+      <button type="button" id="generateAnglesBtn" style="width:auto; margin-top:20px;">Generate angle variations</button>
+    </div>
+  </div>
+  <div id="variationsStatus" class="hint" style="margin-top:8px;"></div>
+  <div id="variationCards" style="margin-top:16px;"></div>
+  <div id="variationResults" style="margin-top:16px;"></div>
 </div>
 
 <script>
@@ -711,25 +768,78 @@ Rules:
 - Avoid generic brand strategy fluff.
 - Focus on what will help generate a specific, premium, on-brand static SaaS ad.`;
 
-  const STAGE2_PROMPT = `You are a senior SaaS performance creative director, brand designer, static ad strategist, and AI image prompt engineer.
+  const STAGE2_PROMPT = `You are a senior brand designer and ad-reproduction specialist. Your craft is taking an existing ad and rebuilding it identically for a different brand.
 
-Your job is to analyze a reference ad image and transform it into a new on-brand static Meta ad for a SaaS company using the provided brand research.
+Your job is to reproduce a reference ad image as faithfully as possible as a static Meta ad for the target brand, changing ONLY the brand-identity surface and keeping everything else identical.
 
-You are not copying the brand, logo, product, colors, or claims from the reference ad.
+This is a 1:1 recreation of the reference's STRUCTURE, not its look. Think of it as re-skinning the exact same ad: same layout, same composition, same element positions, same number and placement of text blocks, same visual hierarchy, same message — but wearing the target brand's identity (its own colors, font, and visual mood), not the reference brand's.
 
-You are copying the creative structure:
-- Composition
-- Layout
-- Visual hierarchy
-- Object placement
-- Depth
-- Spacing
-- Typography relationships
-- Background treatment
-- General art direction
-- Ad format logic
+Keep these IDENTICAL to the reference ad — this is the STRUCTURE ("the breakdown"), and nothing more:
+- Composition and overall layout
+- Position, size, and proportion of every element
+- Visual hierarchy and reading order
+- Number, placement, and role of every text block
+- Type of every visual element (a mascot stays a mascot, a product shot stays a product shot, a person stays a person, a chart stays a chart, an icon grid stays an icon grid)
+- Depth, layering, and object density
+- Spacing, alignment, cropping, and whitespace
+- Relative typography hierarchy (which text is largest, the size/weight relationship between blocks — NOT the actual typeface)
+- Background composition (which zones are clean vs busy, where each element sits)
+- The ad's core message, hook, and angle
 
-Then you are translating that structure into the target brand using the brand extraction JSON.
+Do NOT copy the reference ad's colors, fonts, lighting, textures, finish, or mood — those all come from the brand (see "THE BRAND'S VISUAL SYSTEM IS AUTHORITATIVE" below).
+
+Replace ONLY these brand-identity elements with the target brand's equivalents from the brand extraction JSON:
+- Brand name and any brand-specific words
+- Logo (use the attached BRAND_LOGO_IMAGE as-is)
+- Color palette
+- Typography (swap to the target brand's fonts / type style while keeping the same relative hierarchy)
+- Product / app imagery (swap the reference product for the target brand's real product)
+- Mascot or character (swap for the target brand's own mascot / character if it has one)
+- The wording of each text block (rewrite to be about the target brand's product, but keep the same meaning, role, length, and structure as the reference text it replaces)
+
+=== CRITICAL: THE BRAND'S VISUAL SYSTEM IS AUTHORITATIVE ===
+
+The reference ad gives you STRUCTURE ONLY (the layout above). EVERYTHING about how the ad LOOKS comes from the target brand's visual system in BRAND_EXTRACTION_JSON — never from the reference ad. Whenever the reference's look and the brand's look disagree, THE BRAND ALWAYS WINS.
+
+Pull the look from BRAND_EXTRACTION_JSON.visual_brand_system and obey it:
+
+COLOR — use ONLY the brand's extracted hex values:
+- Background, cards, shapes, icons, accents, and text must all use the brand's colors (visual_brand_system.colors: primary, secondary, accent, neutral, background, text, cta).
+- Write the brand's actual hex codes into the generated ad_prompt color fields (background.color_palette, typography colors, element fills).
+- Do NOT use the reference ad's colors, and do NOT invent colors. No off-brand hues.
+
+TYPOGRAPHY — use the brand's actual font:
+- Render ALL visible text in the brand's typeface from visual_brand_system.typography.font_families. Name the font explicitly in the generated ad_prompt (e.g. "render all text in the 'Poppins' typeface"), and reinforce it with the brand's heading_style, body_style, and casing_style.
+- If multiple font families are listed, use the first for headings and the next for body.
+- Do NOT fall back to a generic default sans-serif. The text must read as the brand's font.
+
+LOOK & FEEL — match the brand's ui_style and mood:
+- Corner radius, shadow style, border style, icon style, card style, illustration style, spacing style, and overall_mood from visual_brand_system.ui_style drive how every shape, card, and icon is rendered.
+- If the brand is flat and sharp, do not produce glassy rounded cards; if the brand is soft and rounded, do not produce hard flat blocks. Match the brand, not a generic template.
+
+The finished ad must look like the target brand designed it — its colors, its font, its mood — arranged inside the reference's structure.
+
+=== CRITICAL: PRODUCT VISUAL — NEVER INVENT UI ===
+
+Image models cannot render real software, so they hallucinate fake, cluttered interfaces full of unreadable text. Do not let that happen.
+
+- If a real product screenshot or UI asset is attached as an input image, place it faithfully in the product slot and do not redraw, relabel, or invent its contents.
+- If NO real product asset is provided (this is the default right now), represent the product abstractly and iconically — a clean app-icon tile, a simple app card showing only the logo and a few minimal shapes, or a plain device frame with almost nothing on screen. Match the simple, iconic way the reference depicts its product.
+- NEVER invent readable product UI: no dashboards, no data tables, no charts or graphs with numbers, no chat or voice transcripts, no lists of fake records, no menus, no settings panels, no fake feature names or button labels.
+- The product visual must contain little or no readable text — at most one short label or a single number/badge, and only if the reference uses one.
+- In the generated ad_prompt, the product_visual_direction and negative_prompt fields must explicitly forbid invented UI, fake data, and fake screens.
+
+=== CRITICAL: TEXT BUDGET — KEEP IT MINIMAL ===
+
+Match the reference ad's text amount. Do NOT pour the brand's full value proposition onto the canvas.
+
+- First, count the reference ad's text blocks and the approximate number of words in each.
+- The recreation must have the SAME number of text blocks or fewer, and a similar word count per block. Never more.
+- Headline: short — match the reference's length (typically 2 to 6 words).
+- Subheadline: include one ONLY if the reference has one, and keep it to a single short line. Never a paragraph, never multiple stacked sentences.
+- Do NOT add body copy, feature lists, bullet points, extra captions, or sentences that the reference does not have.
+- No paragraph of text anywhere on the canvas. When in doubt, use fewer words — a clean ad with little text beats a busy one.
+- The generated ad_prompt's negative_prompt must forbid excess text, paragraphs, and cluttered small text.
 
 Inputs:
 
@@ -753,36 +863,37 @@ This may include campaign goal, target customer, landing page, offer, preferred 
 
 Your task:
 
-Create a detailed AI image generation prompt that recreates the reference ad's structure, but makes it fully on-brand for the target SaaS company.
+Produce a detailed AI image generation prompt that recreates the reference ad as exactly as possible, with only the brand-identity surface swapped to the target brand.
 
 The final output should be a render-ready JSON image prompt.
 
 Important rules:
 
-1. Do not copy the reference brand.
-Do not use the reference brand's logo, product name, headline, colors, customer claims, product UI, icons, or trademarked visual assets.
+1. Reproduce the composition exactly.
+Match the reference ad's layout, every element's position and size, hierarchy, spatial relationships, object types, depth, pacing, spacing, cropping, and design logic. Do not add, remove, rearrange, or resize elements.
 
-2. Copy the composition, not the brand.
-Replicate the reference ad's layout, hierarchy, spatial relationships, object types, depth, pacing, and design logic.
+2. Do not reuse the reference brand's identity.
+Do not use the reference brand's name, logo, colors, fonts, or its product / app imagery. These are the only things being swapped out.
 
-3. Make the new ad on-brand.
-Use the target brand's colors, logo, typography style, UI style, product screenshots, claims, CTA language, and visual mood from BRAND_EXTRACTION_JSON. Use the attached BRAND_LOGO_IMAGE as-is.
+3. Swap in the target brand's identity.
+Use the target brand's colors, logo, fonts, product imagery, mascot / character, and brand-specific wording from BRAND_EXTRACTION_JSON. Use the attached BRAND_LOGO_IMAGE as-is.
 
-4. Do not hallucinate claims.
-Only use proof, metrics, logos, customer names, ratings, guarantees, feature names, and product claims if they are supported by BRAND_EXTRACTION_JSON or the provided customer research.
+4. Keep the same message, just re-worded for the target brand.
+Preserve the reference ad's hook, angle, and the role of each text block. Rewrite the words so they are about the target brand's product, keeping the same meaning, tone, length, and structure. Do not invent a new angle, new concept, or new metaphor.
 
-5. Do not hallucinate UI, mascots, or brand assets.
-Do not invent product screenshots, dashboards, charts, graphs, data values, button labels, feature names, menu items, or any other UI content unless that exact UI is provided in BRAND_EXTRACTION_JSON or as an attached asset. Do not invent brand mascots, characters, avatars, illustrated personas, or any creature/figure that represents the brand unless it is explicitly part of the brand's existing identity in BRAND_EXTRACTION_JSON. If a product visual is needed but no real UI asset is available, use an abstract SaaS visual metaphor instead (geometric shapes, abstract cards, workflow diagrams without invented data).
+5. Do not fabricate facts.
+Only state metrics, ratings, customer names, third-party logos, guarantees, or specific claims if they are supported by BRAND_EXTRACTION_JSON or the provided customer research. If the reference ad has a claim slot (e.g. "rated 4.8 stars") and the target brand has no supported equivalent, keep that slot in the same position but fill it with a supported benefit statement instead of a fabricated number or logo.
 
-6. If proof is unavailable, use a pain-led, outcome-led, or product-led ad instead of inventing proof.
+6. Do not fabricate the target brand's assets.
+Use the target brand's real product imagery and real mascot / character from BRAND_EXTRACTION_JSON or the attached assets. If the reference ad contains a product visual or mascot and the target brand has no equivalent asset provided, reproduce the same element type and placement using a neutral, brand-styled stand-in (e.g. a simple brand-colored product frame or a generic figure) — never invent a fake product UI, fake data, or a fake brand mascot and present it as the brand's own.
 
-7. If the reference ad uses a visual metaphor, translate the metaphor into the target brand's product category and customer pain.
+7. Preserve the reference's visual metaphor as-is.
+If the reference ad uses a visual metaphor or central visual idea, keep that same idea and only re-skin its surface with the target brand's colors, product, and mascot. Do not re-map or reinterpret the metaphor into a different concept.
 
-8. If the reference ad uses a product visual, replace it with a target-brand product screenshot, dashboard visual, UI card, workflow diagram, integration visual, or abstract SaaS visual metaphor — only using assets supported by BRAND_EXTRACTION_JSON.
+8. Keep people, devices, 3D objects, and icons.
+If the reference ad uses these, reproduce the same element types in the same positions, restyled to the target brand. Do not drop them.
 
-9. If the reference ad uses people, devices, 3D objects, or icons, only keep those elements if they make sense for the target brand and campaign goal.
-
-10. The final prompt must be specific enough for an image model to render a high-quality static ad with minimal ambiguity.
+9. The final prompt must be specific enough for an image model to render the recreation with minimal ambiguity.
 
 Step 1: Analyze the reference ad image
 
@@ -826,7 +937,7 @@ From BRAND_EXTRACTION_JSON, extract:
 
 - Brand name
 - Product name
-- SaaS category
+- Product category
 - Target customer
 - Primary customer pain
 - Desired outcome
@@ -851,82 +962,55 @@ From BRAND_EXTRACTION_JSON, extract:
 - Terms to use
 - Terms to avoid
 
-Step 3: Choose the ad angle
+Step 3: Map the reference message to the target brand
 
-Choose one strong angle based on the target brand's research.
+Do not invent a new angle. Inherit the reference ad's angle and message.
 
-Prioritize in this order:
+First, transcribe the reference ad's text exactly as written, block by block (headline, subheadline, proof / badge, CTA, captions, labels — whatever is present).
 
-1. Customer pain
-2. Desired outcome
-3. Product promise
-4. Proof point
-5. Objection handling
-6. Differentiation from alternatives
+Then, for each text block, write the target-brand equivalent that:
+- Says the analogous thing about the target brand's product
+- Keeps the same role (a headline stays a headline, a CTA stays a CTA)
+- Keeps roughly the same length and word count
+- Keeps the same tone, punctuation, and capitalization style
+- Stays understandable in one second
 
-Create:
+Match the reference's text structure exactly:
+- Same number of text blocks
+- Same blocks present (if the reference has no subheadline, do not add one; if it has no CTA, do not add one)
+- Same block in the same position
 
-- Target customer
-- Customer pain
-- Desired outcome
-- Belief gap
-- Main angle
-- Creative hypothesis
-- Headline
-- Subheadline
-- Proof line, if supported
-- CTA, if useful
+Only pull product names, feature names, metrics, and proof from BRAND_EXTRACTION_JSON or provided research — never from the reference brand and never invented.
 
-The headline should be short, visual, and clear.
-The subheadline should explain the promise.
-The copy should fit the reference ad's text structure.
+Step 4: Rebuild the composition with the target brand's identity
 
-If the reference ad has:
-- One headline only, create one headline only
-- Headline plus subheadline, create both
-- Headline plus proof badge, create both
-- CTA button, create a CTA button
-- No CTA button, do not force one unless required by USER_DIRECTION
+Keep ALL of the reference ad's structure identical:
 
-Step 4: Translate the reference composition into the target brand
+- Layout and every element's position / size
+- Spatial balance and visual rhythm
+- Text hierarchy and reading order
+- Object arrangement and types
+- Depth and layering
+- Cropping and whitespace
+- Polish level and mood
 
-Create a new ad prompt that keeps the reference ad's:
+Swap ONLY the brand-identity surface:
 
-- Layout structure
-- Spatial balance
-- Text hierarchy
-- Object arrangement
-- Depth structure
-- Cropping logic
-- Visual rhythm
-- Overall polish level
+- Logo (use the attached BRAND_LOGO_IMAGE)
+- Colors
+- Fonts / typography style
+- Product or app imagery (the target brand's real product in the same spot, same framing)
+- Mascot or character (the target brand's own, if it has one, in the same pose / position role)
+- The wording of each text block (from Step 3)
 
-But replace with target-brand elements:
+Step 5: Preserve the visual metaphor
 
-- Target brand logo (use the attached BRAND_LOGO_IMAGE)
-- Target brand colors
-- Target brand typography style
-- Target product visuals (only from real provided assets)
-- Target product promise
-- Target customer pain
-- Target CTA
-- Target proof
-- Target visual metaphor
+If the reference ad has a central visual idea or metaphor, keep the exact same idea. Do not reinterpret it into a different concept.
 
-Step 5: Define the visual metaphor
-
-If the reference ad has a central visual idea, map it to the target SaaS brand.
-
-Examples:
-- Many app icons around one central app tile becomes "many messy workflows consolidated into one platform"
-- Dashboard card becomes "clarity, visibility, analytics, control"
-- Notification badges become "overload, missed tasks, chaos, urgency"
-- Split screen becomes "old way versus new way"
-- Floating cards become "automation, connected systems, lightweight workflow"
-- Testimonial card becomes "trust and proof"
-- Metric card becomes "measurable outcome"
-
-Create a visual metaphor that matches the customer pain and product promise.
+Only re-skin its surface:
+- Same arrangement, same composition, same meaning
+- Swap the reference brand's colors, product, and mascot for the target brand's
+- Example: if the reference shows many app icons orbiting one central app tile, keep that same orbit composition — just replace the central tile and icons with the target brand's app icon and colors. Do not turn it into a different metaphor.
 
 Step 6: Define exact render instructions
 
@@ -966,27 +1050,24 @@ Step 7: Add safeguards
 
 Include negative constraints:
 
-- No original reference brand
-- No original reference logo
-- No original reference copy
-- No unsupported claims
-- No fake metrics
-- No fake customer logos
-- No fake or invented UI
-- No invented dashboards, charts, or data values
+- No reference brand name, logo, colors, fonts, or product imagery
+- No fabricated metrics, ratings, customer logos, or claims
+- No invented product UI, dashboards, charts, or data values
 - No invented feature names, menu items, or button labels
-- No invented brand mascots, characters, avatars, or illustrated personas
-- No redrawing or restyling of the attached brand logo
-- No distorted text
-- No extra text
-- No clutter
-- No low-resolution output
-- No off-brand colors
+- No fake or invented brand mascot presented as the target brand's own
+- No redrawing, restyling, recoloring, or warping of the attached brand logo
+- No changes to the layout, composition, element positions, or number of elements versus the reference
+- No added, removed, or rearranged elements versus the reference
+- No new angle, concept, or metaphor different from the reference
+- No distorted or unreadable text
+- No extra text beyond the reference's text blocks
+- No off-brand colors (use only the target brand's palette)
 - No generic AI aesthetic
-- No warped logo
-- No unreadable product UI
-- No irrelevant objects
-- No unnecessary people or devices unless the reference structure requires them and the target brand supports them
+- No generic glassmorphism or frosted-glass cards unless the brand's ui_style uses them
+- No random or rainbow gradients; backgrounds use only the brand's palette
+- No default "AI SaaS" look — match the brand's actual colors, font, and mood
+- No generic Helvetica/Arial-style text when a brand font is specified — use the brand's typeface
+- No low-resolution output
 
 Final output:
 
@@ -1011,20 +1092,26 @@ Return only valid JSON in this structure:
     "what_to_replicate": [],
     "what_not_to_copy": []
   },
-  "brand_translation_strategy": {
+  "reskin_map": {
     "target_brand": "",
     "product_category": "",
-    "target_customer": "",
-    "customer_pain": "",
-    "desired_outcome": "",
-    "main_promise": "",
-    "proof_point_used": "",
-    "cta": "",
-    "creative_angle": "",
-    "creative_hypothesis": "",
-    "visual_metaphor": "",
-    "why_this_matches_the_reference": "",
-    "why_this_fits_the_brand": ""
+    "reference_message_and_angle": "",
+    "visual_metaphor_preserved": "",
+    "element_swaps": [
+      {
+        "element": "",
+        "reference_version": "",
+        "target_brand_version": ""
+      }
+    ],
+    "text_block_swaps": [
+      {
+        "role": "",
+        "reference_text": "",
+        "target_brand_text": ""
+      }
+    ],
+    "what_stays_identical": []
   },
   "ad_prompt": {
     "goal": "",
@@ -1038,7 +1125,7 @@ Return only valid JSON in this structure:
     "overall_style": {
       "look": "",
       "mood": "",
-      "render_quality": "high resolution, crisp typography, premium SaaS ad quality",
+      "render_quality": "high resolution, crisp typography, premium ad quality",
       "lighting": "",
       "texture": "",
       "brand_fit_notes": ""
@@ -1168,20 +1255,38 @@ Return only valid JSON in this structure:
 
 Before returning the JSON, check:
 
-- Did you copy the reference composition without copying the reference brand?
-- Does the new ad use the target brand's visual system?
+- Is the layout, composition, and every element position identical to the reference?
+- Is the number, placement, and role of text blocks identical to the reference?
+- Did you swap ONLY the brand-identity surface (name, logo, colors, fonts, product, mascot, wording)?
+- Is EVERY color taken from the brand's palette (no reference colors, no invented colors)?
+- Is ALL text rendered in the brand's named font, not a generic sans-serif?
+- Does the look match the brand's mood and ui_style rather than a generic AI aesthetic?
+- Is the reference's angle and message preserved (not replaced with a new one)?
+- Is the reference's visual metaphor preserved (not reinterpreted)?
 - Is the attached brand logo used as-is, not redrawn?
-- Did you avoid hallucinating UI, dashboards, data, feature names, or mascots?
-- Is the ad still understandable in one second?
-- Is the headline short and strong?
-- Is the customer pain or product promise clear?
-- Are all claims supported?
-- Is the product category obvious?
-- Is the visual metaphor connected to the offer?
+- Did you avoid fabricating product UI, data, claims, or a fake brand mascot?
+- Are all stated metrics and claims supported by the brand data?
+- Is the target brand's product category still obvious?
+- Is each text block re-worded for the target brand while keeping the same length and structure?
 - Is the prompt specific enough for image generation?
 - Are negative constraints strong enough?
 
 Return only valid JSON.`;
+
+  // Bump when STAGE2_PROMPT changes materially, to refresh any stale prompt saved in localStorage.
+  const STAGE2_PROMPT_VERSION = "3";
+
+  // Two breakdown modes, prepended to the Stage 2 prompt at send time. "exact" mirrors the
+  // reference layout; "vibe" keeps the structure/feel but adapts freely. Both still obey the
+  // PRODUCT VISUAL and TEXT BUDGET rules baked into STAGE2_PROMPT.
+  const STAGE2_MODE_RULES = {
+    exact: "MODE: EXACT RECREATION (layout fidelity).\nRecreate the reference ad's LAYOUT and STRUCTURE as faithfully as possible — same elements, same positions, same proportions, same composition. This mode controls layout fidelity ONLY: the brand's colors, font, and visual mood remain fully authoritative and come entirely from BRAND_EXTRACTION_JSON, never from the reference. Follow the \"keep identical\" (structure) rules and the \"THE BRAND'S VISUAL SYSTEM IS AUTHORITATIVE\" rules below literally.",
+    vibe: "MODE: VIBE / INSPIRED-BY (loose layout).\nDo NOT copy the reference ad's layout element-for-element. Capture its overall composition family, visual energy, and central metaphor, then design a clean, minimal ad that FEELS like the reference but is adapted to fit the target brand. You may change the number of elements, their positions, and the arrangement wherever a literal copy would not make sense. This mode loosens LAYOUT fidelity ONLY — the brand's colors, font, and visual mood remain fully authoritative (from BRAND_EXTRACTION_JSON). Prioritize clarity and minimalism. Still obey the PRODUCT VISUAL, TEXT BUDGET, and BRAND'S VISUAL SYSTEM rules strictly."
+  };
+  const STAGE2_MODE_HINTS = {
+    exact: "Best when the reference's layout transfers cleanly to your brand. Copies positions and structure; swaps only branding.",
+    vibe: "Best when a literal copy wouldn't fit. Keeps the feel, mood, and metaphor but adapts the layout to your brand."
+  };
 
   const $ = (id) => document.getElementById(id);
   const promptEl = $("prompt");
@@ -1195,6 +1300,8 @@ Return only valid JSON.`;
   const refImageEl = $("refImage");
   const refPreviewEl = $("refPreview");
   const stage2PromptEl = $("stage2Prompt");
+  const stage2ModeEl = $("stage2Mode");
+  const stage2ModeHintEl = $("stage2ModeHint");
   const generateAdEl = $("generateAd");
   const stage2ResultEl = $("stage2Result");
   const stage2MetaEl = $("stage2Meta");
@@ -1211,11 +1318,20 @@ Return only valid JSON.`;
   const stage3ResultEl = $("stage3Result");
   const stage3MetaEl = $("stage3Meta");
   const stage2OutStatusEl = $("stage2OutStatus");
+  const variationCountEl = $("variationCount");
+  const generateAnglesBtn = $("generateAnglesBtn");
+  const variationsStatusEl = $("variationsStatus");
+  const variationCardsEl = $("variationCards");
+  const variationResultsEl = $("variationResults");
+  let variationBaseObj = null;
+  let currentVariants = [];
+  let batchRunning = false;
 
   let lastStage1Output = null;  // brand extraction JSON from Stage 1
   let forceReanalyze = false;   // one-shot: set by "Re-analyze this site" to skip the saved-brand reuse
   let refImageDataUrl = null;   // base64 data URL of the Stage 2 reference ad
   let refImage3DataUrl = null;  // base64 data URL of the Stage 3 reference ad
+  let refImage3UserSet = false; // true once the user explicitly picks a Stage 3 reference (suppresses auto-sync from Stage 2)
   let logoImage3DataUrl = null; // base64 data URL of the Stage 3 brand logo
 
   // Load active server config (which models are pinned in .env). No secrets returned.
@@ -1248,6 +1364,11 @@ Return only valid JSON.`;
 
   // --- Stage 2 restore/persist ---
 
+  // Force any stale saved prompt up to the current default when the baked-in prompt changes.
+  if (localStorage.getItem("or_stage2_prompt_version") !== STAGE2_PROMPT_VERSION) {
+    localStorage.setItem("or_stage2_prompt", STAGE2_PROMPT);
+    localStorage.setItem("or_stage2_prompt_version", STAGE2_PROMPT_VERSION);
+  }
   stage2PromptEl.value = localStorage.getItem("or_stage2_prompt") || STAGE2_PROMPT;
   lastStage1Output = localStorage.getItem("or_stage1") || null;
   stage2PromptEl.addEventListener("input", () => localStorage.setItem("or_stage2_prompt", stage2PromptEl.value));
@@ -1255,6 +1376,20 @@ Return only valid JSON.`;
     e.preventDefault();
     stage2PromptEl.value = STAGE2_PROMPT;
     localStorage.setItem("or_stage2_prompt", STAGE2_PROMPT);
+  });
+
+  // Breakdown mode (exact vs vibe), persisted and surfaced as a hint under the dropdown.
+  function currentStage2Mode() {
+    return STAGE2_MODE_RULES[stage2ModeEl.value] ? stage2ModeEl.value : "exact";
+  }
+  function updateStage2ModeHint() {
+    stage2ModeHintEl.textContent = STAGE2_MODE_HINTS[currentStage2Mode()] || "";
+  }
+  stage2ModeEl.value = localStorage.getItem("or_stage2_mode") || "exact";
+  updateStage2ModeHint();
+  stage2ModeEl.addEventListener("change", () => {
+    localStorage.setItem("or_stage2_mode", stage2ModeEl.value);
+    updateStage2ModeHint();
   });
 
   function updateStage1Status() {
@@ -1497,8 +1632,10 @@ Return only valid JSON.`;
       refPreviewEl.innerHTML =
         '<img src="' + refImageDataUrl + '" alt="reference ad" ' +
         'style="max-width:200px; max-height:200px; border:1px solid var(--border); border-radius:8px;" />';
-      // Convenience: reuse the same reference ad in Stage 3 unless one was picked there.
-      if (!refImage3DataUrl) {
+      // Always reuse the latest Stage 2 reference in Stage 3, unless the user explicitly
+      // picked a different one there. (Previously this only filled an empty slot, so a
+      // stale Stage 3 reference from an earlier run would silently override the new one.)
+      if (!refImage3UserSet) {
         refImage3DataUrl = reader.result;
         refPreview3El.innerHTML =
           '<img src="' + reader.result + '" alt="reference ad" ' +
@@ -1509,61 +1646,64 @@ Return only valid JSON.`;
     reader.readAsDataURL(f);
   });
 
-  async function generateAd() {
-    let stage2 = stage2PromptEl.value.trim() || STAGE2_PROMPT;
+  // One Stage 2 generation for a given mode. Returns { ok, content, meta } or { ok:false, error, status }.
+  async function runStage2(mode) {
+    const base = stage2PromptEl.value.trim() || STAGE2_PROMPT;
+    const promptText = STAGE2_MODE_RULES[mode] + "\n\n" + base;
+    const text = promptText +
+      "\n\n=== BRAND_EXTRACTION_JSON ===\n" + stripFences(lastStage1Output) +
+      "\n\n=== REFERENCE_AD_IMAGE ===\nThe reference ad image is attached to this message. Analyze it as REFERENCE_AD_IMAGE.";
 
+    const started = Date.now();
+    const res = await Auth.authedFetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        stage: 2,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "text", text: text },
+            { type: "image_url", image_url: { url: refImageDataUrl } },
+          ],
+        }],
+      }),
+    });
+
+    const data = await res.json();
+    const secs = ((Date.now() - started) / 1000).toFixed(1);
+    if (!res.ok) {
+      return { ok: false, status: res.status, error: data?.error?.message || JSON.stringify(data) };
+    }
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) return { ok: false, error: "No content returned. Raw response:\n" + JSON.stringify(data, null, 2) };
+    let meta = "Stage 2 · " + secs + "s";
+    if (data?.usage?.total_tokens) meta += " · " + data.usage.total_tokens + " tokens";
+    return { ok: true, content: content, meta: meta };
+  }
+
+  async function generateAd() {
     if (!lastStage1Output) { setStage2("Run Stage 1 first — its brand-extraction JSON is required as BRAND_EXTRACTION_JSON.", "error"); return; }
     if (!refImageDataUrl) { setStage2("Upload a reference ad image first.", "error"); return; }
-
-    // Assemble the text part: prompt + brand JSON.
-    let text = stage2 +
-      "\n\n=== BRAND_EXTRACTION_JSON ===\n" + stripFences(lastStage1Output);
-    text += "\n\n=== REFERENCE_AD_IMAGE ===\nThe reference ad image is attached to this message. Analyze it as REFERENCE_AD_IMAGE.";
 
     generateAdEl.disabled = true;
     generateAdEl.textContent = "Generating…";
     stage2MetaEl.textContent = "";
     setStage2("Analyzing the reference image and generating the on-brand ad prompt (Stage 2 model from .env)…", "empty");
-    const started = Date.now();
 
     try {
-      const res = await Auth.authedFetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          stage: 2,
-          messages: [{
-            role: "user",
-            content: [
-              { type: "text", text: text },
-              { type: "image_url", image_url: { url: refImageDataUrl } },
-            ],
-          }],
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        const msg = data?.error?.message || JSON.stringify(data);
+      const r = await runStage2(currentStage2Mode());
+      if (!r.ok) {
         let hint = "";
-        if (/image|vision|modal|content/i.test(msg)) {
+        if (/image|vision|modal|content/i.test(r.error || "")) {
           hint = "\n\nThe Stage 2 model (STAGE2_MODEL in .env) may not accept images. Set it to a vision model, e.g. openai/gpt-5-nano or google/gemini-2.5-pro.";
         }
-        setStage2("Error " + res.status + ": " + msg + hint, "error");
+        setStage2((r.status ? "Error " + r.status + ": " : "") + r.error + hint, "error");
         return;
       }
-
-      const content = data?.choices?.[0]?.message?.content;
-      if (!content) { setStage2("No content returned. Raw response:\n" + JSON.stringify(data, null, 2), "error"); return; }
-
-      setStage2(content);
-      const secs = ((Date.now() - started) / 1000).toFixed(1);
-      let meta = "Stage 2 · " + secs + "s";
-      if (data?.usage?.total_tokens) meta += " · " + data.usage.total_tokens + " tokens";
-      stage2MetaEl.textContent = meta;
-
-      // Hand the render-ready ad prompt to Stage 3.
-      prepareStage3(content);
+      setStage2(r.content);
+      stage2MetaEl.textContent = r.meta;
+      prepareStage3(r.content);   // hand the render-ready ad prompt to Stage 3
     } catch (err) {
       setStage2("Request failed: " + err.message, "error");
     } finally {
@@ -1573,6 +1713,118 @@ Return only valid JSON.`;
   }
 
   generateAdEl.addEventListener("click", generateAd);
+
+  // --- Copy-to-clipboard helper (shows a temporary "Copied!" label) ---
+  async function copyText(text, btn) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } catch (_) {}
+      document.body.removeChild(ta);
+    }
+    if (btn) {
+      if (!btn.dataset.label) btn.dataset.label = btn.textContent;
+      btn.textContent = "Copied!";
+      setTimeout(() => { btn.textContent = btn.dataset.label; }, 1500);
+    }
+  }
+
+  $("copyStage2").addEventListener("click", () => copyText(stage2ResultEl.textContent, $("copyStage2")));
+  $("copyStage3").addEventListener("click", () => copyText(stage3PromptEl.value, $("copyStage3")));
+
+  // --- Compare Exact vs Vibe side by side (generates both prompts; render either on demand) ---
+  const compareEl = $("compareModes");
+  const compareResultEl = $("compareResult");
+
+  function makeComparePanel(label, result) {
+    const col = document.createElement("div");
+    col.style.flex = "1";
+    col.style.minWidth = "0";
+
+    const h = document.createElement("div");
+    h.style.fontWeight = "600";
+    h.style.marginBottom = "6px";
+    h.textContent = label;
+    col.appendChild(h);
+
+    const box = document.createElement("div");
+    box.className = "result" + (result.ok ? "" : " error");
+    box.style.whiteSpace = "pre-wrap";
+    box.style.maxHeight = "360px";
+    box.style.overflow = "auto";
+    box.textContent = result.ok ? result.content
+      : ((result.status ? "Error " + result.status + ": " : "") + (result.error || "Failed"));
+    col.appendChild(box);
+
+    if (result.ok) {
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = result.meta || "";
+      col.appendChild(meta);
+
+      const row = document.createElement("div");
+      row.style.display = "flex";
+      row.style.gap = "8px";
+
+      const copyBtn = document.createElement("button");
+      copyBtn.type = "button";
+      copyBtn.className = "copybtn";
+      copyBtn.textContent = "Copy";
+      copyBtn.addEventListener("click", () => copyText(result.content, copyBtn));
+
+      const renderBtn = document.createElement("button");
+      renderBtn.type = "button";
+      renderBtn.className = "copybtn";
+      renderBtn.textContent = "Render this →";
+      renderBtn.addEventListener("click", () => {
+        prepareStage3(result.content);
+        generateImageEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        generateImage();
+      });
+
+      row.appendChild(copyBtn);
+      row.appendChild(renderBtn);
+      col.appendChild(row);
+    }
+    return col;
+  }
+
+  async function compareModes() {
+    if (!lastStage1Output) { compareResultEl.innerHTML = '<div class="result error">Run Stage 1 first — its brand-extraction JSON is required.</div>'; return; }
+    if (!refImageDataUrl) { compareResultEl.innerHTML = '<div class="result error">Upload a reference ad image first.</div>'; return; }
+
+    compareEl.disabled = true;
+    compareEl.textContent = "Comparing…";
+    compareResultEl.innerHTML = '<div class="hint">Generating both Exact and Vibe prompts…</div>';
+
+    try {
+      const [exact, vibe] = await Promise.all([runStage2("exact"), runStage2("vibe")]);
+      compareResultEl.innerHTML = "";
+      const wrap = document.createElement("div");
+      wrap.style.display = "flex";
+      wrap.style.gap = "16px";
+      wrap.appendChild(makeComparePanel("Exact", exact));
+      wrap.appendChild(makeComparePanel("Vibe", vibe));
+      compareResultEl.appendChild(wrap);
+    } catch (err) {
+      compareResultEl.innerHTML = "";
+      const e = document.createElement("div");
+      e.className = "result error";
+      e.textContent = "Request failed: " + err.message;
+      compareResultEl.appendChild(e);
+    } finally {
+      compareEl.disabled = false;
+      compareEl.textContent = "Compare Exact vs Vibe (test)";
+    }
+  }
+
+  compareEl.addEventListener("click", compareModes);
 
   // ===== Stage 3: ad prompt + reference ad + brand logo -> generated image (KIE GPT Image 2) =====
 
@@ -1623,7 +1875,10 @@ Return only valid JSON.`;
     };
     reader.readAsDataURL(f);
   }
-  refImage3El.addEventListener("change", () => readImageFile(refImage3El, (u) => { refImage3DataUrl = u; }, refPreview3El, "reference ad"));
+  refImage3El.addEventListener("change", () => {
+    refImage3UserSet = !!(refImage3El.files && refImage3El.files[0]);
+    readImageFile(refImage3El, (u) => { refImage3DataUrl = u; }, refPreview3El, "reference ad");
+  });
   logoImage3El.addEventListener("change", () => readImageFile(logoImage3El, (u) => { logoImage3DataUrl = u; }, logoPreview3El, "brand logo"));
 
   function setStage3(text, kind) {
@@ -1631,6 +1886,145 @@ Return only valid JSON.`;
     stage3ResultEl.className = "result" + (kind ? " " + kind : "");
   }
   stage2OutStatusEl.textContent = "Run Stage 2 above to auto-fill the image prompt here.";
+
+  // Generate n distinct ad-copy angles using a text-only Stage-2 /chat call.
+  // baseCopy: the copy object from the current base ad_prompt (e.g. { headline, subheadline? }).
+  // brandJson: the brand-extraction JSON string (pass lastStage1Output).
+  // n: number of angles requested (3–8).
+  // Returns an array of variation objects: { angle, headline, subheadline?, visual_note }.
+  async function generateAngles(baseCopy, brandJson, n) {
+    if (!n || n < 1) throw new Error("generateAngles: n must be >= 1");
+    const hasSubheadline = baseCopy && typeof baseCopy.subheadline === "string" && baseCopy.subheadline.trim() !== "";
+    const subheadlineInstruction = hasSubheadline
+      ? 'Each item MUST include a "subheadline" field (the base ad has one).'
+      : 'Do NOT include a "subheadline" field (the base ad does not have one).';
+
+    const angleTypes = ["pain", "outcome", "promise", "proof", "objection", "status", "urgency"];
+    // Build a hint list of length n, cycling through types.
+    const angleHints = Array.from({ length: n }, (_, i) => angleTypes[i % angleTypes.length]).join(", ");
+
+    const prompt =
+      `You are a direct-response ad copywriter. Your task is to produce EXACTLY ${n} distinct ad angles for the advertisement described below.\n\n` +
+      `CURRENT AD COPY (base):\n${JSON.stringify(baseCopy, null, 2)}\n\n` +
+      `BRAND FACTS (authoritative — use ONLY brand-supported claims; invent NO numbers, features, testimonials, guarantees, or statistics not present here):\n${brandJson}\n\n` +
+      `ANGLE TYPES TO USE (one per item, in this order, repeat only if n exceeds the list): ${angleHints}\n` +
+      `Angle types reference: pain=addresses a frustration, outcome=highlights a desirable result, promise=makes a specific commitment, proof=social/data evidence (only if brand facts support it), objection=preempts a doubt, status=appeals to identity/aspiration, urgency=time or scarcity motivation.\n\n` +
+      `OUTPUT CONTRACT — return ONLY a JSON object, no prose, no markdown fences:\n` +
+      `{ "variations": [\n` +
+      `  { "angle": "<type-label>", "headline": "<new headline>", ` +
+      (hasSubheadline ? '"subheadline": "<new subheadline>", ' : '') +
+      `"visual_note": "<at most a small mascot pose/expression shift that matches the mood; keep format/brand/layout identical>" }\n` +
+      `] }\n\n` +
+      `${subheadlineInstruction}\n` +
+      `Produce exactly ${n} items in the "variations" array. No extra keys. No prose outside the JSON object.`;
+
+    const res = await Auth.authedFetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        stage: 2,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || ("HTTP " + res.status));
+    }
+    const raw = data?.choices?.[0]?.message?.content;
+    if (!raw) throw new Error("generateAngles: no content in model response. Raw: " + JSON.stringify(data).slice(0, 400));
+    const parsed = parseJsonLoose(raw);
+    let arr = parsed.variations || parsed.angles || (Array.isArray(parsed) ? parsed : null);
+    if (!Array.isArray(arr) || arr.length === 0) {
+      throw new Error("generateAngles: model did not return a non-empty variations array. Raw: " + raw.slice(0, 300));
+    }
+    return arr;
+  }
+
+  // Build the full KIE prompt string for a single angle variation.
+  // baseAdPromptObj: the base ad_prompt as a plain JS object.
+  // variation: one item from generateAngles() — { angle, headline, subheadline?, visual_note }.
+  // Returns a string: updated JSON (with swapped copy) + a belt-and-suspenders VARIATION DIRECTIVE.
+  function buildVariantPrompt(baseAdPromptObj, variation) {
+    const clone = JSON.parse(JSON.stringify(baseAdPromptObj));
+    clone.copy = clone.copy || {};
+    clone.copy.headline = variation.headline;
+
+    let subheadlineApplied = false;
+    // Only swap subheadline when the base ad_prompt already has a string slot for it —
+    // this invariant holds because generateAngles was given the same base copy.
+    if (
+      typeof variation.subheadline === "string" &&
+      variation.subheadline.trim() !== "" &&
+      typeof clone.copy.subheadline === "string"
+    ) {
+      clone.copy.subheadline = variation.subheadline;
+      subheadlineApplied = true;
+    }
+
+    const jsonStr = JSON.stringify(clone, null, 2);
+
+    let directive = `VARIATION DIRECTIVE: headline=${JSON.stringify(variation.headline)};`;
+    if (subheadlineApplied) {
+      directive += ` subheadline=${JSON.stringify(variation.subheadline)};`;
+    }
+    if (variation.visual_note && typeof variation.visual_note === "string" && variation.visual_note.trim() !== "") {
+      directive += " " + variation.visual_note.trim();
+    }
+    directive += " Keep everything else identical.";
+
+    return jsonStr + "\n\n" + directive;
+  }
+
+  // Core generate+poll logic, reusable by single-image flow and future batch flow.
+  // Returns { ok: true, urls } on success or { ok: false, error } on any failure.
+  // onStatus is an optional (message) => void callback for progress strings.
+  async function runKieGeneration(promptText, onStatus) {
+    if (onStatus) onStatus("Uploading images and creating the generation task…");
+    const genRes = await Auth.authedFetch("/kie/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: promptText,
+        referenceImage: refImage3DataUrl,
+        logoImage: logoImage3DataUrl,
+        aspect_ratio: aspectRatioEl.value,
+        resolution: resolutionEl.value,
+      }),
+    });
+    const gen = await genRes.json();
+    if (!genRes.ok || !gen.taskId) {
+      return { ok: false, error: "Couldn't start generation: " + (gen.error || ("HTTP " + genRes.status)) };
+    }
+    const taskId = gen.taskId;
+
+    // Poll for the result (~every 3s, up to ~2 minutes).
+    const deadline = Date.now() + 120000;
+    let urls = [];
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const pollRes = await Auth.authedFetch("/kie/result?taskId=" + encodeURIComponent(taskId));
+      const poll = await pollRes.json();
+      if (!pollRes.ok) {
+        return { ok: false, error: "Polling failed: " + (poll.error || ("HTTP " + pollRes.status)) };
+      }
+      const state = String(poll.state || "").toLowerCase();
+      if (state === "success") {
+        urls = poll.urls || [];
+        if (!urls.length) return { ok: false, error: "Generation succeeded but KIE returned no image URLs." };
+        break;
+      }
+      if (state === "fail") {
+        return { ok: false, error: "Generation failed: " + (poll.failMsg || "unknown error") };
+      }
+      if (onStatus) onStatus("Generating… state: " + (poll.state || "?") + (poll.progress != null ? " · progress " + poll.progress : ""));
+    }
+
+    if (!urls.length) {
+      return { ok: false, error: "Timed out after 2 minutes waiting for the image. The task may still finish on KIE." };
+    }
+
+    return { ok: true, urls };
+  }
 
   async function generateImage() {
     const prompt = stage3PromptEl.value.trim();
@@ -1641,43 +2035,15 @@ Return only valid JSON.`;
     generateImageEl.disabled = true;
     generateImageEl.textContent = "Generating…";
     stage3MetaEl.textContent = "";
-    setStage3("Uploading images and creating the generation task…", "empty");
     const started = Date.now();
 
     try {
-      const genRes = await Auth.authedFetch("/kie/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: prompt,
-          referenceImage: refImage3DataUrl,
-          logoImage: logoImage3DataUrl,
-          aspect_ratio: aspectRatioEl.value,
-          resolution: resolutionEl.value,
-        }),
-      });
-      const gen = await genRes.json();
-      if (!genRes.ok || !gen.taskId) {
-        setStage3("Couldn't start generation: " + (gen.error || ("HTTP " + genRes.status)), "error");
+      const result = await runKieGeneration(prompt, (msg) => setStage3(msg, "empty"));
+      if (!result.ok) {
+        setStage3(result.error, "error");
         return;
       }
-      const taskId = gen.taskId;
-
-      // Poll for the result (~every 3s, up to ~2 minutes).
-      const deadline = Date.now() + 120000;
-      let urls = [];
-      while (Date.now() < deadline) {
-        await new Promise((r) => setTimeout(r, 3000));
-        const pollRes = await Auth.authedFetch("/kie/result?taskId=" + encodeURIComponent(taskId));
-        const poll = await pollRes.json();
-        if (!pollRes.ok) { setStage3("Polling failed: " + (poll.error || ("HTTP " + pollRes.status)), "error"); return; }
-        const state = String(poll.state || "").toLowerCase();
-        if (state === "success") { urls = poll.urls || []; break; }
-        if (state === "fail") { setStage3("Generation failed: " + (poll.failMsg || "unknown error"), "error"); return; }
-        setStage3("Generating… state: " + (poll.state || "?") + (poll.progress != null ? " · progress " + poll.progress : ""), "empty");
-      }
-
-      if (!urls.length) { setStage3("Timed out after 2 minutes waiting for the image. The task may still finish on KIE.", "error"); return; }
+      const urls = result.urls;
 
       const secs = ((Date.now() - started) / 1000).toFixed(1);
       stage3ResultEl.className = "result";
@@ -1716,6 +2082,351 @@ Return only valid JSON.`;
     }
   }
   generateImageEl.addEventListener("click", generateImage);
+
+  // ===== Angle Variations UI (D–I) =====
+
+  // D) onGenerateAngles — click handler for #generateAnglesBtn
+  async function onGenerateAngles() {
+    if (batchRunning) return;
+    const baseText = stage3PromptEl.value.trim();
+    if (!baseText) {
+      variationsStatusEl.style.color = "var(--error)";
+      variationsStatusEl.textContent = "Run Stage 2 first to get a base ad prompt above.";
+      return;
+    }
+    if (!lastStage1Output) {
+      variationsStatusEl.style.color = "var(--error)";
+      variationsStatusEl.textContent = "Run Stage 1 first — brand JSON is required for on-brand angles.";
+      return;
+    }
+    let baseObj;
+    try {
+      baseObj = parseJsonLoose(baseText);
+    } catch (e) {
+      variationsStatusEl.style.color = "var(--error)";
+      variationsStatusEl.textContent = "Base prompt isn't valid JSON — run Stage 2 again.";
+      return;
+    }
+    variationBaseObj = baseObj;
+    const baseCopy = baseObj.copy || {};
+    const n = parseInt(variationCountEl.value, 10) || 5;
+
+    generateAnglesBtn.disabled = true;
+    generateAnglesBtn.textContent = "Generating…";
+    variationsStatusEl.style.color = "var(--muted)";
+    variationsStatusEl.textContent = "Generating " + n + " angles…";
+    variationCardsEl.innerHTML = "";
+    variationResultsEl.innerHTML = "";
+
+    try {
+      const variants = await generateAngles(baseCopy, lastStage1Output, n);
+      renderVariationCards(variants);
+      variationsStatusEl.style.color = "var(--muted)";
+      variationsStatusEl.textContent = "✓ " + variants.length + " angles ready — edit headlines if you like, pick the ones to render, then Generate selected.";
+    } catch (err) {
+      variationsStatusEl.style.color = "var(--error)";
+      variationsStatusEl.textContent = "Couldn't generate angles: " + err.message;
+    } finally {
+      generateAnglesBtn.disabled = false;
+      generateAnglesBtn.textContent = "Generate angle variations";
+    }
+  }
+
+  // E) renderVariationCards(variants)
+  function renderVariationCards(variants) {
+    currentVariants = variants;
+    variationCardsEl.innerHTML = "";
+
+    // Header row: select-all + count
+    const headerRow = document.createElement("div");
+    headerRow.style.cssText = "display:flex; align-items:center; gap:8px; margin-bottom:4px;";
+    const selectAllCb = document.createElement("input");
+    selectAllCb.type = "checkbox";
+    selectAllCb.id = "variationSelectAll";
+    selectAllCb.checked = true;
+    selectAllCb.style.cssText = "width:auto; margin:0;";
+    const selectAllLabel = document.createElement("label");
+    selectAllLabel.htmlFor = "variationSelectAll";
+    selectAllLabel.style.cssText = "margin:0; color:var(--muted); font-size:13px; cursor:pointer;";
+    selectAllLabel.textContent = "Select all";
+    headerRow.appendChild(selectAllCb);
+    headerRow.appendChild(selectAllLabel);
+    variationCardsEl.appendChild(headerRow);
+
+    // Grid
+    const grid = document.createElement("div");
+    grid.className = "vgrid";
+
+    variants.forEach(function (variant, i) {
+      const card = document.createElement("div");
+      card.className = "vcard";
+      card.dataset.idx = String(i);
+
+      const angleLabel = document.createElement("span");
+      angleLabel.className = "angle-label";
+      angleLabel.textContent = variant.angle;
+
+      const cbLabel = document.createElement("label");
+      cbLabel.style.cssText = "display:flex; align-items:center; gap:6px; margin:0 0 8px; cursor:pointer;";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.className = "variation-check";
+      cb.checked = true;
+      cb.style.cssText = "width:auto; margin:0;";
+      cb.addEventListener("change", updateSelectedCount);
+      const cbText = document.createTextNode("Include");
+      cbLabel.appendChild(cb);
+      cbLabel.appendChild(cbText);
+
+      const headlineLabel = document.createElement("label");
+      headlineLabel.textContent = "Headline";
+      const headlineInput = document.createElement("input");
+      headlineInput.type = "text";
+      headlineInput.className = "variation-headline";
+      headlineInput.value = variant.headline;
+
+      card.appendChild(angleLabel);
+      card.appendChild(cbLabel);
+      card.appendChild(headlineLabel);
+      card.appendChild(headlineInput);
+
+      if (typeof variant.subheadline === "string" && variant.subheadline.trim() !== "") {
+        const subLabel = document.createElement("label");
+        subLabel.textContent = "Subheadline";
+        const subInput = document.createElement("input");
+        subInput.type = "text";
+        subInput.className = "variation-subheadline";
+        subInput.value = variant.subheadline;
+        card.appendChild(subLabel);
+        card.appendChild(subInput);
+      }
+
+      grid.appendChild(card);
+    });
+
+    variationCardsEl.appendChild(grid);
+
+    // Generate selected button
+    const genSelBtn = document.createElement("button");
+    genSelBtn.type = "button";
+    genSelBtn.id = "generateSelectedBtn";
+    genSelBtn.style.cssText = "width:auto; margin-top:16px;";
+    variationCardsEl.appendChild(genSelBtn);
+
+    // Wire select-all
+    selectAllCb.addEventListener("change", function () {
+      variationCardsEl.querySelectorAll(".variation-check").forEach(function (c) {
+        c.checked = selectAllCb.checked;
+      });
+      updateSelectedCount();
+    });
+
+    // Wire generate-selected
+    genSelBtn.addEventListener("click", function () {
+      const selected = collectSelected();
+      batchGenerate(selected).catch(function (err) {
+        variationsStatusEl.style.color = "var(--error)";
+        variationsStatusEl.textContent = "Unexpected error: " + err.message;
+      });
+    });
+
+    updateSelectedCount();
+  }
+
+  // Helper: update the "Generate selected (N)" button label
+  function updateSelectedCount() {
+    const genSelBtn = document.getElementById("generateSelectedBtn");
+    if (!genSelBtn) return;
+    const checked = variationCardsEl.querySelectorAll(".variation-check:checked").length;
+    genSelBtn.textContent = "Generate selected (" + checked + ")";
+  }
+
+  // F) collectSelected — walk cards, build variation objects with edited values
+  function collectSelected() {
+    const cards = variationCardsEl.querySelectorAll(".vcard");
+    const selected = [];
+    cards.forEach(function (card) {
+      const cb = card.querySelector(".variation-check");
+      if (!cb || !cb.checked) return;
+      const idx = parseInt(card.dataset.idx, 10);
+      const original = currentVariants[idx] || {};
+      const headlineInput = card.querySelector(".variation-headline");
+      const subInput = card.querySelector(".variation-subheadline");
+      const variation = {
+        angle: original.angle,
+        headline: headlineInput ? headlineInput.value : original.headline,
+        visual_note: original.visual_note,
+        _originalIdx: idx,
+      };
+      if (subInput) {
+        variation.subheadline = subInput.value;
+      } else if (typeof original.subheadline === "string") {
+        variation.subheadline = original.subheadline;
+      }
+      selected.push(variation);
+    });
+    return selected;
+  }
+
+  // H) renderResultsGrid + setTileStatus
+  let resultTiles = [];
+
+  function renderResultsGrid(selected) {
+    variationResultsEl.innerHTML = "";
+    resultTiles = [];
+
+    const heading = document.createElement("p");
+    heading.style.cssText = "font-size:13px; color:var(--muted); margin:0 0 4px;";
+    heading.textContent = "Results";
+    variationResultsEl.appendChild(heading);
+
+    const grid = document.createElement("div");
+    grid.className = "vgrid";
+
+    selected.forEach(function (variant) {
+      const tile = document.createElement("div");
+      tile.className = "vcard";
+
+      const label = document.createElement("span");
+      label.className = "angle-label";
+      label.textContent = variant.angle;
+
+      const statusEl = document.createElement("div");
+      statusEl.className = "vstatus queued";
+      statusEl.textContent = "queued";
+
+      const imgSlot = document.createElement("div");
+      imgSlot.style.cssText = "margin-top:8px;";
+
+      const metaEl = document.createElement("div");
+      metaEl.style.cssText = "font-size:11px; color:var(--muted); margin-top:4px;";
+
+      tile.appendChild(label);
+      tile.appendChild(statusEl);
+      tile.appendChild(imgSlot);
+      tile.appendChild(metaEl);
+      grid.appendChild(tile);
+
+      resultTiles.push({ statusEl, imgSlot, metaEl });
+    });
+
+    variationResultsEl.appendChild(grid);
+  }
+
+  function setTileStatus(i, state, msg) {
+    const tile = resultTiles[i];
+    if (!tile) return;
+    tile.statusEl.className = "vstatus " + state;
+    tile.statusEl.textContent = msg || state;
+  }
+
+  // G) batchGenerate(selected) — concurrency pool, max 3 in flight
+  async function batchGenerate(selected) {
+    if (selected.length === 0) {
+      variationsStatusEl.style.color = "var(--muted)";
+      variationsStatusEl.textContent = "Select at least one variation to generate.";
+      return;
+    }
+    if (!refImage3DataUrl) {
+      variationsStatusEl.style.color = "var(--error)";
+      variationsStatusEl.textContent = "Upload a reference ad image in Stage 3 above.";
+      return;
+    }
+    if (!logoImage3DataUrl) {
+      variationsStatusEl.style.color = "var(--error)";
+      variationsStatusEl.textContent = "Upload a brand logo in Stage 3 above.";
+      return;
+    }
+
+    renderResultsGrid(selected);
+
+    const genSelBtn = document.getElementById("generateSelectedBtn");
+    if (genSelBtn) genSelBtn.disabled = true;
+    generateAnglesBtn.disabled = true;
+    batchRunning = true;
+    variationsStatusEl.style.color = "var(--muted)";
+    variationsStatusEl.textContent = "Generating " + selected.length + " variations…";
+
+    async function processOne(variant, i) {
+      try {
+        setTileStatus(i, "generating", "generating…");
+        const promptText = buildVariantPrompt(variationBaseObj, variant);
+        const result = await runKieGeneration(promptText, function (msg) {
+          setTileStatus(i, "generating", msg);
+        });
+        const tile = resultTiles[i];
+        if (result.ok) {
+          const url = result.urls[0];
+          setTileStatus(i, "done", "done");
+          if (tile) {
+            tile.imgSlot.innerHTML =
+              '<a href="' + url + '" target="_blank" rel="noopener">' +
+              '<img src="' + url + '" alt="variation" style="max-width:100%;border:1px solid var(--border);border-radius:8px;" /></a>' +
+              '<div style="margin-top:4px;font-size:11px;color:var(--muted);"><a href="' + url + '" target="_blank" rel="noopener">Open image</a></div>';
+          }
+          // Non-fatal save to /library/ads — prefix angle into prompt
+          try {
+            const anglePrompt = "[Angle: " + variant.angle + "]\n" + promptText;
+            const saveRes = await Auth.authedFetch("/library/ads", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                imageUrl: url,
+                brandId: currentBrandId,
+                websiteUrl: websiteUrlEl.value.trim(),
+                prompt: anglePrompt,
+                aspectRatio: aspectRatioEl.value,
+                resolution: resolutionEl.value,
+              }),
+            });
+            if (tile) {
+              tile.metaEl.textContent = saveRes.ok ? "saved ✓" : "save failed";
+            }
+          } catch (e) {
+            if (tile) tile.metaEl.textContent = "save failed";
+          }
+        } else {
+          setTileStatus(i, "failed", "failed: " + (result.error || "unknown error"));
+        }
+      } catch (err) {
+        setTileStatus(i, "failed", "failed: " + err.message);
+        throw err; // keep the pool's .catch accounting working
+      }
+    }
+
+    const queue = selected.map(function (v, i) { return { v, i }; });
+    let active = 0;
+    await new Promise(function (resolve) {
+      var pump = function () {
+        if (queue.length === 0 && active === 0) return resolve();
+        while (active < 3 && queue.length > 0) {
+          const { v, i } = queue.shift();
+          active++;
+          processOne(v, i)
+            .catch(function () {})
+            .finally(function () { active--; pump(); });
+        }
+      };
+      pump();
+    });
+
+    // Count from tiles for the summary
+    let succeeded = 0;
+    let failed = 0;
+    resultTiles.forEach(function (tile) {
+      if (tile.statusEl.className.includes("done")) succeeded++;
+      else if (tile.statusEl.className.includes("failed")) failed++;
+    });
+
+    batchRunning = false;
+    generateAnglesBtn.disabled = false;
+    if (genSelBtn) genSelBtn.disabled = false;
+    variationsStatusEl.style.color = "var(--muted)";
+    variationsStatusEl.textContent = "Done — " + succeeded + " succeeded, " + failed + " failed.";
+  }
+
+  // I) Wire the generateAnglesBtn listener
+  generateAnglesBtn.addEventListener("click", onGenerateAngles);
 
   // ===== Brands: list / switch / save =====
   const brandSwitcherEl = document.getElementById("brandSwitcher");
