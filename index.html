@@ -935,6 +935,9 @@ Extract the following from the reference image:
 
 Describe the reference as a reusable layout template.
 
+CRITICAL — content INSIDE a device/screen is part of the product visual, NOT an ad text block:
+Any text, cards, labels, names, roles, numbers, badges, chat bubbles, list rows, or UI shown INSIDE a phone, laptop, browser window, app screen, or product screenshot belongs to the PRODUCT VISUAL. It is ONE element (the product), not separate ad text blocks. Do NOT count it as text blocks, do NOT lift it out onto the ad canvas, and do NOT recreate it as standalone ad copy, labels, badges, stakeholder cards, testimonials, or proof elements. Only count and reproduce text that sits directly on the ad BACKGROUND, OUTSIDE any device frame (typically: the headline, an optional subheadline, an optional on-background proof line, and the CTA). When unsure whether a piece of text is on the ad or on the product screen, treat it as on the product screen.
+
 Do not include the original brand name, original copy, original logo, or original claims in the final ad prompt unless they also belong to the target brand.
 
 Step 2: Analyze the target brand
@@ -982,9 +985,10 @@ Then, for each text block, write the target-brand equivalent that:
 - Stays understandable in one second
 
 Match the reference's text structure exactly:
-- Same number of text blocks
+- Same number of text blocks (EXCLUDING anything inside a device/app screen — that is the product visual, not a text block)
 - Same blocks present (if the reference has no subheadline, do not add one; if it has no CTA, do not add one)
 - Same block in the same position
+- Do NOT add a stakeholder card, testimonial, customer name, badge, proof line, or any other text block that the reference does not show ON ITS BACKGROUND — even if you have a real, supported brand fact for it. A real fact does not earn a new element. If the reference's ad background has no such block, neither does the recreation.
 
 Only pull product names, feature names, metrics, and proof from BRAND_EXTRACTION_JSON or provided research — never from the reference brand and never invented.
 
@@ -1280,7 +1284,7 @@ Before returning the JSON, check:
 Return only valid JSON.`;
 
   // Bump when STAGE2_PROMPT changes materially, to refresh any stale prompt saved in localStorage.
-  const STAGE2_PROMPT_VERSION = "3";
+  const STAGE2_PROMPT_VERSION = "4";
 
   // Two breakdown modes, prepended to the Stage 2 prompt at send time. "exact" mirrors the
   // reference layout; "vibe" keeps the structure/feel but adapts freely. Both still obey the
