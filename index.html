@@ -2336,8 +2336,6 @@ Return only valid JSON.`;
       });
     }
 
-    const jsonStr = JSON.stringify(clone, null, 2);
-
     let directive = `VARIATION DIRECTIVE: headline=${JSON.stringify(variation.headline)};`;
     if (subheadlineApplied) {
       directive += ` subheadline=${JSON.stringify(variation.subheadline)};`;
@@ -2350,20 +2348,10 @@ Return only valid JSON.`;
     }
     directive += " Keep everything else identical.";
 
-    // Re-assert product-asset fidelity for the renderer. The same product/UI
-    // images are attached to every variation's KIE call (runKieGeneration sends
-    // productAssetDataUrls), but the base ad_prompt JSON can be stale relative to
-    // the current selection — so spell it out here, mirroring the Stage 2
-    // PRODUCT_ASSETS directive, instead of relying on the base JSON's
-    // product_visual_direction.
-    if (productAssetDataUrls.length) {
-      directive +=
-        " " + productAssetDataUrls.length + " real product/UI asset image(s) are attached as additional inputs AFTER the reference ad and logo — these ARE the product visual. " +
-        "Reproduce them faithfully in the ad's product slot; do NOT redraw, relabel, recolor, crop, blur, or invent any UI, text, charts, or data inside them. " +
-        "This overrides any visual tweak above: any tweak applies ONLY to decorative/mascot/background elements, never to the product asset(s).";
-    }
-
-    return jsonStr + "\n\n" + directive;
+    // Product-asset fidelity: rewrite the ad_prompt's product fields to point at
+    // the attached screenshot AND prepend the lead directive, so the JSON body
+    // can't contradict the instruction. The VARIATION DIRECTIVE rides at the end.
+    return withProductFidelity(clone, productAssetDataUrls.length, directive);
   }
 
   // Core generate+poll logic, reusable by single-image flow and future batch flow.
