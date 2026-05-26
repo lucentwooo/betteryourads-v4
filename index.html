@@ -1284,7 +1284,7 @@ Before returning the JSON, check:
 Return only valid JSON.`;
 
   // Bump when STAGE2_PROMPT changes materially, to refresh any stale prompt saved in localStorage.
-  const STAGE2_PROMPT_VERSION = "4";
+  const STAGE2_PROMPT_VERSION = "5";
 
   // Two breakdown modes, prepended to the Stage 2 prompt at send time. "exact" mirrors the
   // reference layout; "vibe" keeps the structure/feel but adapts freely. Both still obey the
@@ -1759,8 +1759,9 @@ Return only valid JSON.`;
         productAssets.length + " real product/UI asset image(s) are attached as additional inputs AFTER the reference ad. " +
         "These ARE the product visual — they must be used in the ad's product slot, and the same files are passed to the image renderer. " +
         "Describe ONLY their placement and treatment (size, position, device framing) to match how the reference ad depicts its product — do NOT transcribe, summarize, or invent any UI text, labels, charts, numbers, or screen contents. " +
-        "This OVERRIDES any instruction to represent the product abstractly: do not produce an abstract/iconic stand-in. " +
-        "The generated ad_prompt's product_visual_direction MUST instruct the renderer to reproduce the attached product asset(s) faithfully and place them in the product slot, and its negative_prompt MUST forbid altering, relabeling, redrawing, recoloring, cropping, blurring, or inventing any UI, text, charts, or data inside the attached product asset(s).";
+        "This OVERRIDES any instruction to represent the product abstractly: do not produce an abstract/iconic stand-in, and do NOT invent any product interface (no microphones, waveforms, chat bubbles, dashboards, or fake screens). " +
+        "In the generated ad_prompt you MUST write the literal phrase \"the attached product screenshot\" into product_visual_direction.source_asset_to_use and product_visual_direction.what_it_should_show, and set the product element's content.source_asset_to_use to \"ATTACHED_PRODUCT_IMAGE\" — never describe an imagined product UI in those fields. " +
+        "The negative_prompt MUST forbid altering, relabeling, redrawing, recoloring, cropping, blurring, or inventing any UI, text, charts, or data inside the attached product asset(s), and MUST forbid copying any UI or screen contents from the reference ad's own device.";
     }
 
     const msgContent = [
