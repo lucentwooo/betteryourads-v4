@@ -1433,6 +1433,57 @@ Return only valid JSON.`;
     stage2ResultEl.textContent = text;
     stage2ResultEl.className = "result" + (kind ? " " + kind : "");
   }
+
+  // Restore the reference ad, logo, and Stage 2 breakdown saved from a previous
+  // session, so reusing the same reference ad doesn't mean re-running Stage 2 after
+  // every refresh. (File inputs can't be pre-filled by the browser, so we restore
+  // the preview + the in-memory data URL the pipeline actually uses.)
+  (function restoreSavedSession() {
+    const previewHtml = (src, label) =>
+      '<img src="' + src + '" alt="' + label + '" style="max-width:200px; max-height:200px; border:1px solid var(--border); border-radius:8px;" />' +
+      '<div class="hint">Restored from last session — re-upload to change.</div>';
+
+    const ref = localStorage.getItem("or_ref_image");
+    const ref3 = localStorage.getItem("or_ref_image3");
+    const logo = localStorage.getItem("or_logo_image");
+
+    if (ref) {
+      refImageDataUrl = ref;
+      refPreviewEl.innerHTML = previewHtml(ref, "reference ad");
+    }
+    if (ref3) {
+      refImage3DataUrl = ref3;
+      refImage3UserSet = true;
+      refPreview3El.innerHTML = previewHtml(ref3, "reference ad");
+    } else if (ref) {
+      // Common case: Stage 3 reused the Stage 2 reference, so only or_ref_image exists.
+      refImage3DataUrl = ref;
+      refPreview3El.innerHTML = previewHtml(ref, "reference ad");
+    }
+    if (logo) {
+      logoImage3DataUrl = logo;
+      logoPreview3El.innerHTML = previewHtml(logo, "brand logo");
+    }
+
+    const savedStage2 = localStorage.getItem("or_stage2_result");
+    if (savedStage2) setStage2(savedStage2);
+    const savedStage3 = localStorage.getItem("or_stage3_prompt");
+    if (savedStage3) {
+      stage3PromptEl.value = savedStage3;
+      const ar = localStorage.getItem("or_aspect");
+      if (ar) aspectRatioEl.value = ar;
+      stage2OutStatusEl.style.color = "var(--accent)";
+      stage2OutStatusEl.textContent = "✓ Restored your last Stage 2 breakdown — generate now, or run Stage 2 again to refresh it.";
+    }
+  })();
+
+  // Keep manual edits to the breakdown (and aspect ratio) persisted across refreshes.
+  stage3PromptEl.addEventListener("input", () => {
+    try { localStorage.setItem("or_stage3_prompt", stage3PromptEl.value); } catch (e) {}
+  });
+  aspectRatioEl.addEventListener("change", () => {
+    try { localStorage.setItem("or_aspect", aspectRatioEl.value); } catch (e) {}
+  });
   // Pull JSON out of a model reply that may be wrapped in ```json ... ``` fences.
   function stripFences(s) {
     const m = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -1673,10 +1724,11 @@ Return only valid JSON.`;
   // ===== Stage 2: reference ad image -> on-brand ad prompt =====
   refImageEl.addEventListener("change", () => {
     const f = refImageEl.files && refImageEl.files[0];
-    if (!f) { refImageDataUrl = null; refPreviewEl.innerHTML = ""; return; }
+    if (!f) { refImageDataUrl = null; refPreviewEl.innerHTML = ""; persistImage("or_ref_image", null); return; }
     const reader = new FileReader();
     reader.onload = () => {
       refImageDataUrl = reader.result; // data:image/...;base64,...
+      persistImage("or_ref_image", refImageDataUrl);
       refPreviewEl.innerHTML =
         '<img src="' + refImageDataUrl + '" alt="reference ad" ' +
         'style="max-width:200px; max-height:200px; border:1px solid var(--border); border-radius:8px;" />';
@@ -1915,6 +1967,12 @@ Return only valid JSON.`;
       stage2OutStatusEl.style.color = "var(--muted)";
       stage2OutStatusEl.textContent = "Loaded the Stage 2 output as the image prompt (no ad_prompt field found) — review it below.";
     }
+    // Persist the breakdown so it survives a refresh — run Stage 2 once, reuse it.
+    try {
+      localStorage.setItem("or_stage2_result", stage2Content);
+      localStorage.setItem("or_stage3_prompt", stage3PromptEl.value);
+      localStorage.setItem("or_aspect", aspectRatioEl.value);
+    } catch (e) {}
   }
 
   // Downscale an image File to a base64 data URL with longest side <= maxDim, to keep
@@ -1946,6 +2004,37 @@ Return only valid JSON.`;
     });
   }
 
+  // Persist an image data URL to localStorage so the reference ad / logo survive a
+  // page refresh. Images are downscaled first to stay well under the ~5MB quota; if
+  // it still doesn't fit, we skip silently rather than throw.
+  function shrinkDataUrl(dataUrl, maxDim) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = function () {
+        try {
+          const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+          if (scale >= 1) { resolve(dataUrl); return; }
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const c = document.createElement("canvas");
+          c.width = w; c.height = h;
+          c.getContext("2d").drawImage(img, 0, 0, w, h);
+          resolve(c.toDataURL("image/png"));
+        } catch (e) { resolve(dataUrl); }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
+  function persistImage(key, dataUrl) {
+    if (!dataUrl) { try { localStorage.removeItem(key); } catch (e) {} return; }
+    shrinkDataUrl(dataUrl, 1400).then((small) => {
+      try { localStorage.setItem(key, small); }
+      catch (e) { try { localStorage.removeItem(key); } catch (_) {} }
+    });
+  }
+
   function readImageFile(input, assign, previewEl, label) {
     const f = input.files && input.files[0];
     if (!f) { assign(null); previewEl.innerHTML = ""; return; }
@@ -1960,9 +2049,9 @@ Return only valid JSON.`;
   }
   refImage3El.addEventListener("change", () => {
     refImage3UserSet = !!(refImage3El.files && refImage3El.files[0]);
-    readImageFile(refImage3El, (u) => { refImage3DataUrl = u; }, refPreview3El, "reference ad");
+    readImageFile(refImage3El, (u) => { refImage3DataUrl = u; persistImage("or_ref_image3", u); }, refPreview3El, "reference ad");
   });
-  logoImage3El.addEventListener("change", () => readImageFile(logoImage3El, (u) => { logoImage3DataUrl = u; }, logoPreview3El, "brand logo"));
+  logoImage3El.addEventListener("change", () => readImageFile(logoImage3El, (u) => { logoImage3DataUrl = u; persistImage("or_logo_image", u); }, logoPreview3El, "brand logo"));
 
   // ===== Product / UI assets (saved per brand) =====
 
@@ -2092,7 +2181,7 @@ Return only valid JSON.`;
   // baseCopy: the copy object from the current base ad_prompt (e.g. { headline, subheadline? }).
   // brandJson: the brand-extraction JSON string (pass lastStage1Output).
   // n: number of angles requested (3–8).
-  // Returns an array of variation objects: { angle, headline, subheadline?, visual_note }.
+  // Returns an array of variation objects: { angle, headline, subheadline?, color_treatment }.
   async function generateAngles(baseCopy, brandJson, n) {
     if (!n || n < 1) throw new Error("generateAngles: n must be >= 1");
     const hasSubheadline = baseCopy && typeof baseCopy.subheadline === "string" && baseCopy.subheadline.trim() !== "";
@@ -2110,11 +2199,17 @@ Return only valid JSON.`;
       `BRAND FACTS (authoritative — use ONLY brand-supported claims; invent NO numbers, features, testimonials, guarantees, or statistics not present here):\n${brandJson}\n\n` +
       `ANGLE TYPES TO USE (one per item, in this order, repeat only if n exceeds the list): ${angleHints}\n` +
       `Angle types reference: pain=addresses a frustration, outcome=highlights a desirable result, promise=makes a specific commitment, proof=social/data evidence (only if brand facts support it), objection=preempts a doubt, status=appeals to identity/aspiration, urgency=time or scarcity motivation.\n\n` +
+      `COLOR VARIATION RULES (the ONLY visual change allowed — everything else stays identical):\n` +
+      `- Each item picks a "color_treatment": which brand color is the background and which is the text/headline.\n` +
+      `- Use ONLY colors that actually appear in the brand's palette in BRAND FACTS (prefer their hex codes; if none, name the brand color). Never introduce a color that is not in the brand palette.\n` +
+      `- The background and text colors MUST have strong, legible contrast. Never put a color on a near-identical color (e.g. NOT green text on a green background).\n` +
+      `- Vary the treatment across the items by swapping which palette color is background vs text — e.g. one item "green background / white text", another "white background / green text". Keep it sensible and on-brand.\n` +
+      `- This recolors ONLY the ad's background and text. It must NOT recolor, redraw, or restyle the product UI / screenshot, the logo, the layout, or the fonts.\n\n` +
       `OUTPUT CONTRACT — return ONLY a JSON object, no prose, no markdown fences:\n` +
       `{ "variations": [\n` +
       `  { "angle": "<type-label>", "headline": "<new headline>", ` +
       (hasSubheadline ? '"subheadline": "<new subheadline>", ' : '') +
-      `"visual_note": "<at most a small mascot pose/expression shift that matches the mood; keep format/brand/layout identical>" }\n` +
+      `"color_treatment": { "background": "<a brand-palette color, hex preferred>", "text": "<a different brand-palette color with strong contrast vs background>" } }\n` +
       `] }\n\n` +
       `${subheadlineInstruction}\n` +
       `Produce exactly ${n} items in the "variations" array. No extra keys. No prose outside the JSON object.`;
@@ -2143,8 +2238,8 @@ Return only valid JSON.`;
 
   // Build the full KIE prompt string for a single angle variation.
   // baseAdPromptObj: the base ad_prompt as a plain JS object.
-  // variation: one item from generateAngles() — { angle, headline, subheadline?, visual_note }.
-  // Returns a string: updated JSON (with swapped copy) + a belt-and-suspenders VARIATION DIRECTIVE.
+  // variation: one item from generateAngles() — { angle, headline, subheadline?, color_treatment? }.
+  // Returns a string: updated JSON (with swapped copy + recolor) + a belt-and-suspenders VARIATION DIRECTIVE.
   function buildVariantPrompt(baseAdPromptObj, variation) {
     const clone = JSON.parse(JSON.stringify(baseAdPromptObj));
     clone.copy = clone.copy || {};
@@ -2162,16 +2257,54 @@ Return only valid JSON.`;
       subheadlineApplied = true;
     }
 
+    // Apply the brand-palette color swap (the only visual change per variation).
+    // Overwrite the concrete color fields in the cloned ad_prompt AND reinforce it
+    // with a trailing directive, so the renderer can't fall back to the base colors.
+    const ct = variation.color_treatment;
+    const bg = ct && typeof ct.background === "string" ? ct.background.trim() : "";
+    const tx = ct && typeof ct.text === "string" ? ct.text.trim() : "";
+    const colorApplied = bg !== "" && tx !== "";
+    if (colorApplied) {
+      clone.background = clone.background || {};
+      clone.background.type = "solid";
+      clone.background.treatment = "Solid " + bg + " background.";
+      clone.background.gradient = "";
+      clone.background.color_palette = clone.background.color_palette || {};
+      clone.background.color_palette.primary = [bg];
+      clone.typography = clone.typography || {};
+      ["headline", "subheadline", "proof_line", "cta"].forEach(function (k) {
+        if (clone.typography[k] && typeof clone.typography[k] === "object") {
+          clone.typography[k].color = tx;
+        }
+      });
+    }
+
     const jsonStr = JSON.stringify(clone, null, 2);
 
     let directive = `VARIATION DIRECTIVE: headline=${JSON.stringify(variation.headline)};`;
     if (subheadlineApplied) {
       directive += ` subheadline=${JSON.stringify(variation.subheadline)};`;
     }
-    if (variation.visual_note && typeof variation.visual_note === "string" && variation.visual_note.trim() !== "") {
-      directive += " " + variation.visual_note.trim();
+    if (colorApplied) {
+      directive +=
+        ` COLOR: solid ${bg} background with ${tx} headline, subheadline, and text.` +
+        " Use ONLY these brand-palette colors. Recolor ONLY the ad's background and text —" +
+        " do NOT recolor, redraw, or restyle the product UI / screenshot, the logo, the layout, or the fonts.";
     }
     directive += " Keep everything else identical.";
+
+    // Re-assert product-asset fidelity for the renderer. The same product/UI
+    // images are attached to every variation's KIE call (runKieGeneration sends
+    // productAssetDataUrls), but the base ad_prompt JSON can be stale relative to
+    // the current selection — so spell it out here, mirroring the Stage 2
+    // PRODUCT_ASSETS directive, instead of relying on the base JSON's
+    // product_visual_direction.
+    if (productAssetDataUrls.length) {
+      directive +=
+        " " + productAssetDataUrls.length + " real product/UI asset image(s) are attached as additional inputs AFTER the reference ad and logo — these ARE the product visual. " +
+        "Reproduce them faithfully in the ad's product slot; do NOT redraw, relabel, recolor, crop, blur, or invent any UI, text, charts, or data inside them. " +
+        "This overrides any visual tweak above: any tweak applies ONLY to decorative/mascot/background elements, never to the product asset(s).";
+    }
 
     return jsonStr + "\n\n" + directive;
   }
@@ -2403,6 +2536,27 @@ Return only valid JSON.`;
         card.appendChild(subInput);
       }
 
+      // Read-only caption showing the brand-palette color swap for this variation.
+      const ct = variant.color_treatment;
+      if (ct && ct.background && ct.text) {
+        const colorNote = document.createElement("div");
+        colorNote.style.cssText = "display:flex; align-items:center; gap:6px; margin-top:8px; font-size:11px; color:var(--muted);";
+        const sw = document.createElement("span");
+        sw.style.cssText =
+          "display:inline-block; width:14px; height:14px; border-radius:3px; border:1px solid var(--border);" +
+          "background:" + ct.background + "; flex:none;";
+        const swText = document.createElement("span");
+        swText.style.cssText =
+          "display:inline-block; width:14px; height:14px; border-radius:3px; border:1px solid var(--border);" +
+          "background:" + ct.text + "; flex:none;";
+        const caption = document.createElement("span");
+        caption.textContent = ct.background + " bg / " + ct.text + " text";
+        colorNote.appendChild(sw);
+        colorNote.appendChild(swText);
+        colorNote.appendChild(caption);
+        card.appendChild(colorNote);
+      }
+
       grid.appendChild(card);
     });
 
@@ -2457,7 +2611,7 @@ Return only valid JSON.`;
       const variation = {
         angle: original.angle,
         headline: headlineInput ? headlineInput.value : original.headline,
-        visual_note: original.visual_note,
+        color_treatment: original.color_treatment,
         _originalIdx: idx,
       };
       if (subInput) {
