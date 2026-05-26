@@ -73,4 +73,20 @@ assert.match(w1, /attached/i, "JSON body now references the attachment");
 const w0 = withProductFidelity(fixture(), 0, "");
 assert.ok(!w0.startsWith("IMPORTANT"), "no lead directive when count is 0");
 
+// withProductFidelity — lead/JSON/trailing order when both are present (the batch path)
+const wBoth = withProductFidelity(fixture(), 1, "VARIATION DIRECTIVE: x");
+assert.ok(wBoth.indexOf("IMPORTANT") < wBoth.indexOf("{"), "lead comes before the JSON body");
+assert.ok(wBoth.indexOf("{") < wBoth.lastIndexOf("VARIATION DIRECTIVE"), "JSON body comes before the trailing directive");
+
+// applyProductAssetFidelity — rewrites EVERY non-logo image element, not just one
+const multi = { elements: [
+  { name: "brand_logo", type: "image", content: {} },
+  { name: "product_visual", type: "image", content: { source_asset_to_use: "voice interface mockup" } },
+  { name: "device_frame", type: "image", content: { source_asset_to_use: "another invented screen" } },
+] };
+applyProductAssetFidelity(multi, 1);
+const nonLogo = multi.elements.filter((e) => e.name !== "brand_logo");
+assert.ok(nonLogo.every((e) => /ATTACHED_PRODUCT_IMAGE/.test(e.content.source_asset_to_use)), "all non-logo image elements repointed");
+assert.deepEqual(multi.elements.find((e) => e.name === "brand_logo").content, {}, "logo untouched among multiple image elements");
+
 console.log("OK — product-fidelity helpers pass all checks");
