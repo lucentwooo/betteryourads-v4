@@ -271,7 +271,7 @@ app.post("/kie/generate", requireApprovedUser, async (req, res) => {
   if (!apiKey) return res.status(500).json({ error: "KIE_API_KEY is not set in .env" });
 
   const model = process.env.KIE_IMAGE_MODEL || "gpt-image-2-image-to-image";
-  let { prompt, referenceImage, logoImage, aspect_ratio, resolution } = req.body || {};
+  let { prompt, referenceImage, logoImage, productImages, aspect_ratio, resolution } = req.body || {};
   if (!prompt || !String(prompt).trim()) return res.status(400).json({ error: "prompt is required" });
   if (!referenceImage) return res.status(400).json({ error: "reference image is required" });
   if (!logoImage) return res.status(400).json({ error: "brand logo is required" });
@@ -281,11 +281,15 @@ app.post("/kie/generate", requireApprovedUser, async (req, res) => {
   if (aspect_ratio === "1:1" && resolution === "4K") resolution = "2K"; // KIE forbids this combo
 
   try {
-    // Reference ad first, brand logo second.
+    // Reference ad first, brand logo second, then up to 3 product/UI assets.
     const input_urls = [
       await kieUploadBase64(apiKey, referenceImage, "reference.png"),
       await kieUploadBase64(apiKey, logoImage, "logo.png"),
     ];
+    const products = Array.isArray(productImages) ? productImages.filter(Boolean).slice(0, 3) : [];
+    for (let i = 0; i < products.length; i++) {
+      input_urls.push(await kieUploadBase64(apiKey, products[i], "product" + (i + 1) + ".png"));
+    }
     const r = await fetch("https://api.kie.ai/api/v1/jobs/createTask", {
       method: "POST",
       headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
