@@ -187,6 +187,12 @@
   <input id="logoImage3" type="file" accept="image/*" style="padding:8px;" />
   <div id="logoPreview3" style="margin-top:8px;"></div>
 
+  <label style="margin-top:16px;">Product / UI images (optional)</label>
+  <p class="hint" id="productAssetsHint">The AI places these into the ad's product area and is told to reproduce them faithfully — but generated images are never pixel-perfect, so fine UI text may soften. Up to 3 per generation.</p>
+  <div id="productAssetsList" style="display:flex; flex-wrap:wrap; gap:8px; margin:8px 0;"></div>
+  <input id="productAssetInput" type="file" accept="image/*" style="padding:8px;" />
+  <div id="productAssetStatus" class="hint" style="margin-top:6px;"></div>
+
   <div class="row">
     <div>
       <label for="aspectRatio">Aspect ratio</label>
@@ -1312,6 +1318,9 @@ Return only valid JSON.`;
   const logoImage3El = $("logoImage3");
   const logoPreview3El = $("logoPreview3");
   const aspectRatioEl = $("aspectRatio");
+  const productAssetInputEl = $("productAssetInput");
+  const productAssetsListEl = $("productAssetsList");
+  const productAssetStatusEl = $("productAssetStatus");
   const resolutionEl = $("resolution");
   const stage3PromptEl = $("stage3Prompt");
   const generateImageEl = $("generateImage");
@@ -1333,6 +1342,15 @@ Return only valid JSON.`;
   let refImage3DataUrl = null;  // base64 data URL of the Stage 3 reference ad
   let refImage3UserSet = false; // true once the user explicitly picks a Stage 3 reference (suppresses auto-sync from Stage 2)
   let logoImage3DataUrl = null; // base64 data URL of the Stage 3 brand logo
+
+  // Product/UI assets saved for the current brand. `loadedProductAssets` holds
+  // { id, image_path, label, dataUrl, selected }. `productAssetDataUrls` (computed)
+  // is the base64 list of selected assets sent to generation.
+  let loadedProductAssets = [];
+  let productAssetDataUrls = [];
+  function recomputeSelectedProductAssets() {
+    productAssetDataUrls = loadedProductAssets.filter((a) => a.selected && a.dataUrl).map((a) => a.dataUrl);
+  }
 
   // Load active server config (which models are pinned in .env). No secrets returned.
   fetch("/config").then((r) => r.json()).then((cfg) => {
@@ -1861,6 +1879,35 @@ Return only valid JSON.`;
       stage2OutStatusEl.style.color = "var(--muted)";
       stage2OutStatusEl.textContent = "Loaded the Stage 2 output as the image prompt (no ad_prompt field found) — review it below.";
     }
+  }
+
+  // Downscale an image File to a base64 data URL with longest side <= maxDim, to keep
+  // request bodies small. Falls back to the raw FileReader result on any failure.
+  function downscaleImageFile(file, maxDim) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = function () {
+        const img = new Image();
+        img.onload = function () {
+          try {
+            const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+            const w = Math.max(1, Math.round(img.width * scale));
+            const h = Math.max(1, Math.round(img.height * scale));
+            const canvas = document.createElement("canvas");
+            canvas.width = w; canvas.height = h;
+            canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+            // PNG preserves crisp UI text better than JPEG for screenshots.
+            resolve(canvas.toDataURL("image/png"));
+          } catch (e) {
+            resolve(reader.result); // fall back to original
+          }
+        };
+        img.onerror = () => resolve(reader.result);
+        img.src = reader.result;
+      };
+      reader.onerror = () => reject(new Error("Could not read file"));
+      reader.readAsDataURL(file);
+    });
   }
 
   function readImageFile(input, assign, previewEl, label) {
