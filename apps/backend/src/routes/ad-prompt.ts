@@ -1,22 +1,48 @@
 import { Router } from "express";
 import { runAdPrompt } from "../pipelines/ad-prompt.js";
-import { toHttpError } from "../lib/errors.js";
+import { toHttpError, ValidationError } from "../lib/errors.js";
 import { requireApprovedUser } from "../middleware/require-approved-user.js";
+import { getBrandExtraction, saveAdPrompt, assemblePerformanceMemory } from "../services/supabase.js";
+import { loadConfig } from "../config/index.js";
 
 export const adPromptRouter = Router();
 
 adPromptRouter.post("/ad-prompt", requireApprovedUser, async (req, res) => {
   try {
+    const userId = req.user!.id;
+    const brandExtractionId: string | undefined = req.body?.brandExtractionId;
+
+    let brandExtraction = req.body?.brandExtraction;
+    if (!brandExtraction && brandExtractionId) {
+      brandExtraction = await getBrandExtraction(brandExtractionId);
+      if (!brandExtraction) throw new ValidationError("brandExtractionId not found.");
+    }
+
+    let performanceMemory = req.body?.performanceMemory;
+    if (performanceMemory === undefined && brandExtractionId) {
+      performanceMemory = await assemblePerformanceMemory({ userId, brandExtractionId });
+    }
+
     const adPrompt = await runAdPrompt({
-      brandExtraction: req.body?.brandExtraction,
+      brandExtraction,
       referenceAdImage: req.body?.referenceAdImage,
       logoImage: req.body?.logoImage,
       productAsset: req.body?.productAsset,
       customerResearch: req.body?.customerResearch,
-      performanceMemory: req.body?.performanceMemory,
+      performanceMemory,
       userDirection: req.body?.userDirection,
     });
-    res.json({ adPrompt });
+
+    const variant: "no_asset" | "w_asset" = req.body?.productAsset ? "w_asset" : "no_asset";
+    const { id } = await saveAdPrompt({
+      userId,
+      brandExtractionId: brandExtractionId ?? null,
+      variant,
+      adPrompt,
+      userDirection: req.body?.userDirection,
+      model: loadConfig().stage2Model,
+    });
+    res.json({ id, adPrompt });
   } catch (err) {
     const { status, body } = toHttpError(err);
     res.status(status).json(body);
