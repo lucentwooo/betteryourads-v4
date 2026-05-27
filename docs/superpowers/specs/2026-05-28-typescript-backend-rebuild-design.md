@@ -96,8 +96,7 @@ Four operations, each its own endpoint, each a typed pipeline function callable 
 
  URL + MeasuredSiteData ──▶ [2] BRAND DNA ──▶ BrandExtraction JSON ──▶ Supabase
             (OpenRouter STAGE1, Extract Brand DNA v3, :online ALWAYS on)
-            (11 sections + source_map; run as 3 PARALLEL AGENTS, each
-             emitting a disjoint slice of the JSON, merged by the pipeline)
+            (11 sections + source_map)
 
  BrandExtraction + ReferenceAd + Logo + [ProductAsset?]
    + [customerResearch?] [performanceMemory?] [userDirection?] ──▶ [3] AD PROMPT ──▶ AdPrompt JSON ──▶ Supabase
@@ -116,13 +115,13 @@ configuration grows.
 
 ### Endpoints (all under `/api`, all server-side secret-keeping)
 
-| Method/Path | Request | Response |
-|---|---|---|
-| `POST /api/extract` | `{ url }` | `MeasuredSiteData` |
-| `POST /api/brand` | `{ url, measuredSiteData }` | `{ id, brandExtraction }` |
-| `POST /api/ad-prompt` | `{ brandExtractionId \| brandExtraction, referenceAdImage, logoImage, productAsset?, customerResearch?, performanceMemory?, userDirection? }` | `{ id, adPrompt }` |
-| `POST /api/render` | `{ adPromptId \| adPrompt, referenceAdImage, logoImage, productAsset? }` | `{ id, imageUrl }` |
-| `GET /api/config` | — | active models / which keys are set (non-secret) |
+| Method/Path           | Request                                                                                                                                       | Response                                        |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `POST /api/extract`   | `{ url }`                                                                                                                                     | `MeasuredSiteData`                              |
+| `POST /api/brand`     | `{ url, measuredSiteData }`                                                                                                                   | `{ id, brandExtraction }`                       |
+| `POST /api/ad-prompt` | `{ brandExtractionId \| brandExtraction, referenceAdImage, logoImage, productAsset?, customerResearch?, performanceMemory?, userDirection? }` | `{ id, adPrompt }`                              |
+| `POST /api/render`    | `{ adPromptId \| adPrompt, referenceAdImage, logoImage, productAsset? }`                                                                      | `{ id, imageUrl }`                              |
+| `GET /api/config`     | —                                                                                                                                             | active models / which keys are set (non-secret) |
 
 - **Stage-1 web search (`:online`) is ALWAYS on** — it is not a client flag or option.
   The Brand DNA pipeline always appends OpenRouter's `:online` plugin; there is no way to
@@ -155,13 +154,7 @@ tolerant (new sections optional) so older persisted rows still parse.
 ## Prompt registry
 
 The three `.txt` prompts become typed modules. Each exports its system text + a builder
-that injects the stage's inputs. **Stage 1 runs as three parallel agents:** the registry
-defines three agent groups (disjoint subsets of the 11 sections + `source_map`) and builds a
-per-agent directive instructing each worker to return ONLY its keys; the brand pipeline runs
-them concurrently with `:online` on every agent and merges the slices. This avoids
-truncated/lazy single-shot output on the large schema and mirrors the proven legacy approach;
-because all agents share the same measured-site-data + page-text base prompt, cross-section
-coherence is preserved. `registry.ts` selects the Stage-2 variant from
+that injects the stage's inputs. `registry.ts` selects the Stage-2 variant from
 `hasProductAsset`. The model per stage is **config-driven** (`STAGE1_MODEL`,
 `STAGE2_MODEL`, `KIE_IMAGE_MODEL`, `KIE_IMAGE_RESOLUTION`) — switching models never
 touches code. Source prompts: Extract Brand DNA v3, Image Generator v4 (NO Asset),
@@ -178,13 +171,13 @@ text, aspect/resolution), `brand_assets` (product images), plus storage buckets 
 
 ### Target schema (renamed + extended)
 
-| Existing | Renamed to | Changes |
-|---|---|---|
-| `brands` | `brand_extractions` | add `measured_site_data jsonb`; `analysis` holds versioned BrandExtraction JSON |
-| `ads` | `generated_ads` | add `performance jsonb`; link to new `ad_prompts` |
-| `brand_assets` | (kept) | product assets for w-Asset Stage 2 |
-| `profiles` | (kept) | auth, deferred to frontend phase |
-| — | `ad_prompts` (NEW) | `id, brand_extraction_id fk, variant ('no_asset'\|'w_asset'), ad_prompt_json jsonb, user_direction jsonb, model, created_at` |
+| Existing       | Renamed to          | Changes                                                                                                                      |
+| -------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `brands`       | `brand_extractions` | add `measured_site_data jsonb`; `analysis` holds versioned BrandExtraction JSON                                              |
+| `ads`          | `generated_ads`     | add `performance jsonb`; link to new `ad_prompts`                                                                            |
+| `brand_assets` | (kept)              | product assets for w-Asset Stage 2                                                                                           |
+| `profiles`     | (kept)              | auth, deferred to frontend phase                                                                                             |
+| —              | `ad_prompts` (NEW)  | `id, brand_extraction_id fk, variant ('no_asset'\|'w_asset'), ad_prompt_json jsonb, user_direction jsonb, model, created_at` |
 
 Generated images stay in a Supabase **storage bucket**; the library serves **signed
 URLs**. **Performance memory is derived by query** (no dedicated table). `user_id` stays
@@ -200,9 +193,9 @@ nullable for now (auth lands with the frontend).
    - **Expand:** `create table ad_prompts`; `alter table … add column measured_site_data`,
      `add column performance`.
    - **Rename:** `alter table brands rename to brand_extractions`, `ads rename to
-     generated_ads`. Postgres preserves data, FKs, indexes, and RLS policies across a
+generated_ads`. Postgres preserves data, FKs, indexes, and RLS policies across a
      rename; update policy/object **names** for clarity in a follow-up.
-   - **Backfill:** existing `brands.analysis` already *is* brand JSON (stamp
+   - **Backfill:** existing `brands.analysis` already _is_ brand JSON (stamp
      `schema_version`); old `generated_ads` rows get `performance = null` and no linked
      `ad_prompt` (their old `prompt` text predates the structured Stage-2 output and is
      retained as-is).
@@ -281,17 +274,8 @@ shapedness is the only thing in scope now:
 - **Persistence can group a batch later** via an optional `batch_id` on `generated_ads`
   (and/or `ad_prompts`); not added now, but the schema/migrations leave room for it.
 
-**The real concern batch introduces is async job handling, not orchestration logic.** A
-batch is N slow, expensive calls (N × Stage-2 LLM + N × KIE render), so it can't run
-synchronously in one HTTP request. When built, the batch endpoint should kick off work,
-return a `batch_id`, process in the background, and let the client **poll for progress**
-(the same poll pattern KIE already forces at render). An MVP can process items
-sequentially in the background and update per-item status; a real worker/queue is only
-warranted if volume demands. This is a job/queue concern — still **not** a generic
-workflow-orchestrator engine (Approach B stays rejected).
-
-No orchestrator, concept agent, batch composer, or batch endpoint is built in this phase.
-This section exists so the contracts and schema don't get designed in a way that blocks it.
+No orchestrator, concept agent, or batch endpoint is built in this phase. This section
+exists so the contracts and schema don't get designed in a way that blocks it.
 
 ## Out of scope (this phase)
 
