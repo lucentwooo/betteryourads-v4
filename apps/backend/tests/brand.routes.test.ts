@@ -10,7 +10,7 @@ vi.mock("../src/services/supabase.js", () => ({
 
 import { runBrand } from "../src/pipelines/brand.js";
 import { getUserFromToken, isApproved, saveBrandExtraction } from "../src/services/supabase.js";
-import { ValidationError, OpenRouterError } from "../src/lib/errors.js";
+import { ValidationError, OpenRouterError, PersistenceError } from "../src/lib/errors.js";
 import { createServer } from "../src/server.js";
 
 const app = createServer();
@@ -43,7 +43,11 @@ describe("POST /api/brand", () => {
     expect(res.body.id).toBe("b1");
     expect(res.body.brandExtraction.brand_identity.brand_name).toBe("Acme");
     expect(saveBrandExtraction).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: "u1", url: "https://acme.com" }),
+      expect.objectContaining({
+        userId: "u1",
+        url: "https://acme.com",
+        brandExtraction: { brand_identity: { brand_name: "Acme" }, schema_version: 1 },
+      }),
     );
   });
 
@@ -65,5 +69,17 @@ describe("POST /api/brand", () => {
     expect(res.status).toBe(502);
     expect(res.body.error.code).toBe("OPENROUTER_ERROR");
     expect(res.body.error.stage).toBe("brand");
+  });
+
+  it("maps a PersistenceError from the save to 500", async () => {
+    approve();
+    vi.mocked(runBrand).mockResolvedValue({ brand_identity: { brand_name: "Acme" }, schema_version: 1 });
+    vi.mocked(saveBrandExtraction).mockRejectedValue(new PersistenceError("db down"));
+    const res = await request(app)
+      .post("/api/brand")
+      .set("Authorization", "Bearer ok")
+      .send({ url: "https://acme.com", measuredSiteData: { title: "Acme" } });
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe("PERSISTENCE_ERROR");
   });
 });

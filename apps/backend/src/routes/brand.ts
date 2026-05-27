@@ -9,12 +9,13 @@ export const brandRouter = Router();
 brandRouter.post("/brand", requireApprovedUser, async (req, res) => {
   try {
     const url = req.body?.url ?? "";
-    const brandExtraction = await runBrand({ url, measuredSiteData: req.body?.measuredSiteData });
+    const measuredSiteData = req.body?.measuredSiteData;
+    const brandExtraction = await runBrand({ url, measuredSiteData });
     const { id } = await saveBrandExtraction({
       userId: req.user!.id,
       url,
       brandExtraction,
-      measuredSiteData: req.body?.measuredSiteData,
+      measuredSiteData,
     });
     res.json({ id, brandExtraction });
   } catch (err) {
