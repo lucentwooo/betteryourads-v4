@@ -2,6 +2,7 @@ import express, { type Express } from "express";
 import { extractRouter } from "./routes/extract.js";
 import { configRouter } from "./routes/config.js";
 import { brandRouter } from "./routes/brand.js";
+import { adPromptRouter } from "./routes/ad-prompt.js";
 
 export function createServer(): Express {
   const app = express();
@@ -10,5 +11,6 @@ export function createServer(): Express {
   app.use("/api", extractRouter);
   app.use("/api", configRouter);
   app.use("/api", brandRouter);
+  app.use("/api", adPromptRouter);
   return app;
 }
