@@ -96,7 +96,8 @@ Four operations, each its own endpoint, each a typed pipeline function callable 
 
  URL + MeasuredSiteData ──▶ [2] BRAND DNA ──▶ BrandExtraction JSON ──▶ Supabase
             (OpenRouter STAGE1, Extract Brand DNA v3, :online ALWAYS on)
-            (11 sections + source_map)
+            (11 sections + source_map; run as 3 PARALLEL AGENTS, each
+             emitting a disjoint slice of the JSON, merged by the pipeline)
 
  BrandExtraction + ReferenceAd + Logo + [ProductAsset?]
    + [customerResearch?] [performanceMemory?] [userDirection?] ──▶ [3] AD PROMPT ──▶ AdPrompt JSON ──▶ Supabase
@@ -154,7 +155,13 @@ tolerant (new sections optional) so older persisted rows still parse.
 ## Prompt registry
 
 The three `.txt` prompts become typed modules. Each exports its system text + a builder
-that injects the stage's inputs. `registry.ts` selects the Stage-2 variant from
+that injects the stage's inputs. **Stage 1 runs as three parallel agents:** the registry
+defines three agent groups (disjoint subsets of the 11 sections + `source_map`) and builds a
+per-agent directive instructing each worker to return ONLY its keys; the brand pipeline runs
+them concurrently with `:online` on every agent and merges the slices. This avoids
+truncated/lazy single-shot output on the large schema and mirrors the proven legacy approach;
+because all agents share the same measured-site-data + page-text base prompt, cross-section
+coherence is preserved. `registry.ts` selects the Stage-2 variant from
 `hasProductAsset`. The model per stage is **config-driven** (`STAGE1_MODEL`,
 `STAGE2_MODEL`, `KIE_IMAGE_MODEL`, `KIE_IMAGE_RESOLUTION`) — switching models never
 touches code. Source prompts: Extract Brand DNA v3, Image Generator v4 (NO Asset),
