@@ -19,4 +19,15 @@ describe("loadConfig", () => {
   it("defaults KIE resolution to 1K when unset", () => {
     expect(loadConfig({}).kieResolution).toBe("1K");
   });
+
+  it("exposes the browser-safe Supabase url + anon key, never the service-role key", () => {
+    const cfg = loadConfig({
+      SUPABASE_URL: "https://proj.supabase.co",
+      SUPABASE_ANON_KEY: "anon-123",
+      SUPABASE_SERVICE_ROLE_KEY: "service-secret-456",
+    });
+    expect(cfg.supabaseUrl).toBe("https://proj.supabase.co");
+    expect(cfg.supabaseAnonKey).toBe("anon-123");
+    expect(JSON.stringify(cfg)).not.toContain("service-secret-456");
+  });
 });

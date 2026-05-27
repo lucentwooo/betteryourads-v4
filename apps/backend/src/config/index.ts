@@ -43,6 +43,8 @@ export interface AppConfig {
   openrouterConfigured: boolean;
   kieConfigured: boolean;
   supabaseConfigured: boolean;
+  supabaseUrl: string;
+  supabaseAnonKey: string;
 }
 
 export function loadConfig(env: Env = process.env): AppConfig {
@@ -54,5 +56,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     openrouterConfigured: Boolean(env.OPENROUTER_API_KEY),
     kieConfigured: Boolean(env.KIE_API_KEY),
     supabaseConfigured: Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),
+    supabaseUrl: env.SUPABASE_URL ?? "",
+    supabaseAnonKey: env.SUPABASE_ANON_KEY ?? "",
   };
 }
