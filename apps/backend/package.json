@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "run:extract": "tsx scripts/run-extract.ts",
-    "run:brand": "tsx scripts/run-brand.ts"
+    "run:brand": "tsx scripts/run-brand.ts",
+    "run:ad-prompt": "tsx scripts/run-ad-prompt.ts"
   },
   "dependencies": {
     "@bya/shared": "*",
