@@ -15,7 +15,7 @@ adPromptRouter.post("/ad-prompt", requireApprovedUser, async (req, res) => {
 
     let brandExtraction = req.body?.brandExtraction;
     if (!brandExtraction && brandExtractionId) {
-      brandExtraction = await getBrandExtraction(brandExtractionId);
+      brandExtraction = await getBrandExtraction(brandExtractionId, userId);
       if (!brandExtraction) throw new ValidationError("brandExtractionId not found.");
     }
 

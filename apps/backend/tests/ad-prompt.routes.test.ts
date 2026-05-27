@@ -74,7 +74,7 @@ describe("POST /api/ad-prompt", () => {
       });
     expect(res.status).toBe(200);
     expect(res.body.id).toBe("p2");
-    expect(getBrandExtraction).toHaveBeenCalledWith("b1");
+    expect(getBrandExtraction).toHaveBeenCalledWith("b1", "u1");
     expect(assemblePerformanceMemory).toHaveBeenCalledWith({ userId: "u1", brandExtractionId: "b1" });
     const passedToPipeline = vi.mocked(runAdPrompt).mock.calls[0][0];
     expect(passedToPipeline.performanceMemory).toEqual([{ performance: { ctr: 0.05 }, ad_prompt: {} }]);

@@ -63,7 +63,7 @@ describe("POST /api/render", () => {
       .send({ adPromptId: "p1", referenceAdImage: "data:image/png;base64,REF", logoImage: "data:image/png;base64,LOGO" });
     expect(res.status).toBe(200);
     expect(res.body.id).toBe("a2");
-    expect(getAdPrompt).toHaveBeenCalledWith("p1");
+    expect(getAdPrompt).toHaveBeenCalledWith("p1", "u1");
     expect(vi.mocked(persistRenderedAd).mock.calls[0][0].adPromptId).toBe("p1");
     expect(vi.mocked(runRender).mock.calls[0][0].adPrompt).toEqual({ ad_prompt: { goal: "x", canvas: { aspect_ratio: "9:16" } } });
   });

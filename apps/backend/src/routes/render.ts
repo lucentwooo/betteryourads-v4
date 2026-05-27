@@ -15,7 +15,7 @@ renderRouter.post("/render", requireApprovedUser, async (req, res) => {
     // prompt to look up AND the FK recorded on the row. Callers send one or the other.
     let adPrompt = req.body?.adPrompt;
     if (!adPrompt && adPromptId) {
-      adPrompt = await getAdPrompt(adPromptId);
+      adPrompt = await getAdPrompt(adPromptId, userId);
       if (!adPrompt) throw new ValidationError("adPromptId not found.");
     }
 

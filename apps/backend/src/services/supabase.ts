@@ -68,8 +68,13 @@ export async function saveBrandExtraction(args: {
   return { id: rowId(data) };
 }
 
-export async function getBrandExtraction(id: string): Promise<BrandExtraction | null> {
-  const { data, error } = await admin().from("brand_extractions").select("analysis").eq("id", id).single();
+export async function getBrandExtraction(id: string, userId: string): Promise<BrandExtraction | null> {
+  const { data, error } = await admin()
+    .from("brand_extractions")
+    .select("analysis")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .single();
   if (error || !data) return null;
   const parsed = BrandExtraction.safeParse((data as { analysis: unknown }).analysis);
   return parsed.success ? parsed.data : null;
@@ -99,8 +104,13 @@ export async function saveAdPrompt(args: {
   return { id: rowId(data) };
 }
 
-export async function getAdPrompt(id: string): Promise<AdPrompt | null> {
-  const { data, error } = await admin().from("ad_prompts").select("ad_prompt_json").eq("id", id).single();
+export async function getAdPrompt(id: string, userId: string): Promise<AdPrompt | null> {
+  const { data, error } = await admin()
+    .from("ad_prompts")
+    .select("ad_prompt_json")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .single();
   if (error || !data) return null;
   const parsed = AdPrompt.safeParse((data as { ad_prompt_json: unknown }).ad_prompt_json);
   return parsed.success ? parsed.data : null;

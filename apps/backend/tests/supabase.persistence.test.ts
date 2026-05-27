@@ -72,15 +72,16 @@ describe("saveBrandExtraction", () => {
 describe("getBrandExtraction", () => {
   it("returns the parsed analysis for a row", async () => {
     single.mockResolvedValue({ data: { analysis: { brand_identity: { brand_name: "Acme" } } }, error: null });
-    const be = await getBrandExtraction("b1");
+    const be = await getBrandExtraction("b1", "u1");
     expect(be?.brand_identity).toEqual({ brand_name: "Acme" });
     expect(eq).toHaveBeenCalledWith("id", "b1");
+    expect(eq).toHaveBeenCalledWith("user_id", "u1");
     expect(select).toHaveBeenCalledWith("analysis");
   });
 
   it("returns null when no row is found", async () => {
     single.mockResolvedValue({ data: null, error: { message: "no rows" } });
-    expect(await getBrandExtraction("missing")).toBeNull();
+    expect(await getBrandExtraction("missing", "u1")).toBeNull();
   });
 });
 
@@ -116,15 +117,16 @@ describe("saveAdPrompt", () => {
 describe("getAdPrompt", () => {
   it("returns the parsed ad_prompt_json for a row", async () => {
     single.mockResolvedValue({ data: { ad_prompt_json: { ad_prompt: { goal: "x" } } }, error: null });
-    const ap = await getAdPrompt("p1");
+    const ap = await getAdPrompt("p1", "u1");
     expect(ap?.ad_prompt?.goal).toBe("x");
     expect(eq).toHaveBeenCalledWith("id", "p1");
+    expect(eq).toHaveBeenCalledWith("user_id", "u1");
     expect(select).toHaveBeenCalledWith("ad_prompt_json");
   });
 
   it("returns null when no row is found", async () => {
     single.mockResolvedValue({ data: null, error: { message: "no rows" } });
-    expect(await getAdPrompt("missing")).toBeNull();
+    expect(await getAdPrompt("missing", "u1")).toBeNull();
   });
 });
 
