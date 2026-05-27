@@ -7,7 +7,9 @@ import type { AuthStatus } from "../auth/status";
 vi.mock("../auth/useAuth", () => ({ useAuth: vi.fn() }));
 const mockUseAuth = vi.mocked(useAuth);
 
-const value = (status: AuthStatus) => ({ status } as ReturnType<typeof useAuth>);
+const fakeSupabase = { auth: { signInWithPassword: vi.fn(), signUp: vi.fn(), signInWithOtp: vi.fn(), resetPasswordForEmail: vi.fn(), updateUser: vi.fn() } };
+const value = (status: AuthStatus) =>
+  ({ status, supabase: fakeSupabase, clearRecovery: vi.fn() }) as unknown as ReturnType<typeof useAuth>;
 
 describe("AuthGate", () => {
   beforeEach(() => mockUseAuth.mockReset());
@@ -19,10 +21,17 @@ describe("AuthGate", () => {
     expect(screen.queryByText("APP")).toBeNull();
   });
 
-  it("shows the sign-in placeholder when signed out", () => {
+  it("renders the login view when signed out", () => {
     mockUseAuth.mockReturnValue(value("signed-out"));
     render(<AuthGate><div>APP</div></AuthGate>);
-    expect(screen.getByText(/sign in/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^sign in$/i })).toBeInTheDocument();
+    expect(screen.queryByText("APP")).toBeNull();
+  });
+
+  it("renders the recovery view in recovery status", () => {
+    mockUseAuth.mockReturnValue(value("recovery"));
+    render(<AuthGate><div>APP</div></AuthGate>);
+    expect(screen.getByText(/set a new password/i)).toBeInTheDocument();
   });
 
   it("shows awaiting-approval when not approved", () => {
