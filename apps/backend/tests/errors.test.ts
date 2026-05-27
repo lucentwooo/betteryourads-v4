@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AppError, ExtractionError, OpenRouterError, AuthError, ForbiddenError, toHttpError } from "../src/lib/errors.js";
+import { AppError, ExtractionError, OpenRouterError, AuthError, ForbiddenError, KieError, toHttpError } from "../src/lib/errors.js";
 
 describe("errors", () => {
   it("ExtractionError carries stage + 502 status", () => {
@@ -49,5 +49,15 @@ describe("OpenRouterError", () => {
 
   it("accepts an explicit stage", () => {
     expect(new OpenRouterError("boom", "ad-prompt").stage).toBe("ad-prompt");
+  });
+});
+
+describe("KieError", () => {
+  it("maps to a 502 with the render stage", () => {
+    const e = new KieError("task failed");
+    expect(e).toBeInstanceOf(AppError);
+    expect(e.code).toBe("KIE_ERROR");
+    expect(e.status).toBe(502);
+    expect(e.stage).toBe("render");
   });
 });

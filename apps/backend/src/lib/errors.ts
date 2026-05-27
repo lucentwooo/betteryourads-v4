@@ -30,6 +30,12 @@ export class OpenRouterError extends AppError {
   }
 }
 
+export class KieError extends AppError {
+  constructor(message: string) {
+    super(message, "KIE_ERROR", 502, "render");
+  }
+}
+
 export class AuthError extends AppError {
   constructor(message: string) {
     super(message, "AUTH_REQUIRED", 401, "auth");
