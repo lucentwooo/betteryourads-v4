@@ -132,6 +132,10 @@
     <p class="hint"><a href="#" id="resetPrompt">Reset to default prompt</a></p>
   </details>
 
+  <label for="stage1Model" style="margin-top:4px;">Stage 1 model <span style="color:var(--muted)">(admin only — overrides <code>STAGE1_MODEL</code> for this run)</span></label>
+  <select id="stage1Model"></select>
+  <p class="hint">Brand-extraction model. Choices come from <code>OPENROUTER_CHAT_MODELS</code> in <code>.env</code>; default is <code>STAGE1_MODEL</code>.</p>
+
   <button id="send">Send</button>
 
   <label>Result <span style="color:var(--muted)">(Stage 1 — brand extraction JSON)</span></label>
@@ -161,6 +165,10 @@
     <textarea id="stage2Prompt" style="margin-top:8px;"></textarea>
     <p class="hint"><a href="#" id="resetStage2">Reset to default prompt</a></p>
   </details>
+
+  <label for="stage2Model" style="margin-top:4px;">Stage 2 model <span style="color:var(--muted)">(admin only — overrides <code>STAGE2_MODEL</code> for this run)</span></label>
+  <select id="stage2Model"></select>
+  <p class="hint">Reference-analysis vision model. Choices come from <code>OPENROUTER_CHAT_MODELS</code> in <code>.env</code>; default is <code>STAGE2_MODEL</code>. Pick a vision-capable model.</p>
 
   <button id="generateAd">Generate ad prompt</button>
 
@@ -192,6 +200,12 @@
   <div id="productAssetsList" style="display:flex; flex-wrap:wrap; gap:8px; margin:8px 0;"></div>
   <input id="productAssetInput" type="file" accept="image/*" style="padding:8px;" />
   <div id="productAssetStatus" class="hint" style="margin-top:6px;"></div>
+
+  <div id="modelPickerWrap" style="display:none;">
+    <label for="imageModel">Image model <span style="color:var(--muted)">(admin only — switch and re-generate to compare engines)</span></label>
+    <select id="imageModel"></select>
+    <p class="hint">Which model renders Stage 3. Default comes from <code>OPENROUTER_IMAGE_MODEL</code>; choices from <code>OPENROUTER_IMAGE_MODELS</code> in <code>.env</code>.</p>
+  </div>
 
   <div class="row">
     <div>
@@ -1306,12 +1320,14 @@ Return only valid JSON.`;
   const resultEl = $("result");
   const metaEl = $("meta");
   const activeModelsEl = $("activeModels");
+  const stage1ModelEl = $("stage1Model");
   // Stage 2 elements
   const refImageEl = $("refImage");
   const refPreviewEl = $("refPreview");
   const stage2PromptEl = $("stage2Prompt");
   const stage2ModeEl = $("stage2Mode");
   const stage2ModeHintEl = $("stage2ModeHint");
+  const stage2ModelEl = $("stage2Model");
   const generateAdEl = $("generateAd");
   const stage2ResultEl = $("stage2Result");
   const stage2MetaEl = $("stage2Meta");
@@ -1326,6 +1342,8 @@ Return only valid JSON.`;
   const productAssetsListEl = $("productAssetsList");
   const productAssetStatusEl = $("productAssetStatus");
   const resolutionEl = $("resolution");
+  const imageModelEl = $("imageModel");
+  const modelPickerWrapEl = $("modelPickerWrap");
   const stage3PromptEl = $("stage3Prompt");
   const generateImageEl = $("generateImage");
   const stage3ResultEl = $("stage3Result");
@@ -1367,6 +1385,40 @@ Return only valid JSON.`;
       (cfg.openrouterConfigured ? "" : ' · <span style="color:#e06c6c;">OPENROUTER_API_KEY missing</span>') +
       (cfg.kieConfigured ? "" : ' · <span style="color:#e06c6c;">KIE_API_KEY missing</span>');
     if (cfg.kieResolution && ["1K", "2K", "4K"].includes(cfg.kieResolution)) resolutionEl.value = cfg.kieResolution;
+
+    // Populate the admin-only image-model picker from the .env allowlist (OpenRouter backend only).
+    const friendly = {
+      "openai/gpt-5.4-image-2": "ChatGPT Image 2",
+      "google/gemini-3-pro-image-preview": "Nano Banana Pro",
+      "google/gemini-3.1-flash-image-preview": "Nano Banana 2",
+      "google/gemini-2.5-flash-image": "Nano Banana",
+    };
+    const models = Array.isArray(cfg.openrouterImageModels) ? cfg.openrouterImageModels : [];
+    if (cfg.imageBackend === "openrouter" && models.length) {
+      imageModelEl.innerHTML = models
+        .map((id) => '<option value="' + esc(id) + '">' + esc(friendly[id] || id) + " — " + esc(id) + "</option>")
+        .join("");
+      if (cfg.openrouterImageModel && models.includes(cfg.openrouterImageModel)) imageModelEl.value = cfg.openrouterImageModel;
+      modelPickerWrapEl.style.display = "";
+    }
+
+    // Populate the admin-only Stage 1 / Stage 2 chat-model pickers from the .env allowlist.
+    // Selection persists in localStorage and overrides the .env default on the next run; the
+    // server still gates it against OPENROUTER_CHAT_MODELS, so an arbitrary model can't slip through.
+    const chatModels = Array.isArray(cfg.chatModels) ? cfg.chatModels : [];
+    function fillChatPicker(sel, storageKey, fallback) {
+      if (!sel || !chatModels.length) return;
+      sel.innerHTML = chatModels
+        .map((id) => '<option value="' + esc(id) + '">' + esc(friendly[id] ? friendly[id] + " — " + id : id) + "</option>")
+        .join("");
+      const saved = localStorage.getItem(storageKey);
+      sel.value = (saved && chatModels.includes(saved)) ? saved
+        : (fallback && chatModels.includes(fallback)) ? fallback
+        : chatModels[0];
+      sel.addEventListener("change", () => localStorage.setItem(storageKey, sel.value));
+    }
+    fillChatPicker(stage1ModelEl, "or_stage1_model", cfg.stage1Model);
+    fillChatPicker(stage2ModelEl, "or_stage2_model", cfg.stage2Model);
   }).catch(() => { activeModelsEl.textContent = "Could not load /config — is server.js running?"; });
 
   // Restore saved values (URL, browse toggle, editable prompts — keys/models are server-side now).
@@ -1657,6 +1709,7 @@ Return only valid JSON.`;
         body: JSON.stringify({
           stage: 1,
           online: browse,
+          model: stage1ModelEl && stage1ModelEl.value ? stage1ModelEl.value : undefined,
           messages: [{ role: "user", content: basePrompt + directive }],
         }),
       });
@@ -1774,7 +1827,7 @@ Return only valid JSON.`;
     const res = await Auth.authedFetch("/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stage: 2, messages: [{ role: "user", content: msgContent }] }),
+      body: JSON.stringify({ stage: 2, model: stage2ModelEl && stage2ModelEl.value ? stage2ModelEl.value : undefined, messages: [{ role: "user", content: msgContent }] }),
     });
 
     const data = await res.json();
@@ -2220,6 +2273,7 @@ Return only valid JSON.`;
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         stage: 2,
+        model: stage2ModelEl && stage2ModelEl.value ? stage2ModelEl.value : undefined,
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -2370,10 +2424,19 @@ Return only valid JSON.`;
         productImages: productAssetDataUrls,
         aspect_ratio: aspectRatioEl.value,
         resolution: resolutionEl.value,
+        model: imageModelEl && imageModelEl.value ? imageModelEl.value : undefined,
       }),
     });
     const gen = await genRes.json();
-    if (!genRes.ok || !gen.taskId) {
+    if (!genRes.ok) {
+      return { ok: false, error: "Couldn't start generation: " + (gen.error || ("HTTP " + genRes.status)) };
+    }
+    // Synchronous backend (OpenRouter): the image comes back immediately — no taskId, no polling.
+    if (gen.done && Array.isArray(gen.urls)) {
+      if (!gen.urls.length) return { ok: false, error: "Generation returned no image." };
+      return { ok: true, urls: gen.urls };
+    }
+    if (!gen.taskId) {
       return { ok: false, error: "Couldn't start generation: " + (gen.error || ("HTTP " + genRes.status)) };
     }
     const taskId = gen.taskId;
@@ -2442,12 +2505,18 @@ Return only valid JSON.`;
       const urls = result.urls;
 
       const secs = ((Date.now() - started) / 1000).toFixed(1);
+      const isData = (u) => String(u).startsWith("data:");
       stage3ResultEl.className = "result";
       stage3ResultEl.innerHTML =
         urls.map((u) => '<a href="' + u + '" target="_blank" rel="noopener"><img src="' + u + '" alt="generated ad" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:8px;" /></a>').join("") +
-        '<div class="hint">Image link(s) — KIE URLs expire in ~24h, so download to keep:<br>' +
-        urls.map((u) => '<a href="' + u + '" target="_blank" rel="noopener">' + u + "</a>").join("<br>") + "</div>";
-      stage3MetaEl.textContent = "KIE GPT Image 2 · " + secs + "s · " + aspectRatioEl.value + " · " + resolutionEl.value;
+        (urls.every(isData)
+          ? '<div class="hint">Right-click the image to save it (returned inline — no expiring link).</div>'
+          : '<div class="hint">Image link(s) — KIE URLs expire in ~24h, so download to keep:<br>' +
+            urls.map((u) => '<a href="' + u + '" target="_blank" rel="noopener">' + u + "</a>").join("<br>") + "</div>");
+      const modelLabel = imageModelEl && modelPickerWrapEl.style.display !== "none" && imageModelEl.selectedOptions[0]
+        ? imageModelEl.selectedOptions[0].textContent.split(" — ")[0]
+        : "Stage 3";
+      stage3MetaEl.textContent = modelLabel + " · " + secs + "s · " + aspectRatioEl.value + " · " + resolutionEl.value;
 
       // Persist the generated image to the user's Library (non-fatal on failure).
       try {

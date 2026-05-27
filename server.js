@@ -72,7 +72,17 @@ async function requireApprovedUser(req, res, next) {
 const app = express();
 // Base64 images (reference ad, logo, Stage 2 vision input) make request bodies large.
 app.use(express.json({ limit: "25mb" }));
-app.use(express.static(__dirname)); // serves index.html at /
+app.use(express.static(__dirname)); // serves the marketing landing page (index.html) at /
+
+// Customer app — the URL→ad workflow (sign in, make-an-ad, library). Lives at /app
+// here; intended to move to an app.<domain> subdomain in production. The marketing
+// landing page is what visitors hit at /.
+app.get("/app", (req, res) => res.sendFile(path.join(__dirname, "app.html")));
+
+// Internal power-user console: the original full-pipeline UI (model picker, prompt
+// editors, raw JSON, exact/vibe compare). Kept verbatim as admin.html — the
+// customer-facing app at /app hides all of this. Not linked from the customer UI.
+app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "admin.html")));
 
 // Launch one browser and reuse it across requests.
 let browserPromise = null;
@@ -214,6 +224,10 @@ app.get("/config", (req, res) => {
     stage2Model: process.env.STAGE2_MODEL || "",
     kieModel: process.env.KIE_IMAGE_MODEL || "",
     kieResolution: process.env.KIE_IMAGE_RESOLUTION || "1K",
+    imageBackend: (process.env.IMAGE_BACKEND || "kie").toLowerCase(),
+    openrouterImageModel: process.env.OPENROUTER_IMAGE_MODEL || "openai/gpt-5.4-image-2",
+    openrouterImageModels: imageModelAllowlist(),
+    chatModels: chatModelAllowlist(),
     openrouterConfigured: !!process.env.OPENROUTER_API_KEY,
     kieConfigured: !!process.env.KIE_API_KEY,
     supabaseUrl: process.env.SUPABASE_URL || "",
@@ -226,11 +240,14 @@ app.post("/chat", requireApprovedUser, async (req, res) => {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return res.status(500).json({ error: { message: "OPENROUTER_API_KEY is not set in .env" } });
 
-  const { stage, messages, online } = req.body || {};
+  const { stage, messages, online, model: requestedModel } = req.body || {};
   if (!Array.isArray(messages)) return res.status(400).json({ error: { message: "messages array is required" } });
 
   let model = Number(stage) === 2 ? process.env.STAGE2_MODEL : process.env.STAGE1_MODEL;
   if (!model) return res.status(500).json({ error: { message: "Model for stage " + stage + " is not set in .env" } });
+  // Admin picker may override the pinned default, but only with a model from the server-side
+  // allowlist — an arbitrary client-supplied model is ignored (secret-keeping-proxy invariant).
+  if (requestedModel && chatModelAllowlist().includes(requestedModel)) model = requestedModel;
   // Stage 1 can opt into web search via :online. Stage 2 sends an image, where :online conflicts.
   if (online && Number(stage) !== 2 && !model.endsWith(":online")) model += ":online";
 
@@ -265,19 +282,102 @@ async function kieUploadBase64(apiKey, base64Data, fileName) {
   return url;
 }
 
-// ── KIE Stage 3: image-to-image generation from the Stage 2 prompt + reference ad + logo. ──
-app.post("/kie/generate", requireApprovedUser, async (req, res) => {
-  const apiKey = process.env.KIE_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: "KIE_API_KEY is not set in .env" });
+// Ensure a base64 string is a full data URL (OpenRouter's image_url wants `data:...;base64,`).
+function asDataUrl(s) {
+  if (!s) return null;
+  return String(s).startsWith("data:") ? String(s) : "data:image/png;base64," + s;
+}
 
-  const model = process.env.KIE_IMAGE_MODEL || "gpt-image-2-image-to-image";
-  let { prompt, referenceImage, logoImage, productImages, aspect_ratio, resolution } = req.body || {};
+// OpenRouter image models the admin UI may pick from (comma-separated IDs in .env).
+// Acts as a safety bound: /kie/generate only honors a client-supplied model if it's listed here.
+function imageModelAllowlist() {
+  return String(process.env.OPENROUTER_IMAGE_MODELS || "")
+    .split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+// OpenRouter chat models the admin UI may pick from for Stage 1 / Stage 2 (comma-separated
+// IDs in .env). Same safety bound as images: /chat only honors a client-supplied model if it
+// is listed here. The active stage defaults are always force-included so the picker can never
+// be missing whatever STAGE1_MODEL / STAGE2_MODEL currently point at.
+function chatModelAllowlist() {
+  const list = String(process.env.OPENROUTER_CHAT_MODELS || "")
+    .split(",").map((s) => s.trim()).filter(Boolean);
+  [process.env.STAGE1_MODEL, process.env.STAGE2_MODEL].forEach((m) => {
+    m = (m || "").trim();
+    if (m && !list.includes(m)) list.push(m);
+  });
+  return list;
+}
+
+// ── OpenRouter image-to-image (Stage 3 alternative to KIE; selected via IMAGE_BACKEND).
+//    One synchronous chat-completions call with modalities:["image","text"]; the model
+//    returns the finished image inline as a base64 data URL. No upload host, no polling. ──
+async function openrouterGenerateImage(apiKey, model, { prompt, referenceImage, logoImage, productImages, aspect_ratio }) {
+  const products = (Array.isArray(productImages) ? productImages : []).filter(Boolean).slice(0, 3);
+  const intro =
+    "Generate a single finished advertising image. Use the attached images as source material:\n" +
+    "1) REFERENCE AD — copy its layout, composition, and visual style.\n" +
+    "2) BRAND LOGO — place the brand's real logo as-is; do not redraw or invent a logo.\n" +
+    (products.length ? "3+) PRODUCT/UI — feature these exact product visuals; do not invent product UI.\n" : "") +
+    "Render an on-brand ad" +
+    (aspect_ratio && aspect_ratio !== "auto" ? " with a " + aspect_ratio + " aspect ratio" : "") +
+    " following this brief:\n\n";
+
+  const content = [{ type: "text", text: intro + String(prompt || "") }];
+  for (const img of [referenceImage, logoImage, ...products]) {
+    const url = asDataUrl(img);
+    if (url) content.push({ type: "image_url", image_url: { url } });
+  }
+
+  const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ model, modalities: ["image", "text"], messages: [{ role: "user", content }] }),
+  });
+  let data;
+  try { data = await r.json(); } catch (e) { data = null; }
+  if (!r.ok || (data && data.error)) {
+    throw new Error((data && data.error && (data.error.message || data.error)) || "OpenRouter image HTTP " + r.status);
+  }
+  const msg = data && data.choices && data.choices[0] && data.choices[0].message;
+  const urls = (((msg && msg.images) || []).map((im) => im && im.image_url && im.image_url.url)).filter(Boolean);
+  if (!urls.length) {
+    throw new Error("Image model returned no image" + (msg && msg.content ? ": " + String(msg.content).slice(0, 200) : "."));
+  }
+  return urls;
+}
+
+// ── Stage 3 image generation. Reachable at /kie/generate for backward compatibility,
+//    but the backend is chosen by IMAGE_BACKEND (kie | openrouter). ──
+app.post("/kie/generate", requireApprovedUser, async (req, res) => {
+  const backend = (process.env.IMAGE_BACKEND || "kie").toLowerCase();
+  let { prompt, referenceImage, logoImage, productImages, aspect_ratio, resolution, model } = req.body || {};
   if (!prompt || !String(prompt).trim()) return res.status(400).json({ error: "prompt is required" });
   if (!referenceImage) return res.status(400).json({ error: "reference image is required" });
   if (!logoImage) return res.status(400).json({ error: "brand logo is required" });
-
-  resolution = resolution || process.env.KIE_IMAGE_RESOLUTION || "1K";
   aspect_ratio = aspect_ratio || "auto";
+
+  // OpenRouter backend: synchronous — return the finished image data URLs directly.
+  if (backend === "openrouter") {
+    const orKey = process.env.OPENROUTER_API_KEY;
+    if (!orKey) return res.status(500).json({ error: "OPENROUTER_API_KEY is not set in .env" });
+    const defaultModel = process.env.OPENROUTER_IMAGE_MODEL || "openai/gpt-5.4-image-2";
+    // Honor a client-supplied model only if it's in the allowlist (admin picker); else default.
+    const orModel = model && imageModelAllowlist().includes(model) ? model : defaultModel;
+    try {
+      const urls = await openrouterGenerateImage(orKey, orModel, { prompt, referenceImage, logoImage, productImages, aspect_ratio });
+      return res.json({ urls, done: true });
+    } catch (e) {
+      return res.status(502).json({ error: e.message || String(e) });
+    }
+  }
+
+  // KIE backend (default): upload images, create a task, client polls /kie/result.
+  const apiKey = process.env.KIE_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: "KIE_API_KEY is not set in .env" });
+
+  const kieModel = process.env.KIE_IMAGE_MODEL || "gpt-image-2-image-to-image";
+  resolution = resolution || process.env.KIE_IMAGE_RESOLUTION || "1K";
   if (aspect_ratio === "1:1" && resolution === "4K") resolution = "2K"; // KIE forbids this combo
 
   try {
@@ -294,7 +394,7 @@ app.post("/kie/generate", requireApprovedUser, async (req, res) => {
       method: "POST",
       headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model,
+        model: kieModel,
         input: { prompt: String(prompt).slice(0, 20000), input_urls, aspect_ratio, resolution },
       }),
     });

@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>betteryourads — meta ads, built for b2b saas</title>
+<meta name="description" content="We learn your product, write the angles, ship the creative, and run the Meta ads. Built for SaaS funnels — not ecommerce." />
+<link rel="icon" href="assets/favicon.svg" />
+<link rel="stylesheet" href="styles/tokens.css" />
+<link rel="stylesheet" href="styles/landing.css" />
+<link rel="stylesheet" href="styles/live-demo.css" />
+<style>
+  html, body { margin: 0; background: var(--bg); }
+  body { overflow-x: hidden; }
+</style>
+</head>
+<body>
+
+<!-- ── Top nav ──────────────────────────────────────────────────── -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#">
+      <img class="mark" src="assets/logo-mark.png" alt="" />
+      <span class="wordmark">betteryour<span class="ads">ads</span></span>
+    </a>
+    <div class="links">
+      <a href="#how">how it works</a>
+      <a href="#compare">compare</a>
+      <a href="#pricing">pricing</a>
+      <a href="#faq">faq</a>
+    </div>
+    <div class="cta-group">
+      <a class="btn-m sm primary" href="#waitlist">join the waitlist →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Hero ─────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div class="hero-left">
+        <div class="hero-eyebrow">
+          <span class="dot"></span>
+          <span>meta ads · for b2b saas</span>
+        </div>
+
+        <h1>Meta ads, <span class="accent">run for you</span>.</h1>
+
+        <p class="lead">
+          We learn your product, write the angles, and run the creative. Built for trial signups, not add-to-carts.
+        </p>
+
+        <form class="email-cta" id="waitlist" data-waitlist>
+          <input type="email" placeholder="founder@yoursaas.com" autocomplete="email" required />
+          <button type="submit">join the waitlist →</button>
+        </form>
+
+        <div class="micro">
+          <span>first month free</span>
+          <span class="sep">·</span>
+          <span>30 ads on us</span>
+          <span class="sep">·</span>
+          <span>no card required</span>
+        </div>
+      </div>
+
+      <div class="hero-right">
+        <!-- Live ad-generator demo (animated by inline JS at end of body) -->
+        <div class="ldg" id="ldg">
+          <div class="ldg-chrome">
+            <div class="ldg-dots">
+              <span style="background:#ff5f57"></span>
+              <span style="background:#febc2e"></span>
+              <span style="background:#28c840"></span>
+            </div>
+            <div class="ldg-app-url">app.betteryourads.com</div>
+            <div class="ldg-live"><span class="ldg-tick"></span>live</div>
+          </div>
+
+          <div class="ldg-url-row">
+            <div class="ldg-url-label">your site</div>
+            <div class="ldg-url-input">
+              <span class="ldg-url-scheme">https://</span>
+              <span class="ldg-url-typed" data-ldg="typed"></span>
+              <span class="ldg-caret" data-ldg="caret"></span>
+            </div>
+            <div class="ldg-analyze-btn" data-ldg="analyze">generate</div>
+          </div>
+
+          <div class="ldg-body">
+            <div class="ldg-feed" data-ldg="feed"></div>
+            <div class="ldg-canvas-wrap">
+              <div class="ldg-canvas">
+                <div class="ldg-wire" data-ldg="wire">
+                  <div class="ldg-wire-bar" style="width:30%;top:16%"></div>
+                  <div class="ldg-wire-bar" style="width:62%;top:44%;height:10%"></div>
+                  <div class="ldg-wire-bar" style="width:46%;top:58%;height:5%"></div>
+                  <div class="ldg-wire-bar" style="width:26%;bottom:16%;height:11%"></div>
+                </div>
+                <div class="ldg-canvas-bg" data-ldg="grad"></div>
+                <img class="ldg-canvas-img" data-ldg="img" src="assets/demo-clickup-ad.jpg" alt="clickup ad mockup" />
+                <div class="ldg-canvas-badge" data-ldg="badge" style="display:none">
+                  <span class="ldg-tick"></span>running on meta
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ldg-foot">
+            <span class="ldg-status-dot" data-ldg="dot"></span>
+            <span class="ldg-status-text" data-ldg="status">type a url to begin</span>
+            <span class="ldg-foot-meta" data-ldg="step">step 0 of 6</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── In Pilot (social proof) ──────────────────────────────────── -->
+<section class="section section-pilot" id="pilot">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow accent">currently in pilot</div>
+      <h2 class="h-section">Two founders. Real ads.<br/>Shipping daily.</h2>
+      <p class="sub">
+        We're running ads right now for two B2B SaaS teams. Anonymous until the data is. Specific because we owe you specifics.
+      </p>
+    </div>
+
+    <div class="pilot-grid">
+      <div class="pilot-card">
+        <div class="pilot-mark">
+          <span class="pilot-num">pilot 01</span>
+          <span class="pilot-status"><span class="pilot-live"></span>shipping daily</span>
+        </div>
+        <div class="pilot-name">A Startmate-backed startup</div>
+        <div class="pilot-rows">
+          <div class="pilot-row"><span class="k">stage</span><span class="v">pre-seed</span></div>
+          <div class="pilot-row"><span class="k">funnel</span><span class="v">self-serve, trial to paid</span></div>
+          <div class="pilot-row"><span class="k">running</span><span class="v">facebook + instagram</span></div>
+        </div>
+      </div>
+
+      <div class="pilot-card">
+        <div class="pilot-mark">
+          <span class="pilot-num">pilot 02</span>
+          <span class="pilot-status"><span class="pilot-live"></span>shipping daily</span>
+        </div>
+        <div class="pilot-name">A Melbourne accelerator company</div>
+        <div class="pilot-rows">
+          <div class="pilot-row"><span class="k">stage</span><span class="v">seed</span></div>
+          <div class="pilot-row"><span class="k">funnel</span><span class="v">sales-led, demo to close</span></div>
+          <div class="pilot-row"><span class="k">running</span><span class="v">facebook + instagram</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pilot-foot">Both go public when the numbers do.</div>
+  </div>
+</section>
+
+<!-- ── Problem ──────────────────────────────────────────────────── -->
+<section class="section" id="problem">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">the status quo</div>
+      <h2 class="h-section">Three ways to run paid social.<br/>None built for SaaS.</h2>
+      <p class="sub">
+        You're a founder, not a creative director. Every option for Meta ads burns money, burns time, or leaves you guessing.
+      </p>
+    </div>
+
+    <div class="problem-grid">
+      <div class="problem-cell">
+        <div class="eyebrow">option a</div>
+        <div class="title">Hire a Meta-ads agency</div>
+        <div class="body">
+          Weeks to onboard. Creative from someone who ran shopify ads last quarter. You pay for a monthly status call, not for ads.
+        </div>
+        <div class="verdict">slow · ecom-trained · status-call shaped</div>
+      </div>
+      <div class="problem-cell">
+        <div class="eyebrow">option b</div>
+        <div class="title">Hire a freelance designer</div>
+        <div class="body">
+          Great ads, once. No system, no second round. Next quarter you brief from zero and the angles that worked are stale.
+        </div>
+        <div class="verdict">one-off · no system · no learning</div>
+      </div>
+      <div class="problem-cell">
+        <div class="eyebrow">option c</div>
+        <div class="title">Do it yourself</div>
+        <div class="body">
+          Canva on a Sunday night. Two ads ship, both perform the same, you can't tell which one drove the signups in Stripe.
+        </div>
+        <div class="verdict">no time · no expertise · no signal</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── How it works ─────────────────────────────────────────────── -->
+<section class="section" id="how">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow accent">how it works</div>
+      <h2 class="h-section">Learns. Launches. Optimizes for signups.</h2>
+      <p class="sub">
+        Three stages. About 90 seconds per ad. Tuned for what shows up in your Stripe dashboard, not your CTR column.
+      </p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="n">01 //</div>
+        <div class="text">
+          <h3>We read your site.</h3>
+          <p>Drop your URL. We extract positioning, category, ICP, and palette in about twelve seconds. No briefing call. No questionnaire.</p>
+        </div>
+        <div class="visual">
+          <!-- VisualLearn -->
+          <div style="height:100%;padding:20px 24px;display:flex;flex-direction:column;gap:10px;background:var(--bg)">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--bya-forest)"></div>
+              <span style="font-family:var(--font-mono);font-size:11px;color:var(--fg-2)">https://yoursaas.com</span>
+              <span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:var(--fg-3)">analyzed in 12s</span>
+            </div>
+            <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:12px;font-family:var(--font-sans);margin-top:8px">
+              <span style="font-family:var(--font-mono);font-size:10px;color:var(--fg-3);text-transform:uppercase;letter-spacing:0.08em">positioning</span>
+              <span>speed is the feature</span>
+              <span style="font-family:var(--font-mono);font-size:10px;color:var(--fg-3);text-transform:uppercase;letter-spacing:0.08em">category</span>
+              <span>project tracking</span>
+              <span style="font-family:var(--font-mono);font-size:10px;color:var(--fg-3);text-transform:uppercase;letter-spacing:0.08em">icp</span>
+              <span>technical founders, 10-200 eng</span>
+              <span style="font-family:var(--font-mono);font-size:10px;color:var(--fg-3);text-transform:uppercase;letter-spacing:0.08em">palette</span>
+              <span style="display:flex;gap:0">
+                <span style="width:22px;height:16px;background:#5e6ad2;border:1px solid var(--fg)"></span>
+                <span style="width:22px;height:16px;background:#0b0c10;border:1px solid var(--fg);border-left:0"></span>
+                <span style="width:22px;height:16px;background:#f4f5f8;border:1px solid var(--fg);border-left:0"></span>
+                <span style="width:22px;height:16px;background:#9aa0b4;border:1px solid var(--fg);border-left:0"></span>
+              </span>
+            </div>
+            <div style="margin-top:auto;display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--border-hairline)">
+              <span style="font-family:var(--font-mono);font-size:10px;color:var(--fg-3)">5 angles drafted</span>
+              <span style="font-family:var(--font-mono);font-size:10px;color:var(--accent)">continue →</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="n">02 //</div>
+        <div class="text">
+          <h3>We write five angles.</h3>
+          <p>Process, category, rebuttal, proof, manifesto. The angles SaaS founders actually use. Pick one, pick all five. The creative renders on-brand and ready to ship.</p>
+        </div>
+        <div class="visual">
+          <!-- VisualLaunch -->
+          <div style="height:100%;padding:20px 22px;display:flex;flex-direction:column;gap:8px;background:var(--bg)">
+            <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--fg-3);margin-bottom:6px">5 angles · pick or ship all</div>
+            <div style="padding:10px 12px;border:1px solid var(--accent);background:var(--accent-soft);border-radius:4px;display:flex;align-items:center;gap:12px">
+              <div style="width:14px;height:14px;border-radius:50%;border:1.5px solid var(--accent);position:relative;flex-shrink:0"><div style="position:absolute;inset:2px;border-radius:50%;background:var(--accent)"></div></div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:500;color:var(--fg)">ship without the standup.</div>
+                <div style="font-family:var(--font-mono);font-size:10px;color:var(--fg-3);margin-top:2px">process</div>
+              </div>
+            </div>
+            <div style="padding:10px 12px;border:1px solid var(--border-hairline);background:var(--bg);border-radius:4px;display:flex;align-items:center;gap:12px">
+              <div style="width:14px;height:14px;border-radius:50%;border:1.5px solid var(--fg-3);position:relative;flex-shrink:0"></div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:500;color:var(--fg)">speed is the feature.</div>
+                <div style="font-family:var(--font-mono);font-size:10px;color:var(--fg-3);margin-top:2px">manifesto</div>
+              </div>
+            </div>
+            <div style="padding:10px 12px;border:1px solid var(--border-hairline);background:var(--bg);border-radius:4px;display:flex;align-items:center;gap:12px">
+              <div style="width:14px;height:14px;border-radius:50%;border:1.5px solid var(--fg-3);position:relative;flex-shrink:0"></div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:500;color:var(--fg)">the issue tracker for shipping.</div>
+                <div style="font-family:var(--font-mono);font-size:10px;color:var(--fg-3);margin-top:2px">category</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="n">03 //</div>
+        <div class="text">
+          <h3>We ship to Meta and tune for signups.</h3>
+          <p>One click, the ads go live on Facebook and Instagram. We shift spend daily toward the angles driving trial signups, the lowest cost per signup, and the highest MRR added.</p>
+        </div>
+        <div class="visual">
+          <!-- VisualOptimize -->
+          <div style="height:100%;padding:18px 22px;display:flex;flex-direction:column;gap:6px;background:var(--bg)">
+            <div style="display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--fg-3);margin-bottom:4px">
+              <span>this week · trial signups by angle</span>
+              <span>cost / signup</span>
+            </div>
+            <div data-opt-rows></div>
+            <div style="margin-top:auto;padding-top:8px;font-family:var(--font-mono);font-size:10px;color:var(--fg-3);border-top:1px solid var(--border-hairline);display:flex;justify-content:space-between">
+              <span>spend shifted to top signup drivers · auto</span>
+              <span>127 signups · $2,841 mrr</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Compare ──────────────────────────────────────────────────── -->
+<section class="section" id="compare">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">why we exist</div>
+      <h2 class="h-section">Built for SaaS funnels.<br/>Not for ecommerce.</h2>
+      <p class="sub">
+        Most "AI ads" tools were trained on Shopify stores. Most agencies grew up on ecom retainers. SaaS sells differently. Long cycles, multi-stakeholder, trial-to-paid. Your ads need to know that.
+      </p>
+    </div>
+
+    <div class="compare four">
+      <div class="compare-row header">
+        <div></div>
+        <div>meta-ads agency</div>
+        <div>ecom-trained ai tools</div>
+        <div class="cell-us">betteryourads</div>
+      </div>
+      <div class="compare-row">
+        <div>What it optimizes for</div>
+        <div class="cell-them">whatever you brief</div>
+        <div class="cell-them">add-to-cart, ROAS</div>
+        <div class="cell-us">trial signups, MRR, CAC payback</div>
+      </div>
+      <div class="compare-row">
+        <div>Time to first ad live</div>
+        <div class="cell-them">weeks</div>
+        <div class="cell-them">a few days</div>
+        <div class="cell-us">about 90 seconds</div>
+      </div>
+      <div class="compare-row">
+        <div>Reports you actually read</div>
+        <div class="cell-them">a monthly deck</div>
+        <div class="cell-them">clicks, CPM, impressions</div>
+        <div class="cell-us">signups, cost per signup, MRR added</div>
+      </div>
+      <div class="compare-row">
+        <div>How it's priced</div>
+        <div class="cell-them">retainer + creative hours</div>
+        <div class="cell-them">subscription + your hours</div>
+        <div class="cell-us">flat monthly, month-to-month</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Pricing ──────────────────────────────────────────────────── -->
+<section class="section" id="pricing">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">pricing</div>
+      <h2 class="h-section">Two plans. No retainer.</h2>
+      <p class="sub">Pay for ads that ship, not for meetings. Month to month. Cancel any time.</p>
+    </div>
+
+    <div style="margin-top:56px;margin-bottom:8px;padding:20px 26px;border:1px solid var(--accent);border-radius:8px;background:var(--accent-soft);display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:14px">
+        <span class="eyebrow accent" style="white-space:nowrap">waitlist offer</span>
+        <span style="font-family:var(--font-sans);font-size:16px;color:var(--fg);font-weight:500">
+          Join now, get your <strong>first month free</strong> and <strong>30 ads on us</strong>.
+        </span>
+      </div>
+      <a class="btn-m primary sm" href="#waitlist">claim my spot →</a>
+    </div>
+
+    <div class="pricing-grid">
+      <div class="price-card">
+        <div class="tier-name">founder</div>
+        <div class="amount"><span>$499</span><span class="per">/ month</span></div>
+        <p class="pitch">For founders running their first paid social, or replacing a freelancer.</p>
+        <ul>
+          <li>30 ads / month, shipped live</li>
+          <li>1 brand, unlimited angles</li>
+          <li>Daily spend reallocation toward signups</li>
+          <li>Slack support, founder-to-founder</li>
+        </ul>
+        <div class="footnote">private beta, 2026</div>
+        <a class="btn-m" href="#waitlist">join the waitlist</a>
+      </div>
+
+      <div class="price-card featured">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="tier-name">scale</div>
+          <span style="font-family:var(--font-sans);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--accent);padding:3px 7px;border:1px solid var(--accent);border-radius:2px">most teams</span>
+        </div>
+        <div class="amount"><span>$1,499</span><span class="per">/ month</span></div>
+        <p class="pitch">For teams shipping ads daily, scaling beyond the founder plan.</p>
+        <ul>
+          <li>120 ads / month, shipped live</li>
+          <li>1 brand, unlimited angles</li>
+          <li>Daily reallocation + weekly creative refresh</li>
+          <li>Dedicated account, shared Slack with our team</li>
+        </ul>
+        <div class="footnote">white-glove onboarding included</div>
+        <a class="btn-m primary" href="#waitlist">join the waitlist</a>
+      </div>
+    </div>
+
+    <div class="anchor-bar">
+      <span>A full-service Meta-ads agency typically runs several thousand a month plus creative hours. We charge a flat fee, ship every day, and never schedule a status call.</span>
+      <a href="#faq" style="font-family:var(--font-sans);font-size:13px;font-weight:600;color:var(--accent);text-decoration:none;white-space:nowrap">how is this priced? →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── FAQ ──────────────────────────────────────────────────────── -->
+<section class="section" id="faq">
+  <div class="wrap-narrow">
+    <div class="section-head">
+      <div class="eyebrow">questions, mostly heard twice</div>
+      <h2 class="h-section">Frequently asked.</h2>
+    </div>
+
+    <div class="faq-list">
+      <details class="faq-item" open>
+        <summary class="faq-q"><span>When does it actually launch?</span><span class="toggle">+</span></summary>
+        <p class="faq-a">We're in private beta now and opening seats in waves through 2026. Waitlist signups get the next available seat, plus the first-month-free and 30-ads offer. We email you when your seat is ready. You only pay when you connect your Meta account and ship your first ad.</p>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-q"><span>What metric does it optimize for?</span><span class="toggle">+</span></summary>
+        <p class="faq-a">Trial signups by default, demo bookings if you're sales-led, paid conversions if you have self-serve checkout. We track cost per signup, MRR added per angle, and CAC payback. The numbers a founder actually defends in a board meeting. CTR and impressions are in the dashboard, just not what we tune against.</p>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-q"><span>How is this different from a Meta-ads agency?</span><span class="toggle">+</span></summary>
+        <p class="faq-a">We're a product, not a people business. Agencies bill for meetings, decks, and slow creative cycles. We bill for ads that ship and the signups they drive. The work that takes an agency weeks happens here in about 90 seconds, and the system gets better at your brand every time you use it.</p>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-q"><span>Will this actually work for SaaS, or is it ecom dressed up?</span><span class="toggle">+</span></summary>
+        <p class="faq-a">Built for SaaS funnels from day one. The angles, the audience model, the attribution window (28-day click, 7-day view), the conversion event (signup, not add-to-cart). All tuned for high-consideration software sales. We don't do shopify ads. If you sell shoes, you're in the wrong place.</p>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-q"><span>What does it do with my Meta account?</span><span class="toggle">+</span></summary>
+        <p class="faq-a">We connect via Meta's official Marketing API. We create campaigns, ad sets, and creative inside your account. You own everything. You can pull our access any time and the ads keep running. We never touch budget beyond the daily cap you set.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ── Final CTA ────────────────────────────────────────────────── -->
+<section class="final-cta">
+  <div class="wrap-narrow">
+    <div class="eyebrow accent" style="margin-bottom:24px">join the waitlist</div>
+    <h2>Stop guessing.<br/>Start <span class="accent">shipping</span>.</h2>
+    <p class="sub" style="max-width:580px;margin:0 auto 36px">
+      First month free. 30 ads on us. We email you when your seat is ready.
+    </p>
+    <form class="email-cta" data-waitlist>
+      <input type="email" placeholder="founder@yoursaas.com" autocomplete="email" required />
+      <button type="submit">join the waitlist →</button>
+    </form>
+    <div class="micro" style="justify-content:center;margin-top:22px">
+      <span>no card required</span>
+      <span class="sep">·</span>
+      <span>seats released in waves</span>
+      <span class="sep">·</span>
+      <span>b2b saas only</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ───────────────────────────────────────────────────── -->
+<footer class="foot">
+  <div class="foot-inner">
+    <div>
+      <a class="brand" href="#" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:var(--fg);margin-bottom:16px">
+        <img src="assets/logo-mark.png" alt="" width="28" height="28" style="display:block" />
+        <span style="font-size:18px;font-weight:700;letter-spacing:-0.03em">betteryour<span style="color:var(--accent)">ads</span></span>
+      </a>
+      <p style="font-size:14px;color:var(--fg-2);margin:0;max-width:320px;line-height:1.5">
+        Meta ads for b2b saas. Built by founders who got tired of agency invoices.
+      </p>
+    </div>
+    <div>
+      <h6>product</h6>
+      <ul>
+        <li><a href="#how">how it works</a></li>
+        <li><a href="#pricing">pricing</a></li>
+        <li><a href="#compare">compare</a></li>
+      </ul>
+    </div>
+    <div>
+      <h6>company</h6>
+      <ul>
+        <li><a href="#">about</a></li>
+        <li><a href="#">contact</a></li>
+        <li><a href="#">careers</a></li>
+      </ul>
+    </div>
+    <div>
+      <h6>resources</h6>
+      <ul>
+        <li><a href="#faq">faq</a></li>
+        <li><a href="#">privacy</a></li>
+        <li><a href="#">terms</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="meta-line">
+    <span>betteryourads · 2026 · sf</span>
+    <span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px">
+      <span style="width:6px;height:6px;border-radius:999px;background:var(--accent);display:inline-block"></span>
+      private beta · waitlist open
+    </span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ── How-it-works: optimize bar chart (static) ───────────────── */
+  (function buildOptimizeRows() {
+    var host = document.querySelector("[data-opt-rows]");
+    if (!host) return;
+    var rows = [
+      { name: "ship without the standup", pct: 92, signups: 47, cps: "$18" },
+      { name: "speed is the feature",     pct: 71, signups: 36, cps: "$24" },
+      { name: "for engineers, by eng.",   pct: 48, signups: 24, cps: "$33" },
+      { name: "the issue tracker",        pct: 28, signups: 14, cps: "$71" },
+      { name: "your roadmap, not theirs", pct: 11, signups: 6,  cps: "$162" }
+    ];
+    host.style.display = "flex";
+    host.style.flexDirection = "column";
+    host.style.gap = "6px";
+    rows.forEach(function (r, i) {
+      var winner = i < 2;
+      var row = document.createElement("div");
+      row.style.cssText = "display:grid;grid-template-columns:1fr 56px;gap:12px;align-items:center";
+      var labelColor = r.pct > 50 ? "var(--bg)" : "var(--fg)";
+      var barColor = winner ? "var(--accent)" : "var(--bya-ink-4)";
+      var cpsColor = winner ? "var(--fg)" : "var(--fg-3)";
+      row.innerHTML =
+        '<div style="position:relative;height:22px;background:var(--bg-raised);border-radius:2px;overflow:hidden">' +
+          '<div style="position:absolute;inset:0;width:' + r.pct + '%;background:' + barColor + '"></div>' +
+          '<div style="position:relative;padding:0 8px;line-height:22px;font-size:11px;font-weight:500;color:' + labelColor + ';display:flex;justify-content:space-between">' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.name + '</span>' +
+            '<span style="font-family:var(--font-mono);margin-left:6px">' + r.signups + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<span style="font-family:var(--font-mono);font-size:11px;color:' + cpsColor + ';text-align:right">' + r.cps + '</span>';
+      host.appendChild(row);
+    });
+  })();
+
+  /* ── Waitlist forms: inline confirmation ─────────────────────── */
+  document.querySelectorAll("form[data-waitlist]").forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var input = form.querySelector("input");
+      if (input && !input.checkValidity()) { input.reportValidity(); return; }
+      var done = document.createElement("div");
+      done.style.cssText = "max-width:460px;padding:14px 18px;border:1px solid var(--bya-forest);border-radius:4px;background:var(--bya-forest-soft);color:var(--bya-forest);font-size:15px;font-weight:600;display:flex;align-items:center;gap:10px";
+      done.innerHTML = '<span style="width:7px;height:7px;border-radius:999px;background:var(--bya-forest);display:inline-block"></span>you’re on the list — we’ll email you when your seat opens.';
+      if (form.classList.contains("final-cta") || form.closest(".final-cta")) { done.style.margin = "0 auto"; }
+      form.replaceWith(done);
+    });
+  });
+
+  /* ── Live ad-generator demo ──────────────────────────────────── */
+  (function liveDemo() {
+    var root = document.getElementById("ldg");
+    if (!root) return;
+
+    var DEMO_URL = "clickup.com";
+    var DEMO_PALETTE = ["#8930FF", "#FF43C1", "#FF8A47", "#00D2FF"];
+
+    var TYPE_MS = 700;                                   // time to type the full URL
+    var T_TYPED = 950, T_AUDIT = 1750, T_CUST = 2550, T_BRAND = 3350,
+        T_CONCEPT = 4150, T_RENDER = 4950, T_SHIPPED = 7050, T_CYCLE = 9300;
+    var RENDER_STEPS = 28;                               // render-progress ticks (×70ms)
+
+    var CHECK_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+    var CHECK_SVG_LG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
+    var PALETTE_HTML = (function () {
+      var s = '<span class="ldg-feed-palette">';
+      DEMO_PALETTE.forEach(function (c, i) {
+        s += '<span style="background:' + c + ';transition-delay:' + (i * 80) + 'ms"></span>';
+      });
+      s += '<span class="ldg-feed-palette-text">+ bold all-caps</span></span>';
+      return s;
+    })();
+
+    // Feed config: [label, contentFn(phase)] + active/done predicates
+    var feedDefs = [
+      { label: "audit",     active: function (p) { return p === 1; },            done: function (p) { return p > 1; }, value: function () { return "all your work, in one place"; } },
+      { label: "customers", active: function (p) { return p === 2; },            done: function (p) { return p > 2; }, value: function () { return "PM + ops teams, 50–5000 emp"; } },
+      { label: "brand",     active: function (p) { return p === 3 || p === 4; }, done: function (p) { return p > 4; }, value: function () { return PALETTE_HTML; } },
+      { label: "concepts",  active: function (p) { return p === 5; },            done: function (p) { return p > 5; }, value: function () { return "stop switching"; } },
+      { label: "creative",  active: function (p) { return p === 6; },            done: function (p) { return p === 7; }, value: function (p) { return p === 7 ? "ready to ship" : "composing..."; } }
+    ];
+
+    var feedHost = root.querySelector('[data-ldg="feed"]');
+    var feedEls = feedDefs.map(function (def) {
+      var row = document.createElement("div");
+      row.className = "ldg-feed-row idle";
+      row.innerHTML =
+        '<div class="ldg-feed-mark"><span class="ldg-feed-empty"></span></div>' +
+        '<div class="ldg-feed-content">' +
+          '<div class="ldg-feed-label">' + def.label + '</div>' +
+          '<div class="ldg-feed-value"><span class="ldg-feed-wait">·</span></div>' +
+        '</div>';
+      feedHost.appendChild(row);
+      return { row: row, mark: row.querySelector(".ldg-feed-mark"), value: row.querySelector(".ldg-feed-value") };
+    });
+
+    var el = {
+      typed:   root.querySelector('[data-ldg="typed"]'),
+      caret:   root.querySelector('[data-ldg="caret"]'),
+      analyze: root.querySelector('[data-ldg="analyze"]'),
+      wire:    root.querySelector('[data-ldg="wire"]'),
+      grad:    root.querySelector('[data-ldg="grad"]'),
+      img:     root.querySelector('[data-ldg="img"]'),
+      badge:   root.querySelector('[data-ldg="badge"]'),
+      dot:     root.querySelector('[data-ldg="dot"]'),
+      status:  root.querySelector('[data-ldg="status"]'),
+      step:    root.querySelector('[data-ldg="step"]')
+    };
+    el.grad.style.background = "linear-gradient(135deg, " + DEMO_PALETTE[0] + " 0%, " + DEMO_PALETTE[1] + " 50%, " + DEMO_PALETTE[2] + " 100%)";
+
+    var state = { phase: 0, typedChars: 0, progress: 0 };
+    var timers = [];
+
+    function statusText(p) {
+      switch (p) {
+        case 0: return "type a url to begin";
+        case 1: return "auditing your site";
+        case 2: return "understanding your customers";
+        case 3:
+        case 4: return "extracting brand";
+        case 5: return "drafting ad concepts";
+        case 6: return "rendering creative";
+        default: return "shipped to meta, day 1 of 30";
+      }
+    }
+    function clamp(v) { return Math.min(1, Math.max(0, v)); }
+
+    function render() {
+      var p = state.phase;
+      var generated = p >= 1;
+
+      el.typed.textContent = DEMO_URL.slice(0, state.typedChars);
+      el.caret.style.display = p === 0 ? "" : "none";
+
+      el.analyze.classList.toggle("done", generated);
+      el.analyze.innerHTML = generated ? CHECK_SVG_LG : "generate";
+
+      feedDefs.forEach(function (def, i) {
+        var refs = feedEls[i];
+        var isDone = def.done(p), isActive = def.active(p);
+        refs.row.className = "ldg-feed-row " + (isDone ? "done" : isActive ? "active" : "idle");
+        refs.mark.innerHTML = isDone ? CHECK_SVG : isActive ? '<span class="ldg-feed-pulse"></span>' : '<span class="ldg-feed-empty"></span>';
+        if (isDone || isActive) {
+          refs.value.innerHTML = def.value(p);
+        } else {
+          refs.value.innerHTML = '<span class="ldg-feed-wait">·</span>';
+        }
+      });
+
+      var prog = state.progress;
+      el.wire.style.opacity = Math.max(0, 1 - prog / 0.35);
+      el.grad.style.opacity = clamp((prog - 0.18) / 0.35);
+      var imgOp = clamp((prog - 0.5) / 0.42);
+      el.img.style.opacity = imgOp;
+      el.img.classList.toggle("in", imgOp > 0.6);
+
+      el.badge.style.display = p === 7 ? "" : "none";
+      el.dot.style.background = p === 7 ? "var(--bya-forest)" : "var(--accent)";
+      el.status.textContent = statusText(p);
+      el.step.textContent = "step " + (p === 0 ? 0 : Math.min(p, 6)) + " of 6";
+    }
+
+    function setPhase(p) { state.phase = p; render(); }
+    function setTyped(n) { state.typedChars = n; render(); }
+    function setProgress(v) { state.progress = v; render(); }
+
+    function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+
+    function runCycle() {
+      clearTimers();
+      state.phase = 0; state.typedChars = 0; state.progress = 0;
+      render();
+
+      var i;
+      for (i = 1; i <= DEMO_URL.length; i++) {
+        (function (n) { timers.push(setTimeout(function () { setTyped(n); }, (TYPE_MS * n) / DEMO_URL.length)); })(i);
+      }
+      timers.push(setTimeout(function () { setPhase(1); }, T_TYPED));
+      timers.push(setTimeout(function () { setPhase(2); }, T_AUDIT));
+      timers.push(setTimeout(function () { setPhase(3); }, T_CUST));
+      timers.push(setTimeout(function () { setPhase(4); }, T_BRAND));
+      timers.push(setTimeout(function () { setPhase(5); }, T_CONCEPT));
+      timers.push(setTimeout(function () { setPhase(6); }, T_RENDER));
+      for (i = 1; i <= RENDER_STEPS; i++) {
+        (function (n) { timers.push(setTimeout(function () { setProgress(n / RENDER_STEPS); }, T_CONCEPT + n * 70)); })(i);
+      }
+      timers.push(setTimeout(function () { setPhase(7); }, T_SHIPPED));
+      timers.push(setTimeout(function () { runCycle(); }, T_CYCLE));
+    }
+
+    // Preload final image, then start.
+    var pre = new Image();
+    pre.src = "assets/demo-clickup-ad.jpg";
+    runCycle();
+  })();
+})();
+</script>
+</body>
+</html>
