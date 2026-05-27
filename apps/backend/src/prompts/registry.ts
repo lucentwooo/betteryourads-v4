@@ -1,5 +1,8 @@
-import type { MeasuredSiteData } from "@bya/shared";
+import type { MeasuredSiteData, BrandExtraction } from "@bya/shared";
 import { EXTRACT_BRAND_DNA_V3 } from "./extract-brand-dna.v3.js";
+import { IMAGE_GENERATOR_V4_NO_ASSET } from "./image-generator.v4-no-asset.js";
+import { IMAGE_GENERATOR_V4_W_ASSET } from "./image-generator.v4-w-asset.js";
+import type { ContentPart } from "../services/openrouter.js";
 
 /** Ground the v3 system prompt with the authoritative measured site data (ported from legacy buildGroundedPrompt). */
 export function buildStage1Prompt(url: string, measured: MeasuredSiteData): string {
@@ -59,4 +62,54 @@ export function buildAgentPrompt(base: string, group: BrandAgentGroup): string {
     ".\nUse the exact sub-structure defined for those keys in the schema above, and follow every extraction rule. " +
     "Do NOT include any other top-level keys. Do NOT wrap the JSON in markdown fences."
   );
+}
+
+/** Stage-2 variant selection is driven purely by product-asset presence. */
+export function getStage2Prompt(hasProductAsset: boolean): string {
+  return hasProductAsset ? IMAGE_GENERATOR_V4_W_ASSET : IMAGE_GENERATOR_V4_NO_ASSET;
+}
+
+export type Stage2Inputs = {
+  brandExtraction: BrandExtraction;
+  referenceAdImage: string;
+  logoImage: string;
+  productAsset?: string;
+  customerResearch?: unknown;
+  performanceMemory?: unknown;
+  userDirection?: unknown;
+};
+
+/** Assemble the Stage-2 vision user message: grounded prompt text + attached images
+ *  (reference ad → brand logo → optional product asset), each labeled in the text. */
+export function buildStage2Content(inputs: Stage2Inputs): ContentPart[] {
+  const hasProductAsset = Boolean(inputs.productAsset);
+  let text =
+    getStage2Prompt(hasProductAsset) +
+    "\n\n=== BRAND_EXTRACTION_JSON ===\n" +
+    JSON.stringify(inputs.brandExtraction, null, 2) +
+    "\n\n=== REFERENCE_AD_IMAGE ===\nThe first attached image is the REFERENCE_AD_IMAGE. Analyze it and reproduce its layout, composition, and element positions faithfully." +
+    "\n\n=== BRAND_LOGO_IMAGE ===\nThe second attached image is the BRAND_LOGO_IMAGE. Use it exactly as provided; do not redraw, restyle, or recolor it.";
+  if (hasProductAsset) {
+    text +=
+      "\n\n=== PRODUCT_VISUAL_IMAGE ===\nThe third attached image is the PRODUCT_VISUAL_IMAGE (a real product/UI asset). Use it exactly as provided; do not redraw, edit, or fabricate UI.";
+  }
+  if (inputs.customerResearch !== undefined) {
+    text += "\n\n=== OPTIONAL_CUSTOMER_RESEARCH_JSON ===\n" + JSON.stringify(inputs.customerResearch, null, 2);
+  }
+  if (inputs.performanceMemory !== undefined) {
+    text += "\n\n=== OPTIONAL_PERFORMANCE_MEMORY_JSON ===\n" + JSON.stringify(inputs.performanceMemory, null, 2);
+  }
+  if (inputs.userDirection !== undefined) {
+    text +=
+      "\n\n=== OPTIONAL_USER_DIRECTION ===\n" +
+      (typeof inputs.userDirection === "string" ? inputs.userDirection : JSON.stringify(inputs.userDirection, null, 2));
+  }
+
+  const parts: ContentPart[] = [
+    { type: "text", text },
+    { type: "image_url", image_url: { url: inputs.referenceAdImage } },
+    { type: "image_url", image_url: { url: inputs.logoImage } },
+  ];
+  if (inputs.productAsset) parts.push({ type: "image_url", image_url: { url: inputs.productAsset } });
+  return parts;
 }

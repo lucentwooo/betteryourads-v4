@@ -35,8 +35,10 @@ const sliceC = {
   source_map: [],
 };
 
-/** Identify which agent group a call belongs to by the key-list embedded in its first message. */
-function groupOf(prompt: string): "A" | "B" | "C" {
+/** Identify which agent group a call belongs to by the key-list embedded in its first message.
+ *  Stage-1 messages always use string content; the wider type covers the multimodal union. */
+function groupOf(content: string | { type: string }[]): "A" | "B" | "C" {
+  const prompt = typeof content === "string" ? content : "";
   if (prompt.includes(JSON.stringify(BRAND_AGENT_GROUPS[0].keys))) return "A";
   if (prompt.includes(JSON.stringify(BRAND_AGENT_GROUPS[1].keys))) return "B";
   return "C";
