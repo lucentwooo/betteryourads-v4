@@ -38,6 +38,25 @@ describe("api client", () => {
     expect(opts.body).toBeUndefined();
   });
 
+  it("GETs /api/brands", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }));
+    await api.getBrands();
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/brands");
+    expect(fetchMock.mock.calls[0][1].method).toBe("GET");
+  });
+
+  it("GETs /api/ads", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }));
+    await api.getAds();
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/ads");
+  });
+
+  it("GETs /api/brand/:id", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ id: "b1" }), { status: 200 }));
+    await api.getBrand("b1");
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/brand/b1");
+  });
+
   it("throws ApiError carrying code/status/stage on error responses", async () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ error: { code: "NOT_APPROVED", message: "nope", stage: "auth" } }), { status: 403 }),
