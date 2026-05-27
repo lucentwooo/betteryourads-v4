@@ -8,7 +8,8 @@
     "start": "tsx src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "run:extract": "tsx scripts/run-extract.ts"
+    "run:extract": "tsx scripts/run-extract.ts",
+    "run:brand": "tsx scripts/run-brand.ts"
   },
   "dependencies": {
     "@bya/shared": "*",
