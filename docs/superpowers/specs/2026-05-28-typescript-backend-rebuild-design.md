@@ -95,7 +95,7 @@ Four operations, each its own endpoint, each a typed pipeline function callable 
             (Playwright)     (area-weighted colors, CSS vars, fonts, logos, text)
 
  URL + MeasuredSiteData ──▶ [2] BRAND DNA ──▶ BrandExtraction JSON ──▶ Supabase
-            (OpenRouter STAGE1, Extract Brand DNA v3, optional :online)
+            (OpenRouter STAGE1, Extract Brand DNA v3, :online ALWAYS on)
             (11 sections + source_map)
 
  BrandExtraction + ReferenceAd + Logo + [ProductAsset?]
@@ -105,8 +105,8 @@ Four operations, each its own endpoint, each a typed pipeline function callable 
             (reference_ad_analysis, reskin_map, ad_prompt)
 
  AdPrompt + ReferenceAd + Logo + [ProductAsset?] ──▶ [4] RENDER ──▶ image URL ──▶ Supabase (library + storage)
-            (KIE: upload base64 → generate → poll; aspect ratio auto-detected;
-             4K+1:1 silently downgraded to 2K)
+            (KIE: upload base64 → generate → poll; renders at 1K resolution;
+             aspect ratio auto-detected from the Stage-2 prompt)
 ```
 
 **Extract and Brand DNA stay separate atomic operations** (frontend orchestrates
@@ -118,11 +118,14 @@ configuration grows.
 | Method/Path | Request | Response |
 |---|---|---|
 | `POST /api/extract` | `{ url }` | `MeasuredSiteData` |
-| `POST /api/brand` | `{ url, measuredSiteData, online? }` | `{ id, brandExtraction }` |
+| `POST /api/brand` | `{ url, measuredSiteData }` | `{ id, brandExtraction }` |
 | `POST /api/ad-prompt` | `{ brandExtractionId \| brandExtraction, referenceAdImage, logoImage, productAsset?, customerResearch?, performanceMemory?, userDirection? }` | `{ id, adPrompt }` |
 | `POST /api/render` | `{ adPromptId \| adPrompt, referenceAdImage, logoImage, productAsset? }` | `{ id, imageUrl }` |
 | `GET /api/config` | — | active models / which keys are set (non-secret) |
 
+- **Stage-1 web search (`:online`) is ALWAYS on** — it is not a client flag or option.
+  The Brand DNA pipeline always appends OpenRouter's `:online` plugin; there is no way to
+  turn it off from the request.
 - **Images** are transported as **base64 in JSON** (matches KIE's base64 upload path);
   Express body limit raised (~25mb).
 - **Stage-2 variant selection** is driven purely by `productAsset` presence
@@ -219,7 +222,8 @@ service-role key never leaves the backend; error bodies never contain secrets.
 - **LLM JSON** (riskiest seam): parse → zod-validate → one repair retry → typed error
   with raw output logged.
 - **KIE render:** bounded polling with a timeout ceiling; surface task status rather than
-  hang. Preserve `4K + 1:1 → 2K` downgrade.
+  hang. Renders at **1K** resolution (`KIE_IMAGE_RESOLUTION=1K`); no 4K/2K downgrade logic
+  is needed.
 - **Playwright:** per-request navigation timeout; relaunch the shared browser singleton
   if it crashes.
 
@@ -247,8 +251,45 @@ service-role key never leaves the backend; error bodies never contain secrets.
 4. **(Later phase, out of scope here)** — `apps/web` frontend on the proven typed API;
    auth + per-user scoping.
 
+## Future extension point: batch variations (design toward, do NOT build now)
+
+The end goal is **batch variation generation**, planned to work like this:
+
+1. A new **concept-generation agent** (a stage effectively before Stage 2) takes the
+   brand and produces N distinct ad concepts/angles.
+2. Each concept becomes **an additional input to Stage 2** (alongside reference ad, brand
+   JSON, and the existing optional inputs).
+3. A thin **batch composer** loops Stage 2 → Stage 3 across the concepts to produce the
+   batch in one user action.
+
+The current design is intentionally shaped to absorb this **without rework** — and that
+shapedness is the only thing in scope now:
+
+- **Stage 2 input is an extensible typed object.** Adding a `concept` field later is a
+  non-breaking, additive change to the request schema + prompt builder.
+- **Pipeline functions are composable.** The future batch composer is a small server-side
+  loop over the existing `adPrompt` and `render` pipeline functions — it does not need a
+  generic orchestrator engine (Approach B stays rejected).
+- **The prompt registry can hold the concept-agent prompt** as another versioned module.
+- **Persistence can group a batch later** via an optional `batch_id` on `generated_ads`
+  (and/or `ad_prompts`); not added now, but the schema/migrations leave room for it.
+
+**The real concern batch introduces is async job handling, not orchestration logic.** A
+batch is N slow, expensive calls (N × Stage-2 LLM + N × KIE render), so it can't run
+synchronously in one HTTP request. When built, the batch endpoint should kick off work,
+return a `batch_id`, process in the background, and let the client **poll for progress**
+(the same poll pattern KIE already forces at render). An MVP can process items
+sequentially in the background and update per-item status; a real worker/queue is only
+warranted if volume demands. This is a job/queue concern — still **not** a generic
+workflow-orchestrator engine (Approach B stays rejected).
+
+No orchestrator, concept agent, batch composer, or batch endpoint is built in this phase.
+This section exists so the contracts and schema don't get designed in a way that blocks it.
+
 ## Out of scope (this phase)
 
 - Frontend (`apps/web`) — built later against the typed API.
 - Auth / per-user data scoping — lands with the frontend.
+- The concept-generation agent, batch composer, and batch endpoint (see Future extension
+  point above) — design accommodates them; none are implemented now.
 - Any change to the marketing landing page (already deleted).
