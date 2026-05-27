@@ -1,3 +1,5 @@
+import { loadEnvFile } from "./config/index.js";
+loadEnvFile(process.cwd());
 import { createServer } from "./server.js";
 
 function start(port: number, attemptsLeft: number): void {
