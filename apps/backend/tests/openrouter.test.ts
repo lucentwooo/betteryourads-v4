@@ -46,4 +46,23 @@ describe("chat", () => {
     delete process.env.OPENROUTER_API_KEY;
     await expect(chat({ model: "x/model", messages: [] })).rejects.toBeInstanceOf(OpenRouterError);
   });
+
+  it("passes multimodal content (text + image parts) through unchanged", async () => {
+    const fn = mockFetchOnce(200, { choices: [{ message: { content: "{}" } }] });
+    await chat({
+      model: "x/vision",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "describe" },
+            { type: "image_url", image_url: { url: "data:image/png;base64,AAAA" } },
+          ],
+        },
+      ],
+    });
+    const body = JSON.parse(fn.mock.calls[0][1].body);
+    expect(Array.isArray(body.messages[0].content)).toBe(true);
+    expect(body.messages[0].content[1].image_url.url).toBe("data:image/png;base64,AAAA");
+  });
 });

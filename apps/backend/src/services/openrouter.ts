@@ -1,6 +1,10 @@
 import { OpenRouterError, type Stage } from "../lib/errors.js";
 
-export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
+export type TextContentPart = { type: "text"; text: string };
+export type ImageContentPart = { type: "image_url"; image_url: { url: string } };
+export type ContentPart = TextContentPart | ImageContentPart;
+
+export type ChatMessage = { role: "system" | "user" | "assistant"; content: string | ContentPart[] };
 
 export type ChatArgs = {
   model: string;
