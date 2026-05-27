@@ -24,6 +24,12 @@ export class ValidationError extends AppError {
   }
 }
 
+export class OpenRouterError extends AppError {
+  constructor(message: string, stage: Stage = "brand") {
+    super(message, "OPENROUTER_ERROR", 502, stage);
+  }
+}
+
 export interface HttpError {
   status: number;
   body: { error: { code: string; message: string; stage?: Stage } };
