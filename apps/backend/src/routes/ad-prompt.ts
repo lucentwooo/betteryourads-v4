@@ -11,6 +11,7 @@ adPromptRouter.post("/ad-prompt", requireApprovedUser, async (req, res) => {
   try {
     const userId = req.user!.id;
     const brandExtractionId: string | undefined = req.body?.brandExtractionId;
+    const userDirection = req.body?.userDirection;
 
     let brandExtraction = req.body?.brandExtraction;
     if (!brandExtraction && brandExtractionId) {
@@ -18,6 +19,8 @@ adPromptRouter.post("/ad-prompt", requireApprovedUser, async (req, res) => {
       if (!brandExtraction) throw new ValidationError("brandExtractionId not found.");
     }
 
+    // brandExtractionId anchors performance memory to that brand's prior ads, so we assemble
+    // it whenever an id is given — even if the extraction itself was passed inline.
     let performanceMemory = req.body?.performanceMemory;
     if (performanceMemory === undefined && brandExtractionId) {
       performanceMemory = await assemblePerformanceMemory({ userId, brandExtractionId });
@@ -30,7 +33,7 @@ adPromptRouter.post("/ad-prompt", requireApprovedUser, async (req, res) => {
       productAsset: req.body?.productAsset,
       customerResearch: req.body?.customerResearch,
       performanceMemory,
-      userDirection: req.body?.userDirection,
+      userDirection,
     });
 
     const variant: "no_asset" | "w_asset" = req.body?.productAsset ? "w_asset" : "no_asset";
@@ -39,7 +42,7 @@ adPromptRouter.post("/ad-prompt", requireApprovedUser, async (req, res) => {
       brandExtractionId: brandExtractionId ?? null,
       variant,
       adPrompt,
-      userDirection: req.body?.userDirection,
+      userDirection,
       model: loadConfig().stage2Model,
     });
     res.json({ id, adPrompt });

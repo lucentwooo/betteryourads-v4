@@ -54,6 +54,7 @@ describe("POST /api/ad-prompt", () => {
     // inline brandExtraction → no lookup; no productAsset → variant no_asset
     expect(getBrandExtraction).not.toHaveBeenCalled();
     expect(vi.mocked(saveAdPrompt).mock.calls[0][0].variant).toBe("no_asset");
+    expect(assemblePerformanceMemory).not.toHaveBeenCalled();
   });
 
   it("resolves brandExtractionId, assembles performance memory, and persists w_asset", async () => {
