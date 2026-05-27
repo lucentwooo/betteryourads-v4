@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AppError, ExtractionError, OpenRouterError, toHttpError } from "../src/lib/errors.js";
+import { AppError, ExtractionError, OpenRouterError, AuthError, ForbiddenError, toHttpError } from "../src/lib/errors.js";
 
 describe("errors", () => {
   it("ExtractionError carries stage + 502 status", () => {
@@ -20,6 +20,21 @@ describe("errors", () => {
     const r = toHttpError(new Error("secret stack detail"));
     expect(r.status).toBe(500);
     expect(r.body.error.code).toBe("INTERNAL");
+  });
+
+  it("AuthError carries 401 + auth stage", () => {
+    const e = new AuthError("nope");
+    expect(e).toBeInstanceOf(AppError);
+    expect(e.status).toBe(401);
+    expect(e.code).toBe("AUTH_REQUIRED");
+    expect(e.stage).toBe("auth");
+  });
+
+  it("ForbiddenError maps to 403 NOT_APPROVED via toHttpError", () => {
+    expect(toHttpError(new ForbiddenError("pending"))).toEqual({
+      status: 403,
+      body: { error: { code: "NOT_APPROVED", message: "pending", stage: "auth" } },
+    });
   });
 });
 

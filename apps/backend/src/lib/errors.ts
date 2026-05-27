@@ -1,4 +1,4 @@
-export type Stage = "extract" | "brand" | "ad-prompt" | "render" | "validation";
+export type Stage = "extract" | "brand" | "ad-prompt" | "render" | "validation" | "auth";
 
 export class AppError extends Error {
   constructor(
@@ -27,6 +27,18 @@ export class ValidationError extends AppError {
 export class OpenRouterError extends AppError {
   constructor(message: string, stage: Stage = "brand") {
     super(message, "OPENROUTER_ERROR", 502, stage);
+  }
+}
+
+export class AuthError extends AppError {
+  constructor(message: string) {
+    super(message, "AUTH_REQUIRED", 401, "auth");
+  }
+}
+
+export class ForbiddenError extends AppError {
+  constructor(message: string) {
+    super(message, "NOT_APPROVED", 403, "auth");
   }
 }
 
