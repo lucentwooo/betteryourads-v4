@@ -3,8 +3,9 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { BrandExtraction, AdPrompt } from "@bya/shared";
 import { PersistenceError } from "../lib/errors.js";
 
-// Lazily-created service-role client. Server-only: this key bypasses RLS and must
-// never reach the browser. Plan 5 (persistence) extends this file — keep additions here.
+// Service-role Supabase client + typed persistence. Server-only: this key bypasses RLS,
+// so every write sets user_id explicitly (never relies on auth.uid()). Reads/writes throw
+// PersistenceError; lookups return null when absent. Never reaches the browser.
 let client: SupabaseClient | null = null;
 
 function admin(): SupabaseClient {
