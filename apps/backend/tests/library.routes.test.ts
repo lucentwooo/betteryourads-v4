@@ -47,6 +47,13 @@ describe("GET /api/brands", () => {
 });
 
 describe("GET /api/brand/:id", () => {
+  it("401s without a token", async () => {
+    const res = await request(app).get("/api/brand/b1");
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe("AUTH_REQUIRED");
+    expect(getBrandDetail).not.toHaveBeenCalled();
+  });
+
   it("404s when the brand is not found", async () => {
     approve();
     vi.mocked(getBrandDetail).mockResolvedValue(null);
@@ -71,6 +78,13 @@ describe("GET /api/brand/:id", () => {
 });
 
 describe("GET /api/ads", () => {
+  it("401s without a token", async () => {
+    const res = await request(app).get("/api/ads");
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe("AUTH_REQUIRED");
+    expect(listGeneratedAds).not.toHaveBeenCalled();
+  });
+
   it("returns the user's ads with signed urls", async () => {
     approve();
     vi.mocked(listGeneratedAds).mockResolvedValue([
