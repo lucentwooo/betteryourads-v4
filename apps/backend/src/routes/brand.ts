@@ -2,16 +2,21 @@ import { Router } from "express";
 import { runBrand } from "../pipelines/brand.js";
 import { toHttpError } from "../lib/errors.js";
 import { requireApprovedUser } from "../middleware/require-approved-user.js";
+import { saveBrandExtraction } from "../services/supabase.js";
 
 export const brandRouter = Router();
 
 brandRouter.post("/brand", requireApprovedUser, async (req, res) => {
   try {
-    const brandExtraction = await runBrand({
-      url: req.body?.url ?? "",
+    const url = req.body?.url ?? "";
+    const brandExtraction = await runBrand({ url, measuredSiteData: req.body?.measuredSiteData });
+    const { id } = await saveBrandExtraction({
+      userId: req.user!.id,
+      url,
+      brandExtraction,
       measuredSiteData: req.body?.measuredSiteData,
     });
-    res.json({ brandExtraction });
+    res.json({ id, brandExtraction });
   } catch (err) {
     const { status, body } = toHttpError(err);
     res.status(status).json(body);
