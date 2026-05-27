@@ -9,6 +9,7 @@ export type AuthValue = {
   profile: Profile | null;
   supabase: SupabaseClient | null;
   signOut: () => Promise<void>;
+  clearRecovery: () => void;
 };
 
 export const AuthContext = createContext<AuthValue | null>(null);

@@ -9,6 +9,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [recovery, setRecovery] = useState(false);
   const clientRef = useRef<SupabaseClient | null>(null);
 
   // One-time: fetch config, create the Supabase client, wire the API token provider.
@@ -26,7 +27,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data } = await client.auth.getSession();
         return data.session?.access_token ?? null;
       });
-      const { data: sub } = client.auth.onAuthStateChange((_event, s) => {
+      const { data: sub } = client.auth.onAuthStateChange((event, s) => {
+        if (event === "PASSWORD_RECOVERY") setRecovery(true);
         setSession(s);
         setInitialized(true);
       });
@@ -62,7 +64,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [session?.user?.id]);
 
-  const status: AuthStatus = !initialized ? "loading" : deriveStatus(Boolean(session), profile);
+  const status: AuthStatus = recovery
+    ? "recovery"
+    : !initialized
+      ? "loading"
+      : deriveStatus(Boolean(session), profile);
 
   const value: AuthValue = {
     status,
@@ -71,8 +77,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     supabase,
     signOut: async () => {
+      setRecovery(false);
       await clientRef.current?.auth.signOut();
     },
+    clearRecovery: () => setRecovery(false),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

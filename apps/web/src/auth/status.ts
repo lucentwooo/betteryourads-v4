@@ -1,4 +1,4 @@
-export type AuthStatus = "loading" | "signed-out" | "awaiting-approval" | "approved";
+export type AuthStatus = "loading" | "signed-out" | "awaiting-approval" | "approved" | "recovery";
 
 export type Profile = {
   approved: boolean;
