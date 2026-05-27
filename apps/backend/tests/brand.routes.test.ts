@@ -2,35 +2,59 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import request from "supertest";
 
 vi.mock("../src/pipelines/brand.js", () => ({ runBrand: vi.fn() }));
+vi.mock("../src/services/supabase.js", () => ({
+  getUserFromToken: vi.fn(),
+  isApproved: vi.fn(),
+}));
 
 import { runBrand } from "../src/pipelines/brand.js";
+import { getUserFromToken, isApproved } from "../src/services/supabase.js";
 import { ValidationError, OpenRouterError } from "../src/lib/errors.js";
 import { createServer } from "../src/server.js";
 
 const app = createServer();
 beforeEach(() => vi.resetAllMocks());
 
+function approve() {
+  vi.mocked(getUserFromToken).mockResolvedValue({ id: "u1", email: "a@b.com" });
+  vi.mocked(isApproved).mockResolvedValue(true);
+}
+
 describe("POST /api/brand", () => {
-  it("returns 200 with { brandExtraction }", async () => {
+  it("401s without a token", async () => {
+    const res = await request(app)
+      .post("/api/brand")
+      .send({ url: "https://acme.com", measuredSiteData: { title: "Acme" } });
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe("AUTH_REQUIRED");
+    expect(runBrand).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 with { brandExtraction } for an approved user", async () => {
+    approve();
     vi.mocked(runBrand).mockResolvedValue({ brand_identity: { brand_name: "Acme" }, schema_version: 1 });
     const res = await request(app)
       .post("/api/brand")
+      .set("Authorization", "Bearer ok")
       .send({ url: "https://acme.com", measuredSiteData: { title: "Acme" } });
     expect(res.status).toBe(200);
     expect(res.body.brandExtraction.brand_identity.brand_name).toBe("Acme");
   });
 
   it("maps ValidationError to 422", async () => {
+    approve();
     vi.mocked(runBrand).mockRejectedValue(new ValidationError("bad input"));
-    const res = await request(app).post("/api/brand").send({ url: "nope" });
+    const res = await request(app).post("/api/brand").set("Authorization", "Bearer ok").send({ url: "nope" });
     expect(res.status).toBe(422);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
 
   it("maps OpenRouterError to 502", async () => {
+    approve();
     vi.mocked(runBrand).mockRejectedValue(new OpenRouterError("upstream down"));
     const res = await request(app)
       .post("/api/brand")
+      .set("Authorization", "Bearer ok")
       .send({ url: "https://acme.com", measuredSiteData: { title: "Acme" } });
     expect(res.status).toBe(502);
     expect(res.body.error.code).toBe("OPENROUTER_ERROR");
