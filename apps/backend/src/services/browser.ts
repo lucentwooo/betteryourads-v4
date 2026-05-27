@@ -28,7 +28,12 @@ export async function extractSite(url: string): Promise<MeasuredSiteData> {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
     await page.waitForLoadState("load", { timeout: 15000 }).catch(() => {});
     await page.waitForTimeout(2000);
-    const data = (await page.evaluate(extractFromPage)) as MeasuredSiteData;
+    // esbuild (used by tsx) injects __name helpers into compiled function bodies;
+    // stub it in the browser context before invoking the serialized function.
+    const fnSrc = extractFromPage.toString();
+    const data = (await page.evaluate(
+      `(function(){var __name=(f)=>f;return (${fnSrc})();})()`
+    )) as MeasuredSiteData;
     data.finalUrl = page.url();
     return data;
   } catch (e) {
