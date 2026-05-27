@@ -166,7 +166,7 @@ export async function assemblePerformanceMemory(args: {
     .order("created_at", { ascending: false });
   if (error) throw new PersistenceError(`Loading performance memory failed: ${error.message}`);
   type PerfRow = { performance: unknown; ad_prompts: { ad_prompt_json: unknown } | null };
-  const rows = (data as unknown as PerfRow[]) ?? [];
+  const rows = (data ?? []) as unknown as PerfRow[];
   if (rows.length === 0) return undefined;
   return rows.map((r) => ({ performance: r.performance, ad_prompt: r.ad_prompts?.ad_prompt_json ?? null }));
 }

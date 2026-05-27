@@ -176,6 +176,23 @@ describe("persistRenderedAd", () => {
       persistRenderedAd({ userId: "u1", imageUrl: "https://cdn/x", prompt: "{}", aspectRatio: null, resolution: null }),
     ).rejects.toBeInstanceOf(PersistenceError);
   });
+
+  it("throws PersistenceError when the generated_ads insert errors", async () => {
+    upload.mockResolvedValue({ data: { path: "ignored" }, error: null });
+    single.mockResolvedValue({ data: null, error: { message: "db down" } });
+    await expect(
+      persistRenderedAd({ userId: "u1", imageUrl: "https://cdn/x", prompt: "{}", aspectRatio: null, resolution: null }),
+    ).rejects.toBeInstanceOf(PersistenceError);
+  });
+
+  it("throws PersistenceError when signing the url errors", async () => {
+    upload.mockResolvedValue({ data: { path: "ignored" }, error: null });
+    single.mockResolvedValue({ data: { id: "a1" }, error: null });
+    createSignedUrl.mockResolvedValue({ data: null, error: { message: "no signer" } });
+    await expect(
+      persistRenderedAd({ userId: "u1", imageUrl: "https://cdn/x", prompt: "{}", aspectRatio: null, resolution: null }),
+    ).rejects.toBeInstanceOf(PersistenceError);
+  });
 });
 
 describe("assemblePerformanceMemory", () => {
