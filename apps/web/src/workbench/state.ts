@@ -37,6 +37,7 @@ export type Action =
   | { type: "GENERATE" }
   | { type: "GENERATED"; adPrompt: AdPrompt; imageUrl: string }
   | { type: "FAILED"; message: string }
+  | { type: "PRESET_BRAND"; brandExtraction: BrandExtraction; url?: string }
   | { type: "RETRY" }
   | { type: "RESET" };
 
@@ -58,6 +59,8 @@ export function reducer(state: WorkbenchState, action: Action): WorkbenchState {
       return { ...state, stage: "ready", adPrompt: action.adPrompt, imageUrl: action.imageUrl };
     case "FAILED":
       return { ...state, stage: "error", error: action.message };
+    case "PRESET_BRAND":
+      return { ...initialState, stage: "pick-ref", brandExtraction: action.brandExtraction, url: action.url ?? "" };
     case "RETRY":
       // Analysis succeeded (we have brandExtraction) → keep inputs, return to pick-ref.
       // Otherwise the failure was during analysis → full reset.

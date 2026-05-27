@@ -67,6 +67,14 @@ describe("workbench reducer", () => {
     expect(s.url).toBe("https://acme.com");
   });
 
+  it("PRESET_BRAND jumps to pick-ref with the loaded brand", () => {
+    const be = { brand_identity: { brand_name: "Acme" } } as never;
+    const s = reducer(initialState, { type: "PRESET_BRAND", brandExtraction: be, url: "https://acme.com" });
+    expect(s.stage).toBe("pick-ref");
+    expect(s.brandExtraction).toBe(be);
+    expect(s.url).toBe("https://acme.com");
+  });
+
   it("RETRY does a full reset when analysis had not completed", () => {
     const s = reducer(at({ stage: "error", error: "analysis failed" }), { type: "RETRY" });
     expect(s).toEqual(initialState);
