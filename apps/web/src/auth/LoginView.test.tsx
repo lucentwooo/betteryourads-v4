@@ -59,4 +59,22 @@ describe("LoginView", () => {
     fireEvent.click(screen.getByRole("button", { name: /send reset/i }));
     await waitFor(() => expect(auth.resetPasswordForEmail).toHaveBeenCalledWith("a@b.com", { redirectTo: window.location.origin }));
   });
+
+  it("switches to sign-up mode, creates an account, and shows the check-email message", async () => {
+    const { container } = render(<LoginView />);
+    // Switch into sign-up mode via the ghost link
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+    type(/email/i, "a@b.com");
+    type(/password/i, "secret1");
+    // Submit button is type="submit"; click it to avoid ambiguity with the mode-switch link
+    fireEvent.click(container.querySelector('button[type="submit"]')!);
+    await waitFor(() =>
+      expect(auth.signUp).toHaveBeenCalledWith({
+        email: "a@b.com",
+        password: "secret1",
+        options: { emailRedirectTo: window.location.origin },
+      })
+    );
+    await waitFor(() => expect(screen.getByText(/check your email/i)).toBeInTheDocument());
+  });
 });

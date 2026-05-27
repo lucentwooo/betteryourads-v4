@@ -9,6 +9,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [initialized, setInitialized] = useState(false);
+  // Known limitation: Supabase replays the last session as INITIAL_SESSION (not
+  // PASSWORD_RECOVERY) on a fresh client, so the recovery flag does not survive an
+  // AuthProvider remount. Acceptable: recovery is a single-shot flow off an email link.
   const [recovery, setRecovery] = useState(false);
   const clientRef = useRef<SupabaseClient | null>(null);
 
