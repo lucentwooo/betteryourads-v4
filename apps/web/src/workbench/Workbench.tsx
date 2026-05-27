@@ -24,6 +24,7 @@ export default function Workbench() {
   }
 
   async function runGenerate() {
+    if (state.stage === "generating") return;
     const { refImage, logoImage, brandExtraction, productAsset } = state;
     if (!refImage || !logoImage || !brandExtraction) return;
     dispatch({ type: "GENERATE" });

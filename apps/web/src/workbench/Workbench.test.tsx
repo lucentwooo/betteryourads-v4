@@ -50,4 +50,27 @@ describe("Workbench flow", () => {
     fireEvent.click(screen.getByRole("button", { name: /analyze brand/i }));
     await waitFor(() => expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument());
   });
+
+  it("shows error screen when render fails", async () => {
+    vi.mocked(api.extract).mockResolvedValue({ title: "Acme" } as never);
+    vi.mocked(api.brand).mockResolvedValue({ brandExtraction: { brand_identity: { brand_name: "Acme" } } } as never);
+    vi.mocked(api.adPrompt).mockResolvedValue({ adPrompt: { ad_prompt: {} } } as never);
+    vi.mocked(api.render).mockRejectedValue(new Error("render exploded"));
+
+    const { container } = render(<Workbench />);
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "https://acme.com" } });
+    fireEvent.click(screen.getByRole("button", { name: /analyze brand/i }));
+
+    await waitFor(() => expect(screen.getByText("Acme")).toBeInTheDocument());
+
+    const fileInputs = container.querySelectorAll('input[type="file"]');
+    fireEvent.change(fileInputs[0], { target: { files: [new File(["r"], "ref.png", { type: "image/png" })] } });
+    fireEvent.change(fileInputs[1], { target: { files: [new File(["l"], "logo.png", { type: "image/png" })] } });
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /make my ad/i })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: /make my ad/i }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument());
+  });
 });
