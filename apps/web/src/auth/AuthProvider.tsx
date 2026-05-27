@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createClient, type SupabaseClient, type Session } from "@supabase/supabase-js";
 import { api, setTokenProvider } from "../api/client";
 import { deriveStatus, type AuthStatus, type Profile } from "./status";
@@ -14,6 +14,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // One-time: fetch config, create the Supabase client, wire the API token provider.
   useEffect(() => {
     let active = true;
+    let unsub: (() => void) | null = null;
+
     api.getConfig().then((cfg) => {
       if (!active) return;
       const client = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
@@ -24,20 +26,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data } = await client.auth.getSession();
         return data.session?.access_token ?? null;
       });
-      client.auth.getSession().then(({ data }) => {
-        if (active) {
-          setSession(data.session);
-          setInitialized(true);
-        }
-      });
       const { data: sub } = client.auth.onAuthStateChange((_event, s) => {
         setSession(s);
+        setInitialized(true);
       });
+      unsub = () => sub.subscription.unsubscribe();
       setSupabase(client);
-      return () => sub.subscription.unsubscribe();
     });
+
     return () => {
       active = false;
+      unsub?.();
     };
   }, []);
 
@@ -54,9 +53,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .from("profiles")
       .select("approved,email,is_admin")
       .eq("id", uid)
-      .single()
+      .single<Profile>()
       .then(({ data }) => {
-        if (active) setProfile((data as Profile) ?? null);
+        if (active) setProfile(data ?? null);
       });
     return () => {
       active = false;
@@ -65,19 +64,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const status: AuthStatus = !initialized ? "loading" : deriveStatus(Boolean(session), profile);
 
-  const value = useMemo<AuthValue>(
-    () => ({
-      status,
-      userId: session?.user?.id ?? null,
-      email: profile?.email ?? session?.user?.email ?? null,
-      profile,
-      supabase,
-      signOut: async () => {
-        await clientRef.current?.auth.signOut();
-      },
-    }),
-    [status, session, profile, supabase],
-  );
+  const value: AuthValue = {
+    status,
+    userId: session?.user?.id ?? null,
+    email: profile?.email ?? session?.user?.email ?? null,
+    profile,
+    supabase,
+    signOut: async () => {
+      await clientRef.current?.auth.signOut();
+    },
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

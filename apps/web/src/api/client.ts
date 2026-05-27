@@ -65,6 +65,7 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
       err.stage,
     );
   }
+  // Trusted fetch boundary — backend validates shape before sending; add a runtime validator here if ever needed.
   return json as T;
 }
 

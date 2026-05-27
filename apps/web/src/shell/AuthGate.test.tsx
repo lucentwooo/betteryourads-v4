@@ -2,11 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { AuthGate } from "./AuthGate";
 import { useAuth } from "../auth/useAuth";
+import type { AuthStatus } from "../auth/status";
 
 vi.mock("../auth/useAuth", () => ({ useAuth: vi.fn() }));
 const mockUseAuth = vi.mocked(useAuth);
 
-const value = (status: string) => ({ status } as ReturnType<typeof useAuth>);
+const value = (status: AuthStatus) => ({ status } as ReturnType<typeof useAuth>);
 
 describe("AuthGate", () => {
   beforeEach(() => mockUseAuth.mockReset());
