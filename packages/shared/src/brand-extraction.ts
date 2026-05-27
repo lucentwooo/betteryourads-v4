@@ -1,7 +1,9 @@
 import { z } from "zod";
 
-/** Free-form string list (e.g. value props, search queries). */
-const strList = z.array(z.string());
+/** Free-form string list (e.g. value props, search queries).
+ *  Accepts a plain string too (model sometimes returns a single narrative string)
+ *  and coerces it into a single-element array. */
+const strList = z.union([z.array(z.string()), z.string().transform((s) => [s])]);
 /** Heterogeneous list whose items vary (strings or objects) across sites; kept loose on purpose. */
 const looseList = z.array(z.unknown());
 
