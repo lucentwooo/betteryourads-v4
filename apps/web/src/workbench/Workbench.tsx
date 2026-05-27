@@ -160,7 +160,7 @@ export default function Workbench() {
     return (
       <div className="stage">
         <p style={{ color: "var(--bya-oxblood)" }}>{state.error}</p>
-        <button className="btn" onClick={() => dispatch({ type: "RESET" })}>
+        <button className="btn" onClick={() => dispatch({ type: "RETRY" })}>
           Try again
         </button>
       </div>

@@ -54,4 +54,21 @@ describe("workbench reducer", () => {
     const s = reducer(at({ stage: "ready", imageUrl: "x", url: "y" }), { type: "RESET" });
     expect(s).toEqual(initialState);
   });
+
+  it("RETRY returns to pick-ref preserving inputs when analysis had completed", () => {
+    const s = reducer(
+      at({ stage: "error", error: "render failed", brandExtraction: { brand_identity: {} } as never, refImage: "r", logoImage: "l", url: "https://acme.com" }),
+      { type: "RETRY" },
+    );
+    expect(s.stage).toBe("pick-ref");
+    expect(s.error).toBeNull();
+    expect(s.refImage).toBe("r");
+    expect(s.logoImage).toBe("l");
+    expect(s.url).toBe("https://acme.com");
+  });
+
+  it("RETRY does a full reset when analysis had not completed", () => {
+    const s = reducer(at({ stage: "error", error: "analysis failed" }), { type: "RETRY" });
+    expect(s).toEqual(initialState);
+  });
 });
