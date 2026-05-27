@@ -3,10 +3,21 @@ import path from "node:path";
 
 type Env = Record<string, string | undefined>;
 
-/** Hand-rolled .env loader (legacy convention): real process.env wins over the file. */
-export function loadEnvFile(dir: string = process.cwd()): void {
-  try {
-    const txt = fs.readFileSync(path.join(dir, ".env"), "utf8");
+/** Hand-rolled .env loader (legacy convention): real process.env wins over the file.
+ *  Searches upward from startDir for the nearest .env (monorepo: scripts run from a
+ *  workspace dir, but .env lives at the repo root). */
+export function loadEnvFile(startDir: string = process.cwd()): void {
+  let dir = startDir;
+  for (;;) {
+    let txt: string;
+    try {
+      txt = fs.readFileSync(path.join(dir, ".env"), "utf8");
+    } catch {
+      const parent = path.dirname(dir);
+      if (parent === dir) return; // reached filesystem root, no .env found
+      dir = parent;
+      continue;
+    }
     for (const line of txt.split(/\r?\n/)) {
       const t = line.trim();
       if (!t || t.startsWith("#")) continue;
@@ -17,8 +28,7 @@ export function loadEnvFile(dir: string = process.cwd()): void {
       if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
       if (!(k in process.env)) process.env[k] = v;
     }
-  } catch {
-    /* no .env — rely on real environment variables */
+    return;
   }
 }
 
