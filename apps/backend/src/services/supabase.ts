@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { BrandExtraction, AdPrompt } from "@bya/shared";
+import { BrandExtraction, AdPrompt, type BrandSummary, type AdSummary, type BrandDetail } from "@bya/shared";
 import { PersistenceError } from "../lib/errors.js";
 
 // Service-role Supabase client + typed persistence. Server-only: this key bypasses RLS,
@@ -159,6 +159,50 @@ export async function persistRenderedAd(args: {
     throw new PersistenceError(`Signing the image URL failed: ${signed.error?.message ?? "no url"}`);
   }
   return { id: rowId(data), imageUrl: signed.data.signedUrl };
+}
+
+export async function listBrandExtractions(userId: string): Promise<BrandSummary[]> {
+  const { data, error } = await admin()
+    .from("brand_extractions")
+    .select("id, website_url, updated_at")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false });
+  if (error) throw new PersistenceError(`Listing brand extractions failed: ${error.message}`);
+  type Row = { id: string; website_url: string; updated_at: string };
+  const rows = (data ?? []) as unknown as Row[];
+  return rows.map((r) => ({ id: r.id, websiteUrl: r.website_url, updatedAt: r.updated_at }));
+}
+
+export async function getBrandDetail(id: string, userId: string): Promise<BrandDetail | null> {
+  const { data, error } = await admin()
+    .from("brand_extractions")
+    .select("id, analysis, measured_site_data")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .single();
+  if (error || !data) return null;
+  const row = data as unknown as { id: string; analysis: unknown; measured_site_data: unknown };
+  const parsed = BrandExtraction.safeParse(row.analysis);
+  if (!parsed.success) return null;
+  return { id: row.id, brandExtraction: parsed.data, measuredSiteData: row.measured_site_data ?? null };
+}
+
+export async function listGeneratedAds(userId: string): Promise<AdSummary[]> {
+  const { data, error } = await admin()
+    .from("generated_ads")
+    .select("id, image_path, aspect_ratio, resolution, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) throw new PersistenceError(`Listing generated ads failed: ${error.message}`);
+  type Row = { id: string; image_path: string; aspect_ratio: string | null; resolution: string | null; created_at: string };
+  const rows = (data ?? []) as unknown as Row[];
+  const out: AdSummary[] = [];
+  for (const r of rows) {
+    const signed = await admin().storage.from("ads").createSignedUrl(r.image_path, SIGNED_URL_TTL_SECONDS);
+    if (signed.error || !signed.data) continue; // skip unsignable rows rather than failing the whole list
+    out.push({ id: r.id, imageUrl: signed.data.signedUrl, aspectRatio: r.aspect_ratio, resolution: r.resolution, createdAt: r.created_at });
+  }
+  return out;
 }
 
 /** Prior generated ads (with performance tags) for a brand, joined to the prompt that
