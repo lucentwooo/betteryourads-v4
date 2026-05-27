@@ -73,6 +73,7 @@ describe("getBrandExtraction", () => {
     const be = await getBrandExtraction("b1");
     expect(be?.brand_identity).toEqual({ brand_name: "Acme" });
     expect(eq).toHaveBeenCalledWith("id", "b1");
+    expect(select).toHaveBeenCalledWith("analysis");
   });
 
   it("returns null when no row is found", async () => {
@@ -116,6 +117,7 @@ describe("getAdPrompt", () => {
     const ap = await getAdPrompt("p1");
     expect(ap?.ad_prompt?.goal).toBe("x");
     expect(eq).toHaveBeenCalledWith("id", "p1");
+    expect(select).toHaveBeenCalledWith("ad_prompt_json");
   });
 
   it("returns null when no row is found", async () => {

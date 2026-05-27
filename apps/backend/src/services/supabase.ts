@@ -36,6 +36,9 @@ export async function isApproved(userId: string): Promise<boolean> {
 
 /** Narrow an untyped Supabase row to its `id`. The client has no generated types here. */
 function rowId(data: unknown): string {
+  if (typeof data !== "object" || data === null || typeof (data as Record<string, unknown>).id !== "string") {
+    throw new PersistenceError("Row returned no id.");
+  }
   return (data as { id: string }).id;
 }
 
