@@ -12,7 +12,10 @@ export function loadEnvFile(startDir: string = process.cwd()): void {
     let txt: string;
     try {
       txt = fs.readFileSync(path.join(dir, ".env"), "utf8");
-    } catch {
+    } catch (e) {
+      // Only "file not found" means "keep looking upward"; surface real read errors
+      // (e.g. EACCES) rather than silently walking past an unreadable .env.
+      if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
       const parent = path.dirname(dir);
       if (parent === dir) return; // reached filesystem root, no .env found
       dir = parent;
