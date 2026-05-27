@@ -31,6 +31,8 @@ import {
   getBrandExtraction,
   saveAdPrompt,
   getAdPrompt,
+  persistRenderedAd,
+  assemblePerformanceMemory,
 } from "../src/services/supabase.js";
 import { PersistenceError } from "../src/lib/errors.js";
 
@@ -123,5 +125,80 @@ describe("getAdPrompt", () => {
   it("returns null when no row is found", async () => {
     single.mockResolvedValue({ data: null, error: { message: "no rows" } });
     expect(await getAdPrompt("missing")).toBeNull();
+  });
+});
+
+describe("persistRenderedAd", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) }),
+    );
+  });
+
+  it("downloads, uploads to the ads bucket, inserts a row, and returns a signed url", async () => {
+    upload.mockResolvedValue({ data: { path: "ignored" }, error: null });
+    single.mockResolvedValue({ data: { id: "a1" }, error: null }); // generated_ads insert
+    createSignedUrl.mockResolvedValue({ data: { signedUrl: "https://signed/x.png" }, error: null });
+
+    const out = await persistRenderedAd({
+      userId: "u1",
+      imageUrl: "https://cdn/out.png",
+      prompt: "{}",
+      aspectRatio: "1:1",
+      resolution: "1K",
+      adPromptId: "p1",
+    });
+
+    expect(out).toEqual({ id: "a1", imageUrl: "https://signed/x.png" });
+    expect(storage.from).toHaveBeenCalledWith("ads");
+    const [uploadPath] = upload.mock.calls[0];
+    expect(uploadPath.startsWith("u1/")).toBe(true);
+    expect(uploadPath.endsWith(".png")).toBe(true);
+    const row = insert.mock.calls[0][0];
+    expect(row.user_id).toBe("u1");
+    expect(row.ad_prompt_id).toBe("p1");
+    expect(row.image_path).toBe(uploadPath);
+    expect(row.aspect_ratio).toBe("1:1");
+    expect(row.resolution).toBe("1K");
+  });
+
+  it("throws PersistenceError when the image download fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+    await expect(
+      persistRenderedAd({ userId: "u1", imageUrl: "https://cdn/x", prompt: "{}", aspectRatio: null, resolution: null }),
+    ).rejects.toBeInstanceOf(PersistenceError);
+  });
+
+  it("throws PersistenceError when the upload errors", async () => {
+    upload.mockResolvedValue({ data: null, error: { message: "bucket down" } });
+    await expect(
+      persistRenderedAd({ userId: "u1", imageUrl: "https://cdn/x", prompt: "{}", aspectRatio: null, resolution: null }),
+    ).rejects.toBeInstanceOf(PersistenceError);
+  });
+});
+
+describe("assemblePerformanceMemory", () => {
+  it("returns prior ads' performance joined to their prompt, newest first", async () => {
+    order.mockResolvedValue({
+      data: [{ performance: { ctr: 0.05 }, ad_prompts: { ad_prompt_json: { ad_prompt: { goal: "x" } } } }],
+      error: null,
+    });
+    const mem = await assemblePerformanceMemory({ userId: "u1", brandExtractionId: "b1" });
+    expect(mem).toEqual([{ performance: { ctr: 0.05 }, ad_prompt: { ad_prompt: { goal: "x" } } }]);
+    expect(from).toHaveBeenCalledWith("generated_ads");
+    expect(eq).toHaveBeenCalledWith("ad_prompts.brand_extraction_id", "b1");
+  });
+
+  it("returns undefined when there is no performance data", async () => {
+    order.mockResolvedValue({ data: [], error: null });
+    expect(await assemblePerformanceMemory({ userId: "u1", brandExtractionId: "b1" })).toBeUndefined();
+  });
+
+  it("throws PersistenceError when the query errors", async () => {
+    order.mockResolvedValue({ data: null, error: { message: "boom" } });
+    await expect(assemblePerformanceMemory({ userId: "u1", brandExtractionId: "b1" })).rejects.toBeInstanceOf(
+      PersistenceError,
+    );
   });
 });

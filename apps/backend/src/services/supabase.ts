@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { BrandExtraction, AdPrompt } from "@bya/shared";
 import { PersistenceError } from "../lib/errors.js";
@@ -102,4 +103,70 @@ export async function getAdPrompt(id: string): Promise<AdPrompt | null> {
   if (error || !data) return null;
   const parsed = AdPrompt.safeParse((data as { ad_prompt_json: unknown }).ad_prompt_json);
   return parsed.success ? parsed.data : null;
+}
+
+const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
+
+export async function persistRenderedAd(args: {
+  userId: string;
+  imageUrl: string; // KIE-hosted result URL (temporary)
+  prompt: string; // ad_prompt JSON, stored for reference on the row
+  aspectRatio: string | null;
+  resolution: string | null;
+  adPromptId?: string | null;
+}): Promise<{ id: string; imageUrl: string }> {
+  let bytes: Buffer;
+  try {
+    const resp = await fetch(args.imageUrl);
+    if (!resp.ok) throw new PersistenceError(`Could not download the rendered image (HTTP ${resp.status}).`);
+    bytes = Buffer.from(await resp.arrayBuffer());
+  } catch (e) {
+    if (e instanceof PersistenceError) throw e;
+    throw new PersistenceError(`Could not download the rendered image: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  const imagePath = `${args.userId}/${randomUUID()}.png`;
+  const up = await admin().storage.from("ads").upload(imagePath, bytes, { contentType: "image/png", upsert: false });
+  if (up.error) throw new PersistenceError(`Uploading the rendered image failed: ${up.error.message}`);
+
+  const { data, error } = await admin()
+    .from("generated_ads")
+    .insert({
+      user_id: args.userId,
+      ad_prompt_id: args.adPromptId ?? null,
+      image_path: imagePath,
+      prompt: args.prompt,
+      aspect_ratio: args.aspectRatio,
+      resolution: args.resolution,
+    })
+    .select("id")
+    .single();
+  if (error || !data) throw new PersistenceError(`Saving the ad record failed: ${error?.message ?? "no row"}`);
+
+  const signed = await admin().storage.from("ads").createSignedUrl(imagePath, SIGNED_URL_TTL_SECONDS);
+  if (signed.error || !signed.data) {
+    throw new PersistenceError(`Signing the image URL failed: ${signed.error?.message ?? "no url"}`);
+  }
+  return { id: rowId(data), imageUrl: signed.data.signedUrl };
+}
+
+/** Prior generated ads (with performance tags) for a brand, joined to the prompt that
+ *  produced them. Derived by query — no dedicated table. Returns undefined when empty so
+ *  callers can skip the optional prompt section. */
+export async function assemblePerformanceMemory(args: {
+  userId: string;
+  brandExtractionId: string;
+}): Promise<Array<{ performance: unknown; ad_prompt: unknown }> | undefined> {
+  const { data, error } = await admin()
+    .from("generated_ads")
+    .select("performance, ad_prompts!inner ( ad_prompt_json, brand_extraction_id )")
+    .eq("user_id", args.userId)
+    .eq("ad_prompts.brand_extraction_id", args.brandExtractionId)
+    .not("performance", "is", null)
+    .order("created_at", { ascending: false });
+  if (error) throw new PersistenceError(`Loading performance memory failed: ${error.message}`);
+  type PerfRow = { performance: unknown; ad_prompts: { ad_prompt_json: unknown } | null };
+  const rows = (data as unknown as PerfRow[]) ?? [];
+  if (rows.length === 0) return undefined;
+  return rows.map((r) => ({ performance: r.performance, ad_prompt: r.ad_prompts?.ad_prompt_json ?? null }));
 }
