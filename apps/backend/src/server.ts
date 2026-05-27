@@ -3,6 +3,7 @@ import { extractRouter } from "./routes/extract.js";
 import { configRouter } from "./routes/config.js";
 import { brandRouter } from "./routes/brand.js";
 import { adPromptRouter } from "./routes/ad-prompt.js";
+import { renderRouter } from "./routes/render.js";
 
 export function createServer(): Express {
   const app = express();
@@ -12,5 +13,6 @@ export function createServer(): Express {
   app.use("/api", configRouter);
   app.use("/api", brandRouter);
   app.use("/api", adPromptRouter);
+  app.use("/api", renderRouter);
   return app;
 }
