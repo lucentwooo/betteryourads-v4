@@ -1,16 +1,8 @@
 {
-  "name": "openrouter-site-analyzer",
-  "version": "1.0.0",
+  "name": "betteryourads",
   "private": true,
-  "description": "Analyze a website with an OpenRouter LLM, grounded on real extracted colors/fonts/text.",
-  "type": "commonjs",
-  "scripts": {
-    "start": "node server.js",
-    "setup": "npm install && npx playwright install chromium"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.106.1",
-    "express": "^4.19.2",
-    "playwright": "^1.48.0"
-  }
+  "version": "0.0.0",
+  "type": "module",
+  "workspaces": ["apps/*", "packages/*"],
+  "engines": { "node": ">=20" }
 }
