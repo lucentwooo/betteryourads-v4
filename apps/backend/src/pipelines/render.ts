@@ -15,6 +15,8 @@ export type RenderInput = {
 
 export type RenderTiming = { pollIntervalMs?: number; pollTimeoutMs?: number };
 
+export type RenderResult = { imageUrl: string; aspectRatio: string; resolution: string };
+
 /** Normalize a free-form aspect ratio to one KIE accepts (ported from legacy mapAspectRatio). */
 function mapAspectRatio(ar?: string): string {
   if (!ar) return "auto";
@@ -33,7 +35,7 @@ function mapAspectRatio(ar?: string): string {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export async function runRender(input: RenderInput, timing: RenderTiming = {}): Promise<string> {
+export async function runRender(input: RenderInput, timing: RenderTiming = {}): Promise<RenderResult> {
   const parsed = RenderRequest.safeParse(input);
   if (!parsed.success) throw new ValidationError("render request is missing or malformed.");
   const req = parsed.data;
@@ -61,7 +63,7 @@ export async function runRender(input: RenderInput, timing: RenderTiming = {}): 
     const state = poll.state.toLowerCase();
     if (state === "success") {
       if (!poll.urls.length) throw new KieError("Render finished but returned no image.");
-      return poll.urls[0];
+      return { imageUrl: poll.urls[0], aspectRatio, resolution };
     }
     if (state === "fail") throw new KieError(`Render failed: ${poll.failMsg || "unknown error"}`);
     if (Date.now() >= deadline) throw new KieError("Render timed out. The task may still finish.");

@@ -37,8 +37,10 @@ describe("runRender", () => {
 
   it("uploads reference+logo, creates the task, and returns the first result URL", async () => {
     vi.mocked(pollResult).mockResolvedValue({ state: "success", urls: ["https://cdn/out.png"], failMsg: "" });
-    const url = await runRender({ adPrompt, referenceAdImage: REF, logoImage: LOGO }, fast);
-    expect(url).toBe("https://cdn/out.png");
+    const result = await runRender({ adPrompt, referenceAdImage: REF, logoImage: LOGO }, fast);
+    expect(result.imageUrl).toBe("https://cdn/out.png");
+    expect(result.aspectRatio).toBe("1:1");
+    expect(result.resolution).toBe("1K");
     expect(uploadBase64).toHaveBeenCalledTimes(2);
     expect(vi.mocked(createTask).mock.calls[0][0].aspectRatio).toBe("1:1");
   });
@@ -54,9 +56,21 @@ describe("runRender", () => {
     vi.mocked(pollResult)
       .mockResolvedValueOnce({ state: "processing", progress: 0.5, urls: [], failMsg: "" })
       .mockResolvedValueOnce({ state: "success", urls: ["https://cdn/out.png"], failMsg: "" });
-    const url = await runRender({ adPrompt, referenceAdImage: REF, logoImage: LOGO }, fast);
-    expect(url).toBe("https://cdn/out.png");
+    const result = await runRender({ adPrompt, referenceAdImage: REF, logoImage: LOGO }, fast);
+    expect(result.imageUrl).toBe("https://cdn/out.png");
     expect(pollResult).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns the downgraded 2K resolution for a 1:1 render configured at 4K", async () => {
+    process.env.KIE_IMAGE_RESOLUTION = "4K";
+    vi.mocked(pollResult).mockResolvedValue({ state: "success", urls: ["https://cdn/out.png"], failMsg: "" });
+    try {
+      const result = await runRender({ adPrompt, referenceAdImage: REF, logoImage: LOGO }, fast);
+      expect(result.resolution).toBe("2K"); // KIE forbids 4K@1:1, pipeline downgrades
+      expect(vi.mocked(createTask).mock.calls[0][0].resolution).toBe("2K");
+    } finally {
+      delete process.env.KIE_IMAGE_RESOLUTION;
+    }
   });
 
   it("throws KieError when the task fails", async () => {

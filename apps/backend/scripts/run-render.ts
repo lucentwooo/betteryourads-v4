@@ -22,7 +22,7 @@ function toDataUrl(p: string): string {
 (async () => {
   try {
     const adPrompt = JSON.parse(fs.readFileSync(adPromptPath, "utf8"));
-    const imageUrl = await runRender({
+    const { imageUrl } = await runRender({
       adPrompt,
       referenceAdImage: toDataUrl(refPath),
       logoImage: toDataUrl(logoPath),

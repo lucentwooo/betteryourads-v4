@@ -38,7 +38,7 @@ describe("POST /api/render", () => {
 
   it("returns 200 with { id, imageUrl } (signed) for an approved user", async () => {
     approve();
-    vi.mocked(runRender).mockResolvedValue("https://cdn/out.png");
+    vi.mocked(runRender).mockResolvedValue({ imageUrl: "https://cdn/out.png", aspectRatio: "1:1", resolution: "1K" });
     vi.mocked(persistRenderedAd).mockResolvedValue({ id: "a1", imageUrl: "https://signed/x.png" });
     const res = await request(app).post("/api/render").set("Authorization", "Bearer ok").send(body);
     expect(res.status).toBe(200);
@@ -49,12 +49,13 @@ describe("POST /api/render", () => {
     expect(persistArgs.userId).toBe("u1");
     expect(persistArgs.imageUrl).toBe("https://cdn/out.png");
     expect(persistArgs.aspectRatio).toBe("1:1");
+    expect(persistArgs.resolution).toBe("1K");
   });
 
   it("resolves adPromptId before rendering", async () => {
     approve();
     vi.mocked(getAdPrompt).mockResolvedValue({ ad_prompt: { goal: "x", canvas: { aspect_ratio: "9:16" } } });
-    vi.mocked(runRender).mockResolvedValue("https://cdn/out.png");
+    vi.mocked(runRender).mockResolvedValue({ imageUrl: "https://cdn/out.png", aspectRatio: "9:16", resolution: "1K" });
     vi.mocked(persistRenderedAd).mockResolvedValue({ id: "a2", imageUrl: "https://signed/y.png" });
     const res = await request(app)
       .post("/api/render")
@@ -64,6 +65,7 @@ describe("POST /api/render", () => {
     expect(res.body.id).toBe("a2");
     expect(getAdPrompt).toHaveBeenCalledWith("p1");
     expect(vi.mocked(persistRenderedAd).mock.calls[0][0].adPromptId).toBe("p1");
+    expect(vi.mocked(runRender).mock.calls[0][0].adPrompt).toEqual({ ad_prompt: { goal: "x", canvas: { aspect_ratio: "9:16" } } });
   });
 
   it("422s when adPromptId is not found", async () => {
@@ -80,7 +82,7 @@ describe("POST /api/render", () => {
 
   it("maps a PersistenceError from the save to 500", async () => {
     approve();
-    vi.mocked(runRender).mockResolvedValue("https://cdn/out.png");
+    vi.mocked(runRender).mockResolvedValue({ imageUrl: "https://cdn/out.png", aspectRatio: "1:1", resolution: "1K" });
     vi.mocked(persistRenderedAd).mockRejectedValue(new PersistenceError("storage down"));
     const res = await request(app).post("/api/render").set("Authorization", "Bearer ok").send(body);
     expect(res.status).toBe(500);

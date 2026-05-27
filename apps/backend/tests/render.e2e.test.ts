@@ -26,7 +26,7 @@ run("render e2e (real KIE)", () => {
         copy: { brand_name: "Acme", headline: "Ship faster" },
       },
     };
-    const imageUrl = await runRender({
+    const { imageUrl } = await runRender({
       adPrompt,
       referenceAdImage: toDataUrl(ref!),
       logoImage: toDataUrl(logo!),
