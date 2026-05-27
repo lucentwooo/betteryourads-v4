@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AppError, ExtractionError, OpenRouterError, AuthError, ForbiddenError, KieError, toHttpError } from "../src/lib/errors.js";
+import { AppError, ExtractionError, OpenRouterError, AuthError, ForbiddenError, KieError, PersistenceError, toHttpError } from "../src/lib/errors.js";
 
 describe("errors", () => {
   it("ExtractionError carries stage + 502 status", () => {
@@ -59,5 +59,15 @@ describe("KieError", () => {
     expect(e.code).toBe("KIE_ERROR");
     expect(e.status).toBe(502);
     expect(e.stage).toBe("render");
+  });
+});
+
+describe("PersistenceError", () => {
+  it("maps to a 500 with the persistence stage", () => {
+    const e = new PersistenceError("insert failed");
+    expect(e).toBeInstanceOf(AppError);
+    expect(e.code).toBe("PERSISTENCE_ERROR");
+    expect(e.status).toBe(500);
+    expect(e.stage).toBe("persistence");
   });
 });

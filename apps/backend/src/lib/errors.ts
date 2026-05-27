@@ -1,4 +1,4 @@
-export type Stage = "extract" | "brand" | "ad-prompt" | "render" | "validation" | "auth";
+export type Stage = "extract" | "brand" | "ad-prompt" | "render" | "validation" | "auth" | "persistence";
 
 export class AppError extends Error {
   constructor(
@@ -33,6 +33,12 @@ export class OpenRouterError extends AppError {
 export class KieError extends AppError {
   constructor(message: string) {
     super(message, "KIE_ERROR", 502, "render");
+  }
+}
+
+export class PersistenceError extends AppError {
+  constructor(message: string) {
+    super(message, "PERSISTENCE_ERROR", 500, "persistence");
   }
 }
 
