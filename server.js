@@ -1,6 +1,6 @@
 /**
- * Serves index.html and proxies all third-party API calls so that secrets
- * (OpenRouter + KIE keys) live ONLY in .env on the server, never in the browser.
+ * Serves the customer app (/app) and proxies all third-party API calls so that
+ * secrets (OpenRouter + KIE keys) live ONLY in .env on the server, never in the browser.
  *
  *   /extract       loads a URL in headless Chromium and reads the RENDERED page
  *                  (exact computed colors, CSS color vars, fonts, logos, text).
@@ -72,11 +72,11 @@ async function requireApprovedUser(req, res, next) {
 const app = express();
 // Base64 images (reference ad, logo, Stage 2 vision input) make request bodies large.
 app.use(express.json({ limit: "25mb" }));
-app.use(express.static(__dirname)); // serves the marketing landing page (index.html) at /
+app.use(express.static(__dirname)); // serves static assets (JS, CSS, images); no index at /
 
 // Customer app — the URL→ad workflow (sign in, make-an-ad, library). Lives at /app
-// here; intended to move to an app.<domain> subdomain in production. The marketing
-// landing page is what visitors hit at /.
+// here; intended to move to an app.<domain> subdomain in production. There is no
+// landing page, so / itself 404s — visitors go straight to /app.
 app.get("/app", (req, res) => res.sendFile(path.join(__dirname, "app.html")));
 
 // Internal power-user console: the original full-pipeline UI (model picker, prompt
