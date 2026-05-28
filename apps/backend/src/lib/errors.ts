@@ -1,4 +1,4 @@
-export type Stage = "extract" | "brand" | "ad-prompt" | "render" | "validation" | "auth" | "persistence";
+export type Stage = "extract" | "brand" | "ad-prompt" | "render" | "validation" | "auth" | "persistence" | "concepts";
 
 export class AppError extends Error {
   constructor(

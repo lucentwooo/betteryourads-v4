@@ -38,6 +38,7 @@ export function loadEnvFile(startDir: string = process.cwd()): void {
 export interface AppConfig {
   stage1Model: string;
   stage2Model: string;
+  stage3Model: string;
   kieModel: string;
   kieResolution: string;
   openrouterConfigured: boolean;
@@ -51,6 +52,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
   return {
     stage1Model: env.STAGE1_MODEL ?? "",
     stage2Model: env.STAGE2_MODEL ?? "",
+    stage3Model: env.STAGE3_MODEL ?? "",
     kieModel: env.KIE_IMAGE_MODEL ?? "gpt-image-2-image-to-image",
     kieResolution: env.KIE_IMAGE_RESOLUTION ?? "1K",
     openrouterConfigured: Boolean(env.OPENROUTER_API_KEY),
