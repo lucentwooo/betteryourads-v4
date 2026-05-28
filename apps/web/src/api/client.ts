@@ -11,6 +11,8 @@ import type {
   AdminUser,
   ConceptSet,
   AdIdea,
+  ReferenceAd,
+  ReferenceAdVariant,
 } from "@bya/shared";
 
 export type AppConfig = {
@@ -126,4 +128,10 @@ export const api = {
   deleteAdminUser: (id: string) => request<{ ok: true }>(`/api/admin/users/${id}`, undefined, "DELETE"),
   setUserApproval: (id: string, approved: boolean) =>
     request<{ ok: true }>(`/api/admin/users/${id}/approval`, { approved }, "PATCH"),
+  getReferenceAds: (variant: ReferenceAdVariant) =>
+    request<ReferenceAd[]>(`/api/reference-ads?variant=${variant}`),
+  adminCreateReferenceAd: (variant: ReferenceAdVariant, dataUrl: string, label: string | null) =>
+    request<ReferenceAd>("/api/admin/reference-ads", { variant, dataUrl, label }),
+  adminDeleteReferenceAd: (id: string) =>
+    request<{ ok: true }>(`/api/admin/reference-ads/${id}`, undefined, "DELETE"),
 };

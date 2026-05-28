@@ -99,4 +99,45 @@ describe("api client", () => {
     fetchMock.mockResolvedValue(new Response("", { status: 200 }));
     await expect(api.getConfig()).resolves.toBeNull();
   });
+
+  it("GETs /api/reference-ads?variant=no_asset and returns parsed array", async () => {
+    const mockAds = [
+      { id: "r1", variant: "no_asset", label: null, url: "https://cdn.example.com/r1.png", createdAt: "2026-01-01T00:00:00.000Z" },
+      { id: "r2", variant: "no_asset", label: "clean look", url: "https://cdn.example.com/r2.png", createdAt: "2026-01-02T00:00:00.000Z" },
+    ];
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(mockAds), { status: 200 }));
+    const res = await api.getReferenceAds("no_asset");
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/reference-ads?variant=no_asset");
+    expect(opts.method).toBe("GET");
+    expect(opts.body).toBeUndefined();
+    expect(res).toEqual(mockAds);
+  });
+
+  it("GETs /api/reference-ads?variant=with_asset", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }));
+    await api.getReferenceAds("with_asset");
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/reference-ads?variant=with_asset");
+    expect(fetchMock.mock.calls[0][1].method).toBe("GET");
+  });
+
+  it("POSTs to /api/admin/reference-ads with variant, dataUrl, and label", async () => {
+    const mockAd = { id: "r3", variant: "with_asset", label: "product shot", url: "https://cdn.example.com/r3.png", createdAt: "2026-01-03T00:00:00.000Z" };
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(mockAd), { status: 200 }));
+    const res = await api.adminCreateReferenceAd("with_asset", "data:image/png;base64,abc", "product shot");
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/admin/reference-ads");
+    expect(opts.method).toBe("POST");
+    expect(JSON.parse(opts.body)).toEqual({ variant: "with_asset", dataUrl: "data:image/png;base64,abc", label: "product shot" });
+    expect(res).toEqual(mockAd);
+  });
+
+  it("DELETEs /api/admin/reference-ads/:id", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    const res = await api.adminDeleteReferenceAd("r1");
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/admin/reference-ads/r1");
+    expect(opts.method).toBe("DELETE");
+    expect(res).toEqual({ ok: true });
+  });
 });
