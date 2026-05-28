@@ -18,10 +18,31 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Per-row UI state: which row is awaiting delete confirmation, which is deleting, row errors.
+  // `confirming` holds the id of the account whose delete modal is open; `confirmText` is what
+  // the admin has typed into the type-to-confirm field. `deleting` is the in-flight delete.
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
   const [rowError, setRowError] = useState<Record<string, string>>({});
+
+  const confirmUser = users.find((u) => u.id === confirming) ?? null;
+  // What the admin must type verbatim to enable deletion: the account's email, or "DELETE" as a
+  // fallback for the (rare) account with no email on record.
+  const required = confirmUser ? (confirmUser.email ?? "DELETE") : "";
+  const confirmMatches = confirmText.trim().toLowerCase() === required.toLowerCase();
+
+  const closeConfirm = useCallback(() => {
+    setConfirming(null);
+    setConfirmText("");
+  }, []);
+
+  // Escape closes the modal (unless a delete is mid-flight).
+  useEffect(() => {
+    if (!confirming) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !deleting) closeConfirm(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirming, deleting, closeConfirm]);
 
   const load = useCallback(() => {
     let active = true;
@@ -42,7 +63,7 @@ export default function AdminDashboard() {
     try {
       await api.deleteAdminUser(id);
       setUsers((prev) => prev.filter((u) => u.id !== id));
-      setConfirming(null);
+      closeConfirm();
     } catch (e) {
       setRowError((prev) => ({ ...prev, [id]: e instanceof ApiError ? e.message : "Could not remove this account." }));
     } finally {
@@ -108,18 +129,11 @@ export default function AdminDashboard() {
             <tbody>
               {users.map((u) => {
                 const isSelf = u.id === userId;
-                const isConfirming = confirming === u.id;
-                const isDeleting = deleting === u.id;
                 return (
                   <tr key={u.id}>
                     <td>
                       <span className="cell-email">{u.email ?? "—"}</span>
                       {isSelf && <span className="badge blue" style={{ marginLeft: "var(--space-2)" }}>You</span>}
-                      {rowError[u.id] && (
-                        <div className="small" role="alert" style={{ color: "var(--bya-oxblood)", marginTop: "var(--space-1)" }}>
-                          {rowError[u.id]}
-                        </div>
-                      )}
                     </td>
                     <td>
                       <div className="actions-row" style={{ gap: "var(--space-1)" }}>
@@ -134,19 +148,10 @@ export default function AdminDashboard() {
                     <td className="ta-right">
                       {isSelf ? (
                         <span className="small" style={{ color: "var(--fg-3)" }}>—</span>
-                      ) : isConfirming ? (
-                        <div className="actions-row" style={{ justifyContent: "flex-end" }}>
-                          <button className="btn sm danger" onClick={() => void remove(u.id)} disabled={isDeleting}>
-                            {isDeleting ? <span className="spinner" style={{ width: 14, height: 14 }} /> : "Confirm"}
-                          </button>
-                          <button className="btn sm ghost" onClick={() => setConfirming(null)} disabled={isDeleting}>
-                            Cancel
-                          </button>
-                        </div>
                       ) : (
                         <button
                           className="btn sm danger-ghost"
-                          onClick={() => setConfirming(u.id)}
+                          onClick={() => { setConfirming(u.id); setConfirmText(""); }}
                           aria-label={`Remove ${u.email ?? "account"}`}
                         >
                           <IconTrash width={14} height={14} />
@@ -161,6 +166,60 @@ export default function AdminDashboard() {
           </table>
         </div>
       )}
+
+      {confirmUser && (() => {
+        const isDeleting = deleting === confirmUser.id;
+        return (
+          <div className="modal-scrim" role="presentation" onClick={() => { if (!isDeleting) closeConfirm(); }}>
+            <div
+              className="modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="del-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 id="del-title" style={{ margin: 0 }}>Delete account</h2>
+              <p style={{ margin: "var(--space-3) 0 0", color: "var(--fg-2)" }}>
+                This permanently deletes{" "}
+                <strong style={{ color: "var(--fg)" }}>{confirmUser.email ?? "this account"}</strong>{" "}
+                and all of their data — saved brands and generated ads. This cannot be undone.
+              </p>
+              <div className="field" style={{ marginTop: "var(--space-4)", marginBottom: 0 }}>
+                <label htmlFor="del-confirm">
+                  Type <span className="mono" style={{ color: "var(--fg)" }}>{required}</span> to confirm
+                </label>
+                <input
+                  id="del-confirm"
+                  className="input"
+                  value={confirmText}
+                  autoFocus
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder={required}
+                  disabled={isDeleting}
+                  onChange={(e) => setConfirmText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && confirmMatches && !isDeleting) void remove(confirmUser.id); }}
+                />
+              </div>
+              {rowError[confirmUser.id] && (
+                <div className="small" role="alert" style={{ color: "var(--bya-oxblood)", marginTop: "var(--space-3)" }}>
+                  {rowError[confirmUser.id]}
+                </div>
+              )}
+              <div className="actions-row" style={{ justifyContent: "flex-end", marginTop: "var(--space-5)" }}>
+                <button className="btn ghost" onClick={closeConfirm} disabled={isDeleting}>Cancel</button>
+                <button
+                  className="btn danger"
+                  onClick={() => void remove(confirmUser.id)}
+                  disabled={!confirmMatches || isDeleting}
+                >
+                  {isDeleting ? <span className="spinner" style={{ width: 14, height: 14 }} /> : "Delete account"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -278,6 +278,23 @@ body { background: var(--bg); color: var(--fg); overflow: hidden; }
 .admin-table .cell-email { font-weight: 500; word-break: break-all; }
 .admin-table .cell-mono { font-family: var(--font-mono); font-size: var(--size-12); color: var(--fg-2); white-space: nowrap; }
 
+/* ----- Modal (type-to-confirm destructive actions) --------------- */
+.modal-scrim {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(10, 10, 10, 0.5);
+  display: grid; place-items: center; padding: var(--space-4);
+  animation: modal-fade var(--dur-fast) var(--ease);
+}
+.modal {
+  background: var(--bg); border: 1px solid var(--fg); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-5); width: 100%; max-width: 440px;
+  animation: modal-pop var(--dur-base) var(--ease);
+}
+.modal h2 { font-family: var(--font-sans); font-size: var(--size-24); font-weight: 600; letter-spacing: -0.01em; }
+@keyframes modal-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-pop { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+
 /* ----- Login screen ---------------------------------------------- */
 .auth-screen {
   height: 100vh; width: 100vw;
