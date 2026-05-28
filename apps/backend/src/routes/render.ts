@@ -54,3 +54,18 @@ renderRouter.post("/render", requireApprovedUser, async (req, res) => {
     res.status(status).json(body);
   }
 });
+
+renderRouter.get("/usage", requireApprovedUser, async (req, res) => {
+  try {
+    const limit = DAILY_CREATIVE_LIMIT;
+    if (req.user!.email?.toLowerCase() === ADMIN_EMAIL) {
+      res.json({ unlimited: true, used: 0, limit, remaining: limit });
+      return;
+    }
+    const used = await countAdsToday(req.user!.id);
+    res.json({ unlimited: false, used, limit, remaining: Math.max(0, limit - used) });
+  } catch (err) {
+    const { status, body } = toHttpError(err);
+    res.status(status).json(body);
+  }
+});

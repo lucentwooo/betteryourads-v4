@@ -23,6 +23,13 @@ export type AppConfig = {
   supabaseConfigured: boolean;
 };
 
+export type UsageInfo = {
+  unlimited: boolean;
+  used: number;
+  limit: number;
+  remaining: number;
+};
+
 export type ErrorStage =
   | "extract" | "brand" | "ad-prompt" | "render"
   | "validation" | "auth" | "persistence";
@@ -99,6 +106,7 @@ export const api = {
   getAds: () => request<AdSummary[]>("/api/ads"),
   adPrompt: (req: AdPromptRequest) => request<{ id: string; adPrompt: AdPrompt }>("/api/ad-prompt", req),
   render: (req: RenderRequest) => request<{ id: string; imageUrl: string }>("/api/render", req),
+  getUsage: () => request<UsageInfo>("/api/usage"),
   getAdminUsers: () => request<AdminUser[]>("/api/admin/users"),
   deleteAdminUser: (id: string) => request<{ ok: true }>(`/api/admin/users/${id}`, undefined, "DELETE"),
 };

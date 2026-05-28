@@ -5,11 +5,11 @@ import { reducer, initialState, type Stage, type WorkbenchState, type Action } f
 import type { Dispatch } from "react";
 import { Dropzone } from "./Dropzone";
 import { brandName, positioningLine, accentColor } from "./brandChip";
-import { api, ApiError } from "../api/client";
+import { api, ApiError, type UsageInfo } from "../api/client";
 import { IconDownload } from "../ui/icons";
 
-function message(e: unknown): string {
-  return e instanceof ApiError ? e.message : "Something went wrong.";
+function failure(e: unknown): { message: string; code?: string } {
+  return e instanceof ApiError ? { message: e.message, code: e.code } : { message: "Something went wrong." };
 }
 
 const STEP_LABELS = ["Analyze brand", "Add assets", "Generate"] as const;
@@ -54,6 +54,12 @@ export default function Workbench() {
   const [searchParams] = useSearchParams();
   const brandId = searchParams.get("brandId");
   const presetDone = useRef(false);
+  const [usage, setUsage] = useState<UsageInfo | null>(null);
+
+  function refreshUsage() {
+    api.getUsage().then(setUsage).catch(() => {});
+  }
+  useEffect(refreshUsage, []);
 
   useEffect(() => {
     if (!brandId || presetDone.current) return;
@@ -76,7 +82,7 @@ export default function Workbench() {
       const { id: brandExtractionId, brandExtraction } = await api.brand({ url, measuredSiteData: msd });
       dispatch({ type: "ANALYZED", measuredSiteData: msd, brandExtraction, brandExtractionId });
     } catch (e) {
-      dispatch({ type: "FAILED", message: message(e) });
+      dispatch({ type: "FAILED", ...failure(e) });
     }
   }
 
@@ -102,7 +108,9 @@ export default function Workbench() {
       });
       dispatch({ type: "GENERATED", adPrompt, adPromptId, imageUrl });
     } catch (e) {
-      dispatch({ type: "FAILED", message: message(e) });
+      dispatch({ type: "FAILED", ...failure(e) });
+    } finally {
+      refreshUsage();
     }
   }
 
@@ -161,7 +169,7 @@ export default function Workbench() {
       )}
 
       {stage === "pick-ref" && (
-        <PickRef state={state} dispatch={dispatch} onGenerate={runGenerate} />
+        <PickRef state={state} dispatch={dispatch} onGenerate={runGenerate} usage={usage} />
       )}
 
       {stage === "generating" && (
@@ -201,7 +209,19 @@ export default function Workbench() {
         </div>
       )}
 
-      {stage === "error" && (
+      {stage === "error" && state.errorCode === "RATE_LIMITED" && (
+        <div className="stage">
+          <div className="stage-body">
+            <span className="badge" style={{ marginBottom: "var(--space-3)" }}>Daily limit reached</span>
+            <p style={{ margin: "0 0 var(--space-4)" }}>{state.error}</p>
+            <button className="btn" onClick={() => dispatch({ type: "RETRY" })}>
+              Back
+            </button>
+          </div>
+        </div>
+      )}
+
+      {stage === "error" && state.errorCode !== "RATE_LIMITED" && (
         <div className="stage">
           <div className="stage-body">
             <span className="badge error" style={{ marginBottom: "var(--space-3)" }}>Error</span>
@@ -220,11 +240,12 @@ function hostnameOf(url: string): string {
   try { return new URL(url).hostname; } catch { return url; }
 }
 
-function PickRef({ state, dispatch, onGenerate }: { state: WorkbenchState; dispatch: Dispatch<Action>; onGenerate: () => void }) {
+function PickRef({ state, dispatch, onGenerate, usage }: { state: WorkbenchState; dispatch: Dispatch<Action>; onGenerate: () => void; usage: UsageInfo | null }) {
   const be = state.brandExtraction;
   const msd = state.measuredSiteData;
   const accent = accentColor(be, msd);
   const positioning = positioningLine(be);
+  const capped = usage !== null && !usage.unlimited && usage.remaining <= 0;
 
   return (
     <div className="stack">
@@ -277,11 +298,18 @@ function PickRef({ state, dispatch, onGenerate }: { state: WorkbenchState; dispa
           />
           <button
             className="btn primary"
-            disabled={!(state.refImage && state.logoImage)}
+            disabled={!(state.refImage && state.logoImage) || capped}
             onClick={() => onGenerate()}
           >
             Make my ad
           </button>
+          {usage !== null && !usage.unlimited && (
+            <span className="hint">
+              {capped
+                ? "Daily limit reached — resets at midnight UTC."
+                : `${usage.remaining} of ${usage.limit} creatives left today.`}
+            </span>
+          )}
         </div>
       </div>
     </div>

@@ -130,3 +130,22 @@ describe("POST /api/render", () => {
     expect(res.body.error.stage).toBe("render");
   });
 });
+
+describe("GET /api/usage", () => {
+  it("returns today's usage for a non-admin user", async () => {
+    approve();
+    vi.mocked(countAdsToday).mockResolvedValue(3);
+    const res = await request(app).get("/api/usage").set("Authorization", "Bearer ok");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ unlimited: false, used: 3, limit: 10, remaining: 7 });
+  });
+
+  it("reports unlimited for the admin without counting", async () => {
+    vi.mocked(getUserFromToken).mockResolvedValue({ id: "admin", email: "admin@betteryourads.dev" });
+    vi.mocked(isApproved).mockResolvedValue(true);
+    const res = await request(app).get("/api/usage").set("Authorization", "Bearer ok");
+    expect(res.status).toBe(200);
+    expect(res.body.unlimited).toBe(true);
+    expect(countAdsToday).not.toHaveBeenCalled();
+  });
+});

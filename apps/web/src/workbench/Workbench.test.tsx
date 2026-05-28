@@ -14,13 +14,17 @@ vi.mock("../api/client", async () => {
       render: vi.fn(),
       getConfig: vi.fn(),
       getBrand: vi.fn(),
+      getUsage: vi.fn(),
     },
   };
 });
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 
 describe("Workbench flow", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.getUsage).mockResolvedValue({ unlimited: false, used: 0, limit: 10, remaining: 10 });
+  });
 
   it("drives URL → analyzing → pick-ref → generating → ready", async () => {
     vi.mocked(api.extract).mockResolvedValue({ title: "Acme" } as never);
@@ -79,6 +83,48 @@ describe("Workbench flow", () => {
     fireEvent.click(screen.getByRole("button", { name: /make my ad/i }));
 
     await waitFor(() => expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument());
+  });
+
+  it("shows the daily-limit message (and no Try again) when render is rate-limited", async () => {
+    vi.mocked(api.extract).mockResolvedValue({ title: "Acme" } as never);
+    vi.mocked(api.brand).mockResolvedValue({ brandExtraction: { brand_identity: { brand_name: "Acme" } } } as never);
+    vi.mocked(api.adPrompt).mockResolvedValue({ adPrompt: { ad_prompt: {} } } as never);
+    vi.mocked(api.render).mockRejectedValue(
+      new ApiError("Daily limit of 10 creatives reached. Try again tomorrow.", "RATE_LIMITED", 429, "render"),
+    );
+
+    const { container } = render(<MemoryRouter><Workbench /></MemoryRouter>);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "https://acme.com" } });
+    fireEvent.click(screen.getByRole("button", { name: /analyze brand/i }));
+    await waitFor(() => expect(screen.getByText("Acme")).toBeInTheDocument());
+
+    const fileInputs = container.querySelectorAll('input[type="file"]');
+    fireEvent.change(fileInputs[0], { target: { files: [new File(["r"], "ref.png", { type: "image/png" })] } });
+    fireEvent.change(fileInputs[1], { target: { files: [new File(["l"], "logo.png", { type: "image/png" })] } });
+    await waitFor(() => expect(screen.getByRole("button", { name: /make my ad/i })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: /make my ad/i }));
+
+    await waitFor(() => expect(screen.getByText(/daily limit of 10 creatives reached/i)).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /try again/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^back$/i })).toBeInTheDocument();
+  });
+
+  it("disables Make my ad and shows the cap message when no creatives remain", async () => {
+    vi.mocked(api.getUsage).mockResolvedValue({ unlimited: false, used: 10, limit: 10, remaining: 0 });
+    vi.mocked(api.getBrand).mockResolvedValue({
+      id: "b1",
+      brandExtraction: { brand_identity: { brand_name: "Acme" } },
+      measuredSiteData: null,
+    } as never);
+    const { container } = render(
+      <MemoryRouter initialEntries={["/create?brandId=b1"]}><Workbench /></MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText("Acme")).toBeInTheDocument());
+    const fileInputs = container.querySelectorAll('input[type="file"]');
+    fireEvent.change(fileInputs[0], { target: { files: [new File(["r"], "ref.png", { type: "image/png" })] } });
+    fireEvent.change(fileInputs[1], { target: { files: [new File(["l"], "logo.png", { type: "image/png" })] } });
+    await waitFor(() => expect(screen.getByText(/daily limit reached/i)).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: /make my ad/i })).toBeDisabled();
   });
 
   it("presets a saved brand from ?brandId and lands in pick-ref", async () => {

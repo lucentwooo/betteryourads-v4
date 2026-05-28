@@ -15,6 +15,7 @@ export type WorkbenchState = {
   adPromptId: string | null;
   imageUrl: string | null;
   error: string | null;
+  errorCode: string | null;
 };
 
 export const initialState: WorkbenchState = {
@@ -30,6 +31,7 @@ export const initialState: WorkbenchState = {
   adPromptId: null,
   imageUrl: null,
   error: null,
+  errorCode: null,
 };
 
 export type Action =
@@ -40,7 +42,7 @@ export type Action =
   | { type: "SET_PRODUCT"; dataUrl: string | null }
   | { type: "GENERATE" }
   | { type: "GENERATED"; adPrompt: AdPrompt; adPromptId: string; imageUrl: string }
-  | { type: "FAILED"; message: string }
+  | { type: "FAILED"; message: string; code?: string }
   | { type: "PRESET_BRAND"; brandExtraction: BrandExtraction; brandExtractionId: string; measuredSiteData: MeasuredSiteData | null; url?: string }
   | { type: "RETRY" }
   | { type: "RESET" };
@@ -58,18 +60,18 @@ export function reducer(state: WorkbenchState, action: Action): WorkbenchState {
     case "SET_PRODUCT":
       return { ...state, productAsset: action.dataUrl };
     case "GENERATE":
-      return { ...state, stage: "generating", error: null };
+      return { ...state, stage: "generating", error: null, errorCode: null };
     case "GENERATED":
       return { ...state, stage: "ready", adPrompt: action.adPrompt, adPromptId: action.adPromptId, imageUrl: action.imageUrl };
     case "FAILED":
-      return { ...state, stage: "error", error: action.message };
+      return { ...state, stage: "error", error: action.message, errorCode: action.code ?? null };
     case "PRESET_BRAND":
       return { ...initialState, stage: "pick-ref", brandExtraction: action.brandExtraction, brandExtractionId: action.brandExtractionId, measuredSiteData: action.measuredSiteData, url: action.url ?? "" };
     case "RETRY":
       // Analysis succeeded (we have brandExtraction) → keep inputs, return to pick-ref.
       // Otherwise the failure was during analysis → full reset.
       return state.brandExtraction
-        ? { ...state, stage: "pick-ref", error: null }
+        ? { ...state, stage: "pick-ref", error: null, errorCode: null }
         : initialState;
     case "RESET":
       return initialState;
