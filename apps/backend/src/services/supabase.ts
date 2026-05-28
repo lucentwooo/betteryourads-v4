@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { BrandExtraction, AdPrompt, type BrandSummary, type AdSummary, type BrandDetail, type AdminUser } from "@bya/shared";
+import { BrandExtraction, AdPrompt, ConceptSet, type BrandSummary, type AdSummary, type BrandDetail, type AdminUser } from "@bya/shared";
 import { PersistenceError } from "../lib/errors.js";
 
 // Service-role Supabase client + typed persistence. Server-only: this key bypasses RLS,
@@ -325,4 +325,40 @@ export async function assemblePerformanceMemory(args: {
   const rows = (data ?? []) as unknown as PerfRow[];
   if (rows.length === 0) return undefined;
   return rows.map((r) => ({ performance: r.performance, ad_prompt: r.ad_prompts?.ad_prompt_json ?? null }));
+}
+
+export async function saveConceptSet(args: {
+  userId: string;
+  brandExtractionId: string;
+  conceptSet: ConceptSet;
+  model: string;
+}): Promise<{ id: string }> {
+  const { data, error } = await admin()
+    .from("ad_concept_sets")
+    .upsert(
+      {
+        user_id: args.userId,
+        brand_extraction_id: args.brandExtractionId,
+        concept_set: args.conceptSet,
+        model: args.model,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,brand_extraction_id" },
+    )
+    .select("id")
+    .single();
+  if (error || !data) throw new PersistenceError(`Saving the concept set failed: ${error?.message ?? "no row"}`);
+  return { id: rowId(data) };
+}
+
+export async function getConceptSet(brandExtractionId: string, userId: string): Promise<ConceptSet | null> {
+  const { data, error } = await admin()
+    .from("ad_concept_sets")
+    .select("concept_set")
+    .eq("brand_extraction_id", brandExtractionId)
+    .eq("user_id", userId)
+    .single();
+  if (error || !data) return null;
+  const parsed = ConceptSet.safeParse((data as { concept_set: unknown }).concept_set);
+  return parsed.success ? parsed.data : null;
 }
