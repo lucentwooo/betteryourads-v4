@@ -256,6 +256,93 @@ body { background: var(--bg); color: var(--fg); overflow: hidden; }
 .lib-card .meta .url { font-family: var(--font-sans); font-size: 13px; font-weight: 500; color: var(--fg); }
 .lib-card .meta .when { font-family: var(--font-mono); font-size: 10px; color: var(--fg-3); margin-top: 2px; }
 
+/* ----- Reference-ad library picker (workbench Stage 2) ----------- */
+.ref-lib {
+  border-top: 1px solid var(--border-hairline);
+  padding-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ref-lib-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ref-lib-eyebrow {
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--track-caps);
+  color: var(--fg-3);
+}
+
+.ref-lib-hint {
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  color: var(--fg-3);
+  margin: 0;
+  line-height: var(--lh-body);
+}
+
+.ref-lib-hint--error {
+  color: var(--bya-oxblood);
+}
+
+.ref-lib-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: var(--space-2);
+}
+
+.ref-lib-thumb {
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  overflow: hidden;
+  padding: 0;
+  cursor: pointer;
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  transition:
+    outline-color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
+}
+
+.ref-lib-thumb:hover {
+  outline-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.ref-lib-thumb:focus-visible {
+  outline-color: var(--accent);
+  outline-offset: 2px;
+}
+
+.ref-lib-thumb.is-selected {
+  outline-color: var(--accent);
+}
+
+.ref-lib-thumb.is-loading {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.ref-lib-thumb:disabled {
+  cursor: not-allowed;
+}
+
+.ref-lib-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 /* ----- Admin accounts table -------------------------------------- */
 .admin-table-wrap {
   border: 1px solid var(--fg); border-radius: var(--radius-md);

@@ -1,11 +1,22 @@
 import { useReducer, useState, useEffect, useRef } from "react";
 import type { Dispatch } from "react";
 import { useSearchParams } from "react-router-dom";
-import { MeasuredSiteData } from "@bya/shared";
-import { reducer, initialState, type Stage, type WorkbenchState, type Action } from "./state";
+import { MeasuredSiteData, type ReferenceAd, type AdIdea } from "@bya/shared";
+import { reducer, initialState, type Stage, type WorkbenchState, type Action, type ConceptAssets } from "./state";
 import { Dropzone } from "./Dropzone";
 import { api, ApiError, type UsageInfo } from "../api/client";
 import { IconDownload } from "../ui/icons";
+
+async function urlToDataUrl(url: string): Promise<string> {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Could not load reference image."));
+    reader.readAsDataURL(blob);
+  });
+}
 
 function failure(e: unknown): { message: string; code?: string } {
   return e instanceof ApiError ? { message: e.message, code: e.code } : { message: "Something went wrong." };
@@ -290,6 +301,85 @@ function PickConcepts({ state, dispatch, usage }: { state: WorkbenchState; dispa
   );
 }
 
+function ConceptAssetCard({ n, idea, assets, showCopyToAll, dispatch }: {
+  n: number;
+  idea: AdIdea;
+  assets: ConceptAssets;
+  showCopyToAll: boolean;
+  dispatch: Dispatch<Action>;
+}) {
+  const variant = assets.product ? "with_asset" : "no_asset";
+  const [library, setLibrary] = useState<ReferenceAd[]>([]);
+  const [libError, setLibError] = useState<string | null>(null);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    api.getReferenceAds(variant)
+      .then((ads) => { if (active) { setLibrary(ads); setLibError(null); } })
+      .catch(() => { if (active) { setLibrary([]); setLibError("Could not load the library — upload your own above."); } });
+    return () => { active = false; };
+  }, [variant]);
+
+  async function pickFromLibrary(ad: ReferenceAd) {
+    if (loadingId) return;
+    setLoadingId(ad.id);
+    try {
+      const dataUrl = await urlToDataUrl(ad.url);
+      dispatch({ type: "SET_ASSET", ideaNumber: n, slot: "ref", dataUrl });
+      setLibError(null);
+    } catch {
+      setLibError("Could not load that reference — try another or upload your own.");
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
+  const libHint = variant === "no_asset"
+    ? "These don't use a product image. Add a product asset below and a different library, built around your product, will appear here."
+    : "Showing references designed to feature your product asset.";
+
+  return (
+    <div className="concept-assets">
+      <div className="concept-assets-head">
+        <span className="badge">{idea.awareness_level ?? `Idea ${n}`}</span>
+        <span className="concept-name">{idea.idea_name}</span>
+        {showCopyToAll && (assets.ref || assets.logo) && (
+          <button className="btn ghost sm" onClick={() => dispatch({ type: "COPY_ASSETS_TO_ALL", ideaNumber: n })}>
+            Copy to all
+          </button>
+        )}
+      </div>
+      <Dropzone label="Reference ad" required value={assets.ref ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", ideaNumber: n, slot: "ref", dataUrl: d })} />
+      <div className="ref-lib">
+        <div className="ref-lib-header">
+          <span className="ref-lib-eyebrow">Or browse our references</span>
+        </div>
+        <p className="ref-lib-hint">{libHint}</p>
+        {libError && <p className="ref-lib-hint ref-lib-hint--error">{libError}</p>}
+        {library.length > 0 && (
+          <div className="ref-lib-grid">
+            {library.map((ad) => (
+              <button
+                key={ad.id}
+                type="button"
+                className={`ref-lib-thumb${loadingId === ad.id ? " is-loading" : ""}`}
+                aria-label={ad.label ?? "Reference ad"}
+                onClick={() => pickFromLibrary(ad)}
+                disabled={loadingId !== null}
+              >
+                <img src={ad.url} alt={ad.label ?? "Reference ad"} loading="lazy" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <Dropzone label="Logo" required height={96} value={assets.logo ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", ideaNumber: n, slot: "logo", dataUrl: d })} />
+      <Dropzone label="Product image (optional)" value={assets.product ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", ideaNumber: n, slot: "product", dataUrl: d })} />
+    </div>
+  );
+}
+
 function PickAssets({ state, dispatch, onGenerate, usage }: { state: WorkbenchState; dispatch: Dispatch<Action>; onGenerate: () => void; usage: UsageInfo | null }) {
   // Carry the canonical selected number `n` alongside each idea so the asset key matches
   // what runBatch looks up — re-deriving n from this filtered list's index would diverge
@@ -317,25 +407,16 @@ function PickAssets({ state, dispatch, onGenerate, usage }: { state: WorkbenchSt
           </div>
         </div>
         <div className="stage-body stack">
-          {selected.map(({ n, idea }) => {
-            const a = state.assets[n] ?? {};
-            return (
-              <div key={n} className="concept-assets">
-                <div className="concept-assets-head">
-                  <span className="badge">{idea.awareness_level ?? `Idea ${n}`}</span>
-                  <span className="concept-name">{idea.idea_name}</span>
-                  {state.selectedIdeaNumbers.length > 1 && (a.ref || a.logo) && (
-                    <button className="btn ghost sm" onClick={() => dispatch({ type: "COPY_ASSETS_TO_ALL", ideaNumber: n })}>
-                      Copy to all
-                    </button>
-                  )}
-                </div>
-                <Dropzone label="Reference ad" required value={a.ref ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", ideaNumber: n, slot: "ref", dataUrl: d })} />
-                <Dropzone label="Logo" required height={96} value={a.logo ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", ideaNumber: n, slot: "logo", dataUrl: d })} />
-                <Dropzone label="Product image (optional)" value={a.product ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", ideaNumber: n, slot: "product", dataUrl: d })} />
-              </div>
-            );
-          })}
+          {selected.map(({ n, idea }) => (
+            <ConceptAssetCard
+              key={n}
+              n={n}
+              idea={idea}
+              assets={state.assets[n] ?? {}}
+              showCopyToAll={state.selectedIdeaNumbers.length > 1}
+              dispatch={dispatch}
+            />
+          ))}
           <div className="actions-row">
             <button className="btn" onClick={() => dispatch({ type: "BACK_TO_CONCEPTS" })}>Back</button>
             <button className="btn primary" disabled={!ready || capped} onClick={onGenerate}>

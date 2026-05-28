@@ -16,6 +16,7 @@ vi.mock("../api/client", async () => {
       getConfig: vi.fn(),
       getBrand: vi.fn(),
       getUsage: vi.fn(),
+      getReferenceAds: vi.fn(),
     },
   };
 });
@@ -33,6 +34,7 @@ describe("Workbench concept→batch flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(api.getUsage).mockResolvedValue({ unlimited: false, used: 0, limit: 10, remaining: 10 });
+    vi.mocked(api.getReferenceAds).mockResolvedValue([]);
   });
 
   it("drives URL → concepts → pick → assets → batch done", async () => {
