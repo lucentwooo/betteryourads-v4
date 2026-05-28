@@ -473,3 +473,172 @@ body { background: var(--bg); color: var(--fg); overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* =================================================================
+   Concept-picker & batch-results — Task 15
+   ================================================================= */
+
+/* ----- Concept grid ---------------------------------------------- */
+.concept-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+/* ----- Concept card (selectable button) -------------------------- */
+.concept-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-4);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+  font-family: var(--font-sans);
+}
+.concept-card:hover {
+  background: var(--bg-deep);
+  box-shadow: var(--shadow-sm);
+}
+.concept-card.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.concept-card:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Top row: badges + tick */
+.concept-card-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+/* Tick indicator */
+.tick {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-hairline);
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.tick.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+/* white checkmark via background SVG */
+.tick.on::after {
+  content: '';
+  display: block;
+  width: 9px;
+  height: 9px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><polyline points='1.5,5 4,7.5 8.5,2.5' stroke='white' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+/* Concept text tiers */
+.concept-name {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  font-weight: 600;
+  color: var(--fg);
+  line-height: var(--lh-snug);
+}
+.concept-hook {
+  font-family: var(--font-sans);
+  font-size: var(--size-14);
+  color: var(--fg-2);
+  margin-top: var(--space-1);
+  line-height: var(--lh-body);
+}
+.concept-why {
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  color: var(--fg-3);
+  margin-top: var(--space-1);
+  line-height: var(--lh-body);
+}
+.concept-cta {
+  font-family: var(--font-mono);
+  font-size: var(--size-12);
+  color: var(--fg-3);
+  margin-top: var(--space-1);
+  line-height: var(--lh-body);
+}
+
+/* ----- Badge variant: recommended (accent, matches .badge.blue) -- */
+.badge.rec {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* ----- Concept assets block (dropzones for one concept) ---------- */
+.concept-assets {
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.concept-assets-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+/* ----- Batch results grid ---------------------------------------- */
+.batch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+/* ----- Batch tile (image + label + download/status) -------------- */
+.batch-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+.batch-tile img {
+  width: 100%;
+  display: block;
+  border-radius: var(--radius-sm);
+}
+
+.batch-tile-label {
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  font-weight: 600;
+  color: var(--fg);
+}
+
+/* ----- Batch error text ------------------------------------------ */
+.batch-error {
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  color: var(--bya-oxblood);
+  line-height: var(--lh-body);
+}
