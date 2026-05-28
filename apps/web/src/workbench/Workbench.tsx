@@ -1,10 +1,9 @@
 import { useReducer, useState, useEffect, useRef } from "react";
+import type { Dispatch } from "react";
 import { useSearchParams } from "react-router-dom";
 import { MeasuredSiteData } from "@bya/shared";
 import { reducer, initialState, type Stage, type WorkbenchState, type Action } from "./state";
-import type { Dispatch } from "react";
 import { Dropzone } from "./Dropzone";
-import { brandName, positioningLine, accentColor } from "./brandChip";
 import { api, ApiError, type UsageInfo } from "../api/client";
 import { IconDownload } from "../ui/icons";
 
@@ -12,21 +11,24 @@ function failure(e: unknown): { message: string; code?: string } {
   return e instanceof ApiError ? { message: e.message, code: e.code } : { message: "Something went wrong." };
 }
 
-const STEP_LABELS = ["Analyze brand", "Add assets", "Generate"] as const;
+const STEP_LABELS = ["Analyze brand", "Pick concepts", "Add assets", "Generate"] as const;
 
 function stepStates(stage: Stage): ("done" | "active" | "")[] {
   switch (stage) {
     case "idle":
     case "analyzing":
-      return ["active", "", ""];
-    case "pick-ref":
-      return ["done", "active", ""];
-    case "generating":
-      return ["done", "done", "active"];
-    case "ready":
-      return ["done", "done", "done"];
+      return ["active", "", "", ""];
+    case "concepts-loading":
+    case "pick-concepts":
+      return ["done", "active", "", ""];
+    case "pick-assets":
+      return ["done", "done", "active", ""];
+    case "batch-running":
+      return ["done", "done", "done", "active"];
+    case "batch-done":
+      return ["done", "done", "done", "done"];
     default:
-      return ["", "", ""];
+      return ["", "", "", ""];
   }
 }
 
@@ -46,6 +48,15 @@ function Stepper({ stage }: { stage: Stage }) {
       ))}
     </nav>
   );
+}
+
+function hostnameOf(url: string): string {
+  try { return new URL(url).hostname; } catch { return url; }
+}
+
+function remaining(usage: UsageInfo | null): number {
+  if (!usage || usage.unlimited) return Infinity;
+  return Math.max(0, usage.remaining);
 }
 
 export default function Workbench() {
@@ -86,33 +97,49 @@ export default function Workbench() {
     }
   }
 
-  async function runGenerate() {
-    if (state.stage === "generating") return;
-    const { refImage, logoImage, brandExtraction, brandExtractionId, productAsset } = state;
-    if (!refImage || !logoImage || !brandExtraction) return;
-    dispatch({ type: "GENERATE" });
+  useEffect(() => {
+    if (state.stage !== "concepts-loading" || !state.brandExtraction || !state.brandExtractionId) return;
+    let active = true;
+    api.concepts({ brandExtraction: state.brandExtraction, brandExtractionId: state.brandExtractionId })
+      .then((r) => { if (active) dispatch({ type: "CONCEPTS_READY", conceptSet: r.conceptSet }); })
+      .catch((e) => { if (active) dispatch({ type: "FAILED", ...failure(e) }); });
+    return () => { active = false; };
+  }, [state.stage, state.brandExtraction, state.brandExtractionId]);
+
+  async function runBatch() {
+    if (!state.brandExtraction || !state.brandExtractionId || !state.conceptSet) return;
+    const items = state.selectedIdeaNumbers.map((n) => {
+      const idea = state.conceptSet!.ad_ideas.find((x, i) => (x.idea_number ?? i + 1) === n)!;
+      const a = state.assets[n] ?? {};
+      return { concept: idea, referenceAdImage: a.ref!, logoImage: a.logo!, productAsset: a.product };
+    });
     try {
-      const { id: adPromptId, adPrompt } = await api.adPrompt({
-        brandExtraction,
-        brandExtractionId: brandExtractionId ?? undefined,
-        referenceAdImage: refImage,
-        logoImage,
-        productAsset: productAsset ?? undefined,
-      });
-      const { imageUrl } = await api.render({
-        adPrompt,
-        adPromptId,
-        referenceAdImage: refImage,
-        logoImage,
-        productAsset: productAsset ?? undefined,
-      });
-      dispatch({ type: "GENERATED", adPrompt, adPromptId, imageUrl });
+      const { batchId } = await api.startBatch({ brandExtractionId: state.brandExtractionId, brandExtraction: state.brandExtraction, items });
+      dispatch({ type: "BATCH_STARTED", batchId });
     } catch (e) {
       dispatch({ type: "FAILED", ...failure(e) });
-    } finally {
-      refreshUsage();
     }
   }
+
+  useEffect(() => {
+    if (state.stage !== "batch-running" || !state.batchId) return;
+    let active = true;
+    const tick = async () => {
+      try {
+        const view = await api.getBatch(state.batchId!);
+        if (!active) return;
+        if (view.status === "done" || view.status === "error") {
+          dispatch({ type: "BATCH_DONE", items: view.items });
+          refreshUsage();
+        } else {
+          dispatch({ type: "BATCH_UPDATED", items: view.items });
+        }
+      } catch { /* keep polling; transient errors shouldn't kill the batch view */ }
+    };
+    tick();
+    const id = setInterval(tick, 3000);
+    return () => { active = false; clearInterval(id); };
+  }, [state.stage, state.batchId]);
 
   const { stage } = state;
 
@@ -146,11 +173,7 @@ export default function Workbench() {
               />
               <span className="hint">We read colors, fonts, logos and copy straight from the page.</span>
             </div>
-            <button
-              className="btn primary"
-              disabled={!urlInput.trim()}
-              onClick={() => runAnalyze(urlInput.trim())}
-            >
+            <button className="btn primary" disabled={!urlInput.trim()} onClick={() => runAnalyze(urlInput.trim())}>
               Analyze brand
             </button>
           </div>
@@ -160,53 +183,29 @@ export default function Workbench() {
       {stage === "analyzing" && (
         <div className="stage active">
           <div className="stage-body">
-            <div className="status-row">
-              <span className="spinner" />
-              Reading {hostnameOf(state.url)}…
-            </div>
+            <div className="status-row"><span className="spinner" /> Reading {hostnameOf(state.url)}…</div>
           </div>
         </div>
       )}
 
-      {stage === "pick-ref" && (
-        <PickRef state={state} dispatch={dispatch} onGenerate={runGenerate} usage={usage} />
-      )}
-
-      {stage === "generating" && (
+      {stage === "concepts-loading" && (
         <div className="stage active">
           <div className="stage-body">
-            <div className="status-row">
-              <span className="spinner" />
-              Generating your ad…
-            </div>
+            <div className="status-row"><span className="spinner" /> Generating ad concepts…</div>
           </div>
         </div>
       )}
 
-      {stage === "ready" && (
-        <div className="stage done">
-          <div className="stage-head">
-            <div className="left">
-              <span className="num">✓</span>
-              <div>
-                <div className="title">Your ad is ready</div>
-                <div className="sub">Download it, or start over to make another.</div>
-              </div>
-            </div>
-          </div>
-          <div className="stage-body">
-            <img src={state.imageUrl ?? ""} alt="Generated ad" style={{ maxWidth: "100%", borderRadius: "var(--radius-md)", border: "1px solid var(--border-hairline)" }} />
-            <div className="actions-row" style={{ marginTop: "var(--space-4)" }}>
-              <a href={state.imageUrl ?? ""} download className="btn primary">
-                <IconDownload className="ico" width={14} height={14} />
-                Download
-              </a>
-              <button className="btn" onClick={() => dispatch({ type: "RESET" })}>
-                Start over
-              </button>
-            </div>
-          </div>
-        </div>
+      {stage === "pick-concepts" && state.conceptSet && (
+        <PickConcepts state={state} dispatch={dispatch} usage={usage} />
+      )}
+
+      {stage === "pick-assets" && state.conceptSet && (
+        <PickAssets state={state} dispatch={dispatch} onGenerate={runBatch} usage={usage} />
+      )}
+
+      {(stage === "batch-running" || stage === "batch-done") && (
+        <BatchResults state={state} dispatch={dispatch} />
       )}
 
       {stage === "error" && state.errorCode === "RATE_LIMITED" && (
@@ -214,9 +213,7 @@ export default function Workbench() {
           <div className="stage-body">
             <span className="badge" style={{ marginBottom: "var(--space-3)" }}>Daily limit reached</span>
             <p style={{ margin: "0 0 var(--space-4)" }}>{state.error}</p>
-            <button className="btn" onClick={() => dispatch({ type: "RETRY" })}>
-              Back
-            </button>
+            <button className="btn" onClick={() => dispatch({ type: "RETRY" })}>Back</button>
           </div>
         </div>
       )}
@@ -226,9 +223,7 @@ export default function Workbench() {
           <div className="stage-body">
             <span className="badge error" style={{ marginBottom: "var(--space-3)" }}>Error</span>
             <p style={{ color: "var(--bya-oxblood)", margin: "0 0 var(--space-4)" }}>{state.error}</p>
-            <button className="btn" onClick={() => dispatch({ type: "RETRY" })}>
-              Try again
-            </button>
+            <button className="btn" onClick={() => dispatch({ type: "RETRY" })}>Try again</button>
           </div>
         </div>
       )}
@@ -236,81 +231,155 @@ export default function Workbench() {
   );
 }
 
-function hostnameOf(url: string): string {
-  try { return new URL(url).hostname; } catch { return url; }
-}
-
-function PickRef({ state, dispatch, onGenerate, usage }: { state: WorkbenchState; dispatch: Dispatch<Action>; onGenerate: () => void; usage: UsageInfo | null }) {
-  const be = state.brandExtraction;
-  const msd = state.measuredSiteData;
-  const accent = accentColor(be, msd);
-  const positioning = positioningLine(be);
-  const capped = usage !== null && !usage.unlimited && usage.remaining <= 0;
+function PickConcepts({ state, dispatch, usage }: { state: WorkbenchState; dispatch: Dispatch<Action>; usage: UsageInfo | null }) {
+  const ideas = state.conceptSet!.ad_ideas;
+  const recommended = new Set((state.conceptSet!.recommended_top_3 ?? []).map((r) => Number(r.idea_number)).filter((n) => !Number.isNaN(n)));
+  const cap = remaining(usage);
+  const selected = state.selectedIdeaNumbers;
 
   return (
     <div className="stack">
-      <div className="stage">
-        <div className="stage-head">
-          <div className="left">
-            <span className="num">✓</span>
-            <div>
-              <div className="title">{brandName(be)}</div>
-              {positioning && <div className="sub">{positioning}</div>}
-            </div>
-          </div>
-          {accent && (
-            <span className="swatch">
-              <span className="chip" style={{ background: accent }} />
-              {accent}
-            </span>
-          )}
-        </div>
-      </div>
-
       <div className="stage active">
         <div className="stage-head">
           <div className="left">
             <span className="num">2</span>
             <div>
-              <div className="title">Add your assets</div>
-              <div className="sub">A reference ad and your logo are required. A product image is optional.</div>
+              <div className="title">Pick your concepts</div>
+              <div className="sub">Choose one or more angles to generate. Each becomes its own ad.</div>
+            </div>
+          </div>
+        </div>
+        <div className="stage-body">
+          <div className="concept-grid">
+            {ideas.map((idea, i) => {
+              const n = idea.idea_number ?? i + 1;
+              const isSel = selected.includes(n);
+              const atCap = !isSel && selected.length >= cap;
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  className={`concept-card${isSel ? " selected" : ""}`}
+                  disabled={atCap}
+                  onClick={() => dispatch({ type: "TOGGLE_CONCEPT", ideaNumber: n })}
+                >
+                  <div className="concept-card-top">
+                    <span className="badge">{idea.awareness_level ?? `Idea ${n}`}</span>
+                    {recommended.has(n) && <span className="badge rec">Recommended</span>}
+                    <span className={`tick${isSel ? " on" : ""}`}>{isSel ? "✓" : ""}</span>
+                  </div>
+                  <div className="concept-name">{idea.idea_name}</div>
+                  <div className="concept-hook">{idea.main_hook}</div>
+                  {idea.why_this_could_work && <div className="concept-why">{idea.why_this_could_work}</div>}
+                  <div className="concept-cta">CTA: {idea.cta}</div>
+                </button>
+              );
+            })}
+          </div>
+          <div className="actions-row" style={{ marginTop: "var(--space-4)" }}>
+            <button className="btn primary" disabled={selected.length === 0} onClick={() => dispatch({ type: "PROCEED_ASSETS" })}>
+              Add assets ({selected.length})
+            </button>
+          </div>
+          {usage && !usage.unlimited && (
+            <span className="hint">{usage.remaining} of {usage.limit} creatives left today.</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PickAssets({ state, dispatch, onGenerate, usage }: { state: WorkbenchState; dispatch: Dispatch<Action>; onGenerate: () => void; usage: UsageInfo | null }) {
+  const selectedIdeas = state.selectedIdeaNumbers
+    .map((n) => state.conceptSet!.ad_ideas.find((x, i) => (x.idea_number ?? i + 1) === n))
+    .filter((x): x is NonNullable<typeof x> => Boolean(x));
+  const ready = state.selectedIdeaNumbers.every((n) => {
+    const a = state.assets[n];
+    return Boolean(a?.ref && a?.logo);
+  });
+  const capped = usage !== null && !usage.unlimited && usage.remaining <= 0;
+
+  return (
+    <div className="stack">
+      <div className="stage active">
+        <div className="stage-head">
+          <div className="left">
+            <span className="num">3</span>
+            <div>
+              <div className="title">Add assets per concept</div>
+              <div className="sub">Each concept needs a reference ad and a logo. Product image is optional.</div>
             </div>
           </div>
         </div>
         <div className="stage-body stack">
-          <Dropzone
-            label="Reference ad"
-            required
-            value={state.refImage}
-            onPick={(d) => dispatch({ type: "SET_REF", dataUrl: d })}
-          />
-          <Dropzone
-            label="Logo"
-            required
-            height={96}
-            value={state.logoImage}
-            onPick={(d) => dispatch({ type: "SET_LOGO", dataUrl: d })}
-          />
-          <Dropzone
-            label="Product image (optional)"
-            value={state.productAsset}
-            onPick={(d) => dispatch({ type: "SET_PRODUCT", dataUrl: d })}
-          />
-          <button
-            className="btn primary"
-            disabled={!(state.refImage && state.logoImage) || capped}
-            onClick={() => onGenerate()}
-          >
-            Make my ad
-          </button>
-          {usage !== null && !usage.unlimited && (
-            <span className="hint">
-              {capped
-                ? "Daily limit reached — resets at midnight UTC."
-                : `${usage.remaining} of ${usage.limit} creatives left today.`}
-            </span>
-          )}
+          {selectedIdeas.map((idea, i) => {
+            const n = idea.idea_number ?? i + 1;
+            const a = state.assets[n] ?? {};
+            return (
+              <div key={n} className="concept-assets">
+                <div className="concept-assets-head">
+                  <span className="badge">{idea.awareness_level ?? `Idea ${n}`}</span>
+                  <span className="concept-name">{idea.idea_name}</span>
+                  {state.selectedIdeaNumbers.length > 1 && (a.ref || a.logo) && (
+                    <button className="btn ghost sm" onClick={() => dispatch({ type: "COPY_ASSETS_TO_ALL", ideaNumber: n })}>
+                      Copy to all
+                    </button>
+                  )}
+                </div>
+                <Dropzone label="Reference ad" required value={a.ref ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", ideaNumber: n, slot: "ref", dataUrl: d })} />
+                <Dropzone label="Logo" required height={96} value={a.logo ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", ideaNumber: n, slot: "logo", dataUrl: d })} />
+                <Dropzone label="Product image (optional)" value={a.product ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", ideaNumber: n, slot: "product", dataUrl: d })} />
+              </div>
+            );
+          })}
+          <div className="actions-row">
+            <button className="btn" onClick={() => dispatch({ type: "BACK_TO_CONCEPTS" })}>Back</button>
+            <button className="btn primary" disabled={!ready || capped} onClick={onGenerate}>
+              Make my ads ({state.selectedIdeaNumbers.length})
+            </button>
+          </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function BatchResults({ state, dispatch }: { state: WorkbenchState; dispatch: Dispatch<Action> }) {
+  const items = state.batchItems;
+  const done = state.stage === "batch-done";
+  return (
+    <div className="stage active">
+      <div className="stage-head">
+        <div className="left">
+          <span className="num">{done ? "✓" : "4"}</span>
+          <div>
+            <div className="title">{done ? "Your ads are ready" : "Generating your ads…"}</div>
+            <div className="sub">{done ? "Download them, or start over." : "Each concept renders independently."}</div>
+          </div>
+        </div>
+      </div>
+      <div className="stage-body">
+        <div className="batch-grid">
+          {items.map((it) => (
+            <div key={it.id} className="batch-tile">
+              <div className="batch-tile-label">{it.ideaName ?? `Idea ${it.ideaNumber ?? ""}`}</div>
+              {it.status === "done" && it.imageUrl && (
+                <>
+                  <img src={it.imageUrl} alt={it.ideaName ?? "Generated ad"} />
+                  <a href={it.imageUrl} download className="btn primary sm"><IconDownload className="ico" width={14} height={14} /> Download</a>
+                </>
+              )}
+              {(it.status === "queued" || it.status === "running") && <div className="status-row"><span className="spinner" /> {it.status === "running" ? "Rendering…" : "Queued"}</div>}
+              {it.status === "error" && <div className="batch-error">{it.error ?? "Failed"}</div>}
+            </div>
+          ))}
+        </div>
+        {done && (
+          <div className="actions-row" style={{ marginTop: "var(--space-4)" }}>
+            <button className="btn" onClick={() => dispatch({ type: "RESET" })}>Start over</button>
+          </div>
+        )}
       </div>
     </div>
   );
