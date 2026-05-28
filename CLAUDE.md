@@ -71,18 +71,16 @@ These override defaults. The generic "write clean code" stuff is assumed — onl
 
 ### Branch-lifecycle tags (because rebase erases topology)
 
-Rebasing flattens history into one line, so the graph can't show when a branch forked, rebased, or merged. We record those events with **annotated tags** instead — the graph stays linear, and `git tag -n --sort=-creatordate` reads back as a dated ledger. Always use `-a` (annotated, so the tag carries an author/date/message), and push tags so they're shared (`git push origin <tag>`).
+Rebasing flattens history into one line, so the graph can't show when a branch forked or merged. We record that with **one annotated tag per branch, written only at merge time** — the fork point lives inside the tag's message, not as a separate tag. While a branch is still alive its ref plus `git merge-base <branch> <base>` already tell you where it forked, so an in-flight branch needs no tag; the fork point only becomes unrecoverable once the branch is deleted, which is exactly when this tag gets written. Result: one tag per completed branch instead of two-or-three, and the graph stays uncluttered.
 
-- **On branch creation** — tag the base commit the branch forks from:
-  `git tag -a fork/<branch> <base-sha> -m "fork: <branch> from <base-branch>@<short-sha> (YYYY-MM-DD)"`
-- **On each rebase** — tag the new base so the rebase is dated and the old→new fork is recorded:
-  `git tag -a rebased/<branch>/<YYYY-MM-DD> <new-base-sha> -m "rebased <branch> onto <base-branch>@<short-sha>"`
-  (Only tag rebases that move the branch onto a new base — skip trivial in-place `--autosquash` cleanups.)
-- **On merge/integration** — after the fast-forward, tag the resulting tip:
-  `git tag -a merged/<branch> -m "merged <branch> into <target-branch> (YYYY-MM-DD)"`
+- **On merge/integration** — after the fast-forward, capture the fork base first, then tag the merged tip:
+  `git merge-base <branch> <target-branch>` → `<base-sha>`
+  `git tag -a merged/<branch> -m "merged <branch> into <target-branch> (YYYY-MM-DD); forked from <base-branch>@<base-short-sha>"`
+  Then push the tag so it's shared: `git push origin merged/<branch>`.
+- **Don't tag forks or rebases.** No `fork/*` or `rebased/*` tags — that history is derivable while the branch lives and is folded into the `merged/*` message once it doesn't.
 - **Before deleting a merged branch**, make sure its `merged/<branch>` tag exists and is pushed — the tag is the durable record once the branch ref is gone.
-- **Naming:** lowercase, slashes for grouping (`fork/`, `rebased/`, `merged/`), dates as `YYYY-MM-DD`. Use `--force-with-lease` semantics only for branches, never retag a pushed tag to a different commit (delete + recreate with a new name instead).
-- **To read the history:** `git tag -n9 --sort=-creatordate "fork/*" "rebased/*" "merged/*"`, or `git log --oneline --decorate --simplify-by-decoration` to see the tags inline on the linear graph.
+- **Naming:** always `-a` (annotated, so it carries author/date/message); lowercase, `merged/` prefix, dates as `YYYY-MM-DD`. Never retag a pushed tag to a different commit (delete + recreate with a new name instead).
+- **To read the history:** `git tag -n9 --sort=-creatordate "merged/*"` reads back as a dated ledger, or `git log --oneline --decorate --simplify-by-decoration` to see tags inline on the linear graph.
 
 ## Database migrations (Supabase)
 
