@@ -91,10 +91,11 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
 export const api = {
   getConfig: () => request<AppConfig>("/api/config"),
   extract: (url: string) => request<MeasuredSiteData>("/api/extract", { url }),
-  brand: (req: BrandRequest) => request<{ id: string; brandExtraction: BrandExtraction }>("/api/brand", req),
+  brand: (req: BrandRequest) =>
+    request<{ id: string; brandExtraction: BrandExtraction; partialAnalysis: { missing: string[] } | null }>("/api/brand", req),
   getBrands: () => request<BrandSummary[]>("/api/brands"),
   getBrand: (id: string) => request<BrandDetail>(`/api/brand/${id}`),
   getAds: () => request<AdSummary[]>("/api/ads"),
-  adPrompt: (req: AdPromptRequest) => request<{ adPrompt: AdPrompt }>("/api/ad-prompt", req),
+  adPrompt: (req: AdPromptRequest) => request<{ id: string; adPrompt: AdPrompt }>("/api/ad-prompt", req),
   render: (req: RenderRequest) => request<{ id: string; imageUrl: string }>("/api/render", req),
 };

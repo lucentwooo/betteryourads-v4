@@ -14,10 +14,11 @@ describe("workbench reducer", () => {
   it("ANALYZED moves analyzing → pick-ref with data", () => {
     const msd = { title: "Acme" } as never;
     const be = { brand_identity: { brand_name: "Acme" } } as never;
-    const s = reducer(at({ stage: "analyzing" }), { type: "ANALYZED", measuredSiteData: msd, brandExtraction: be });
+    const s = reducer(at({ stage: "analyzing" }), { type: "ANALYZED", measuredSiteData: msd, brandExtraction: be, brandExtractionId: "be1" });
     expect(s.stage).toBe("pick-ref");
     expect(s.measuredSiteData).toBe(msd);
     expect(s.brandExtraction).toBe(be);
+    expect(s.brandExtractionId).toBe("be1");
   });
 
   it("SET_REF / SET_LOGO / SET_PRODUCT store data urls in pick-ref", () => {
@@ -38,10 +39,11 @@ describe("workbench reducer", () => {
 
   it("GENERATED moves generating → ready with the image", () => {
     const ap = { ad_prompt: {} } as never;
-    const s = reducer(at({ stage: "generating" }), { type: "GENERATED", adPrompt: ap, imageUrl: "https://img" });
+    const s = reducer(at({ stage: "generating" }), { type: "GENERATED", adPrompt: ap, adPromptId: "ap1", imageUrl: "https://img" });
     expect(s.stage).toBe("ready");
     expect(s.imageUrl).toBe("https://img");
     expect(s.adPrompt).toBe(ap);
+    expect(s.adPromptId).toBe("ap1");
   });
 
   it("FAILED moves to error and stores the message", () => {
@@ -69,9 +71,10 @@ describe("workbench reducer", () => {
 
   it("PRESET_BRAND jumps to pick-ref with the loaded brand", () => {
     const be = { brand_identity: { brand_name: "Acme" } } as never;
-    const s = reducer(initialState, { type: "PRESET_BRAND", brandExtraction: be, url: "https://acme.com" });
+    const s = reducer(initialState, { type: "PRESET_BRAND", brandExtraction: be, brandExtractionId: "be1", url: "https://acme.com" });
     expect(s.stage).toBe("pick-ref");
     expect(s.brandExtraction).toBe(be);
+    expect(s.brandExtractionId).toBe("be1");
     expect(s.url).toBe("https://acme.com");
   });
 

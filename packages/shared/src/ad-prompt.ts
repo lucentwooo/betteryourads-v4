@@ -34,9 +34,11 @@ export const AdPrompt = z
 
 export type AdPrompt = z.infer<typeof AdPrompt>;
 
-/** Request body for POST /api/ad-prompt. Images are base64 data URLs. */
+/** Request body for POST /api/ad-prompt. Images are base64 data URLs. brandExtractionId,
+ *  when sent, links the saved prompt to that brand and anchors its performance memory. */
 export const AdPromptRequest = z.object({
   brandExtraction: BrandExtraction,
+  brandExtractionId: z.string().optional(),
   referenceAdImage: z.string(),
   logoImage: z.string(),
   productAsset: z.string().optional(),

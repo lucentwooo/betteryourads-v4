@@ -24,9 +24,9 @@ describe("Workbench flow", () => {
 
   it("drives URL → analyzing → pick-ref → generating → ready", async () => {
     vi.mocked(api.extract).mockResolvedValue({ title: "Acme" } as never);
-    vi.mocked(api.brand).mockResolvedValue({ brandExtraction: { brand_identity: { brand_name: "Acme" } } } as never);
-    vi.mocked(api.adPrompt).mockResolvedValue({ adPrompt: { ad_prompt: {} } } as never);
-    vi.mocked(api.render).mockResolvedValue({ imageUrl: "https://img/out.png" } as never);
+    vi.mocked(api.brand).mockResolvedValue({ id: "brand-1", brandExtraction: { brand_identity: { brand_name: "Acme" } } } as never);
+    vi.mocked(api.adPrompt).mockResolvedValue({ id: "prompt-1", adPrompt: { ad_prompt: {} } } as never);
+    vi.mocked(api.render).mockResolvedValue({ id: "ad-1", imageUrl: "https://img/out.png" } as never);
 
     const { container } = render(<MemoryRouter><Workbench /></MemoryRouter>);
 
@@ -43,6 +43,11 @@ describe("Workbench flow", () => {
     fireEvent.click(screen.getByRole("button", { name: /make my ad/i }));
 
     await waitFor(() => expect(screen.getByRole("img")).toHaveAttribute("src", "https://img/out.png"));
+
+    // The brand id from /api/brand flows into /api/ad-prompt, and the prompt id from there
+    // flows into /api/render, so the saved records stay linked.
+    expect(vi.mocked(api.adPrompt).mock.calls[0][0]).toMatchObject({ brandExtractionId: "brand-1" });
+    expect(vi.mocked(api.render).mock.calls[0][0]).toMatchObject({ adPromptId: "prompt-1" });
   });
 
   it("shows an error when analysis fails", async () => {

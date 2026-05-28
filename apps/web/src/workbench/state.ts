@@ -7,10 +7,12 @@ export type WorkbenchState = {
   url: string;
   measuredSiteData: MeasuredSiteData | null;
   brandExtraction: BrandExtraction | null;
+  brandExtractionId: string | null;
   refImage: string | null;
   logoImage: string | null;
   productAsset: string | null;
   adPrompt: AdPrompt | null;
+  adPromptId: string | null;
   imageUrl: string | null;
   error: string | null;
 };
@@ -20,24 +22,26 @@ export const initialState: WorkbenchState = {
   url: "",
   measuredSiteData: null,
   brandExtraction: null,
+  brandExtractionId: null,
   refImage: null,
   logoImage: null,
   productAsset: null,
   adPrompt: null,
+  adPromptId: null,
   imageUrl: null,
   error: null,
 };
 
 export type Action =
   | { type: "START"; url: string }
-  | { type: "ANALYZED"; measuredSiteData: MeasuredSiteData; brandExtraction: BrandExtraction }
+  | { type: "ANALYZED"; measuredSiteData: MeasuredSiteData; brandExtraction: BrandExtraction; brandExtractionId: string }
   | { type: "SET_REF"; dataUrl: string | null }
   | { type: "SET_LOGO"; dataUrl: string | null }
   | { type: "SET_PRODUCT"; dataUrl: string | null }
   | { type: "GENERATE" }
-  | { type: "GENERATED"; adPrompt: AdPrompt; imageUrl: string }
+  | { type: "GENERATED"; adPrompt: AdPrompt; adPromptId: string; imageUrl: string }
   | { type: "FAILED"; message: string }
-  | { type: "PRESET_BRAND"; brandExtraction: BrandExtraction; url?: string }
+  | { type: "PRESET_BRAND"; brandExtraction: BrandExtraction; brandExtractionId: string; url?: string }
   | { type: "RETRY" }
   | { type: "RESET" };
 
@@ -46,7 +50,7 @@ export function reducer(state: WorkbenchState, action: Action): WorkbenchState {
     case "START":
       return { ...initialState, stage: "analyzing", url: action.url };
     case "ANALYZED":
-      return { ...state, stage: "pick-ref", measuredSiteData: action.measuredSiteData, brandExtraction: action.brandExtraction };
+      return { ...state, stage: "pick-ref", measuredSiteData: action.measuredSiteData, brandExtraction: action.brandExtraction, brandExtractionId: action.brandExtractionId };
     case "SET_REF":
       return { ...state, refImage: action.dataUrl };
     case "SET_LOGO":
@@ -56,11 +60,11 @@ export function reducer(state: WorkbenchState, action: Action): WorkbenchState {
     case "GENERATE":
       return { ...state, stage: "generating", error: null };
     case "GENERATED":
-      return { ...state, stage: "ready", adPrompt: action.adPrompt, imageUrl: action.imageUrl };
+      return { ...state, stage: "ready", adPrompt: action.adPrompt, adPromptId: action.adPromptId, imageUrl: action.imageUrl };
     case "FAILED":
       return { ...state, stage: "error", error: action.message };
     case "PRESET_BRAND":
-      return { ...initialState, stage: "pick-ref", brandExtraction: action.brandExtraction, url: action.url ?? "" };
+      return { ...initialState, stage: "pick-ref", brandExtraction: action.brandExtraction, brandExtractionId: action.brandExtractionId, url: action.url ?? "" };
     case "RETRY":
       // Analysis succeeded (we have brandExtraction) → keep inputs, return to pick-ref.
       // Otherwise the failure was during analysis → full reset.

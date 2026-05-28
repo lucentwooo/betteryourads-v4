@@ -21,7 +21,7 @@ export default function Workbench() {
     presetDone.current = true;
     let active = true;
     api.getBrand(brandId)
-      .then((detail) => { if (active) dispatch({ type: "PRESET_BRAND", brandExtraction: detail.brandExtraction }); })
+      .then((detail) => { if (active) dispatch({ type: "PRESET_BRAND", brandExtraction: detail.brandExtraction, brandExtractionId: detail.id }); })
       .catch((e) => { if (active) dispatch({ type: "FAILED", message: e instanceof ApiError ? e.message : "Could not load that brand." }); });
     return () => { active = false; };
   }, [brandId]);
@@ -30,8 +30,8 @@ export default function Workbench() {
     dispatch({ type: "START", url });
     try {
       const msd = await api.extract(url);
-      const { brandExtraction } = await api.brand({ url, measuredSiteData: msd });
-      dispatch({ type: "ANALYZED", measuredSiteData: msd, brandExtraction });
+      const { id: brandExtractionId, brandExtraction } = await api.brand({ url, measuredSiteData: msd });
+      dispatch({ type: "ANALYZED", measuredSiteData: msd, brandExtraction, brandExtractionId });
     } catch (e) {
       dispatch({ type: "FAILED", message: message(e) });
     }
@@ -39,23 +39,25 @@ export default function Workbench() {
 
   async function runGenerate() {
     if (state.stage === "generating") return;
-    const { refImage, logoImage, brandExtraction, productAsset } = state;
+    const { refImage, logoImage, brandExtraction, brandExtractionId, productAsset } = state;
     if (!refImage || !logoImage || !brandExtraction) return;
     dispatch({ type: "GENERATE" });
     try {
-      const { adPrompt } = await api.adPrompt({
+      const { id: adPromptId, adPrompt } = await api.adPrompt({
         brandExtraction,
+        brandExtractionId: brandExtractionId ?? undefined,
         referenceAdImage: refImage,
         logoImage,
         productAsset: productAsset ?? undefined,
       });
       const { imageUrl } = await api.render({
         adPrompt,
+        adPromptId,
         referenceAdImage: refImage,
         logoImage,
         productAsset: productAsset ?? undefined,
       });
-      dispatch({ type: "GENERATED", adPrompt, imageUrl });
+      dispatch({ type: "GENERATED", adPrompt, adPromptId, imageUrl });
     } catch (e) {
       dispatch({ type: "FAILED", message: message(e) });
     }
