@@ -8,7 +8,7 @@ vi.mock("../api/client", async () => {
   return { ...actual, api: { getBrands: vi.fn(), getAds: vi.fn() } };
 });
 vi.mock("../auth/useAuth", () => ({ useAuth: vi.fn() }));
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/useAuth";
 
 beforeEach(() => {
@@ -42,5 +42,15 @@ describe("Home", () => {
     vi.mocked(api.getAds).mockResolvedValue([]);
     renderHome();
     await waitFor(() => expect(screen.getByRole("link", { name: /make .*ad/i })).toBeInTheDocument());
+  });
+
+  it("shows an error state with a retry when a fetch fails", async () => {
+    vi.mocked(api.getBrands).mockResolvedValue([]);
+    vi.mocked(api.getAds).mockRejectedValue(new ApiError("Server error", "INTERNAL", 500, "persistence"));
+    renderHome();
+    await waitFor(() => expect(screen.getByText(/server error/i)).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
+    // The success stats line is not shown in the error state.
+    expect(screen.queryByText(/ads generated/i)).not.toBeInTheDocument();
   });
 });
