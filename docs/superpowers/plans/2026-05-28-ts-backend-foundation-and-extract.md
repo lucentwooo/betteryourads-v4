@@ -1,4 +1,4 @@
-# TS Backend Foundation + Extract Slice — Implementation Plan
+# TS Backend Foundation + Extract Slice — (Plan 1 of 5) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -56,6 +56,7 @@ Kept at repo root (NOT moved): `.env`, `.env.example`, `.gitignore`, `CLAUDE.md`
 ## Task 1: Workspace root + archive current app under `legacy/`
 
 **Files:**
+
 - Create: `package.json` (root), `tsconfig.base.json`
 - Modify: `.gitignore`
 - Move: app files into `legacy/`
@@ -135,6 +136,7 @@ git commit -m "chore: archive current app under legacy/, add workspace root"
 ## Task 2: `packages/shared` with the `MeasuredSiteData` contract
 
 **Files:**
+
 - Create: `packages/shared/package.json`, `packages/shared/tsconfig.json`, `packages/shared/src/index.ts`, `packages/shared/src/measured-site-data.ts`
 
 - [ ] **Step 1: Create `packages/shared/package.json`**
@@ -216,6 +218,7 @@ git commit -m "feat(shared): MeasuredSiteData zod contract"
 ## Task 3: `apps/backend` scaffold that boots
 
 **Files:**
+
 - Create: `apps/backend/package.json`, `apps/backend/tsconfig.json`, `apps/backend/vitest.config.ts`, `apps/backend/src/server.ts`, `apps/backend/src/index.ts`
 
 - [ ] **Step 1: Create `apps/backend/package.json`**
@@ -270,7 +273,9 @@ import { fileURLToPath } from "node:url";
 export default defineConfig({
   resolve: {
     alias: {
-      "@bya/shared": fileURLToPath(new URL("../../packages/shared/src/index.ts", import.meta.url)),
+      "@bya/shared": fileURLToPath(
+        new URL("../../packages/shared/src/index.ts", import.meta.url),
+      ),
     },
   },
   test: { environment: "node", include: ["tests/**/*.test.ts"] },
@@ -301,7 +306,9 @@ import { createServer } from "./server.js";
 function start(port: number, attemptsLeft: number): void {
   const app = createServer();
   const server = app.listen(port, () => {
-    console.log(`\n  BetterYourAds backend running.\n  http://localhost:${port}\n`);
+    console.log(
+      `\n  BetterYourAds backend running.\n  http://localhost:${port}\n`,
+    );
   });
   server.on("error", (err: NodeJS.ErrnoException) => {
     if (err.code === "EADDRINUSE" && attemptsLeft > 0) {
@@ -335,6 +342,7 @@ git commit -m "feat(backend): scaffold express app that boots with /api/health"
 ## Task 4: Typed config module (env loader)
 
 **Files:**
+
 - Create: `apps/backend/src/config/index.ts`, `apps/backend/tests/config.test.ts`
 
 - [ ] **Step 1: Write the failing test**
@@ -392,7 +400,11 @@ export function loadEnvFile(dir: string = process.cwd()): void {
       if (eq < 0) continue;
       const k = t.slice(0, eq).trim();
       let v = t.slice(eq + 1).trim();
-      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+      if (
+        (v.startsWith('"') && v.endsWith('"')) ||
+        (v.startsWith("'") && v.endsWith("'"))
+      )
+        v = v.slice(1, -1);
       if (!(k in process.env)) process.env[k] = v;
     }
   } catch {
@@ -418,7 +430,9 @@ export function loadConfig(env: Env = process.env): AppConfig {
     kieResolution: env.KIE_IMAGE_RESOLUTION ?? "1K",
     openrouterConfigured: Boolean(env.OPENROUTER_API_KEY),
     kieConfigured: Boolean(env.KIE_API_KEY),
-    supabaseConfigured: Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),
+    supabaseConfigured: Boolean(
+      env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY,
+    ),
   };
 }
 ```
@@ -440,6 +454,7 @@ git commit -m "feat(backend): typed config + .env loader"
 ## Task 5: Typed errors + HTTP mapping
 
 **Files:**
+
 - Create: `apps/backend/src/lib/errors.ts`, `apps/backend/tests/errors.test.ts`
 
 - [ ] **Step 1: Write the failing test**
@@ -461,7 +476,9 @@ describe("errors", () => {
   it("toHttpError maps AppError to its status/code/stage", () => {
     expect(toHttpError(new ExtractionError("boom"))).toEqual({
       status: 502,
-      body: { error: { code: "EXTRACTION_ERROR", message: "boom", stage: "extract" } },
+      body: {
+        error: { code: "EXTRACTION_ERROR", message: "boom", stage: "extract" },
+      },
     });
   });
 
@@ -516,10 +533,18 @@ export interface HttpError {
 
 export function toHttpError(err: unknown): HttpError {
   if (err instanceof AppError) {
-    return { status: err.status, body: { error: { code: err.code, message: err.message, stage: err.stage } } };
+    return {
+      status: err.status,
+      body: {
+        error: { code: err.code, message: err.message, stage: err.stage },
+      },
+    };
   }
   // Never leak arbitrary internals to the client.
-  return { status: 500, body: { error: { code: "INTERNAL", message: "Internal server error." } } };
+  return {
+    status: 500,
+    body: { error: { code: "INTERNAL", message: "Internal server error." } },
+  };
 }
 ```
 
@@ -540,6 +565,7 @@ git commit -m "feat(backend): typed errors + HTTP mapping"
 ## Task 6: Browser service (Playwright singleton + in-page extraction)
 
 **Files:**
+
 - Create: `apps/backend/src/services/extract-in-page.ts`, `apps/backend/src/services/browser.ts`
 
 There is no unit test here (it drives a real browser); it is exercised by the gated e2e test in Task 10 and the run script in Task 9. The extraction logic is ported **verbatim** from `legacy/server.js` `extractFromPage()`.
@@ -566,8 +592,14 @@ export function extractFromPage(): Omit<MeasuredSiteData, "finalUrl"> {
   };
 
   type Counts = Record<string, number>;
-  const counts: Record<"text" | "background" | "border" | "accent_cta", Counts> = {
-    text: {}, background: {}, border: {}, accent_cta: {},
+  const counts: Record<
+    "text" | "background" | "border" | "accent_cta",
+    Counts
+  > = {
+    text: {},
+    background: {},
+    border: {},
+    accent_cta: {},
   };
   const bump = (obj: Counts, hex: string | null, w: number) => {
     if (!hex) return;
@@ -578,27 +610,41 @@ export function extractFromPage(): Omit<MeasuredSiteData, "finalUrl"> {
   for (const el of els) {
     const cs = getComputedStyle(el);
     const r = el.getBoundingClientRect();
-    const areaWeight = Math.max(1, Math.round((Math.max(0, r.width) * Math.max(0, r.height)) / 2000));
+    const areaWeight = Math.max(
+      1,
+      Math.round((Math.max(0, r.width) * Math.max(0, r.height)) / 2000),
+    );
     bump(counts.text, toHex(cs.color), 1);
     bump(counts.background, toHex(cs.backgroundColor), areaWeight);
     bump(counts.border, toHex(cs.borderTopColor), 1);
     const tag = el.tagName.toLowerCase();
-    const cls = (el.className && el.className.toString ? el.className.toString() : "").toLowerCase();
+    const cls = (
+      el.className && el.className.toString ? el.className.toString() : ""
+    ).toLowerCase();
     const isCta =
       tag === "button" ||
-      (tag === "a" && /btn|button|cta|primary|signup|sign-up|get-started|try/.test(cls)) ||
+      (tag === "a" &&
+        /btn|button|cta|primary|signup|sign-up|get-started|try/.test(cls)) ||
       /btn|button|cta/.test(cls);
     if (isCta) bump(counts.accent_cta, toHex(cs.backgroundColor), 3);
-    if (cs.fill && cs.fill !== "none") bump(counts.accent_cta, toHex(cs.fill), 1);
+    if (cs.fill && cs.fill !== "none")
+      bump(counts.accent_cta, toHex(cs.fill), 1);
   }
 
   const top = (obj: Counts, n: number) =>
-    Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, n || 8).map(([hex, count]) => ({ hex, count }));
+    Object.entries(obj)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, n || 8)
+      .map(([hex, count]) => ({ hex, count }));
 
   const cssVars: Record<string, string> = {};
   for (const sheet of Array.from(document.styleSheets)) {
     let rules: CSSRuleList | undefined;
-    try { rules = sheet.cssRules; } catch { continue; }
+    try {
+      rules = sheet.cssRules;
+    } catch {
+      continue;
+    }
     if (!rules) continue;
     for (const rule of Array.from(rules)) {
       const style = (rule as CSSStyleRule).style;
@@ -607,7 +653,8 @@ export function extractFromPage(): Omit<MeasuredSiteData, "finalUrl"> {
         const prop = style[i];
         if (prop.startsWith("--")) {
           const val = style.getPropertyValue(prop).trim();
-          if (/#[0-9a-f]{3,8}\b|rgb|hsl/i.test(val) && !cssVars[prop]) cssVars[prop] = val;
+          if (/#[0-9a-f]{3,8}\b|rgb|hsl/i.test(val) && !cssVars[prop])
+            cssVars[prop] = val;
         }
       }
     }
@@ -619,7 +666,11 @@ export function extractFromPage(): Omit<MeasuredSiteData, "finalUrl"> {
   };
 
   const logos = Array.from(document.querySelectorAll("img"))
-    .filter((i) => /logo|brand/i.test((i.src || "") + " " + (i.alt || "") + " " + (i.className || "")))
+    .filter((i) =>
+      /logo|brand/i.test(
+        (i.src || "") + " " + (i.alt || "") + " " + (i.className || ""),
+      ),
+    )
     .map((i) => i.src)
     .filter((s, idx, arr) => s && arr.indexOf(s) === idx)
     .slice(0, 6);
@@ -636,9 +687,16 @@ export function extractFromPage(): Omit<MeasuredSiteData, "finalUrl"> {
       accent_cta: top(counts.accent_cta, 6),
     },
     cssColorVariables: cssVars,
-    fonts: { body: fontOf("body"), heading: fontOf("h1") || fontOf("h2"), button: fontOf("button") || fontOf("a") },
+    fonts: {
+      body: fontOf("body"),
+      heading: fontOf("h1") || fontOf("h2"),
+      button: fontOf("button") || fontOf("a"),
+    },
     logos,
-    text: (document.body.innerText || "").replace(/\n{3,}/g, "\n\n").trim().slice(0, 20000),
+    text: (document.body.innerText || "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+      .slice(0, 20000),
   };
 }
 ```
@@ -711,6 +769,7 @@ git commit -m "feat(backend): Playwright browser service + in-page extraction"
 ## Task 7: Extract pipeline (typed, validated)
 
 **Files:**
+
 - Create: `apps/backend/src/pipelines/extract.ts`, `apps/backend/tests/extract.pipeline.test.ts`
 
 - [ ] **Step 1: Write the failing test (mock the browser service)**
@@ -729,15 +788,21 @@ import { runExtract } from "../src/pipelines/extract.js";
 import { ValidationError } from "../src/lib/errors.js";
 
 const valid = {
-  title: "Acme", description: "do things",
+  title: "Acme",
+  description: "do things",
   colors: { text: [], background: [], border: [], accent_cta: [] },
-  cssColorVariables: {}, fonts: { body: null, heading: null, button: null },
-  logos: [], text: "hello", finalUrl: "https://acme.com/",
+  cssColorVariables: {},
+  fonts: { body: null, heading: null, button: null },
+  logos: [],
+  text: "hello",
+  finalUrl: "https://acme.com/",
 };
 
 describe("runExtract", () => {
   it("rejects a non-http URL before touching the browser", async () => {
-    await expect(runExtract("ftp://nope")).rejects.toBeInstanceOf(ValidationError);
+    await expect(runExtract("ftp://nope")).rejects.toBeInstanceOf(
+      ValidationError,
+    );
     expect(extractSite).not.toHaveBeenCalled();
   });
 
@@ -749,7 +814,9 @@ describe("runExtract", () => {
 
   it("throws ValidationError when the browser returns a malformed shape", async () => {
     vi.mocked(extractSite).mockResolvedValue({ title: 123 } as any);
-    await expect(runExtract("https://acme.com")).rejects.toBeInstanceOf(ValidationError);
+    await expect(runExtract("https://acme.com")).rejects.toBeInstanceOf(
+      ValidationError,
+    );
   });
 });
 ```
@@ -799,6 +866,7 @@ git commit -m "feat(backend): extract pipeline with zod validation"
 ## Task 8: Routes (`/api/extract`, `/api/config`) + wiring
 
 **Files:**
+
 - Create: `apps/backend/src/routes/extract.ts`, `apps/backend/src/routes/config.ts`, `apps/backend/tests/routes.test.ts`
 - Modify: `apps/backend/src/server.ts`
 
@@ -822,7 +890,9 @@ beforeEach(() => vi.resetAllMocks());
 describe("POST /api/extract", () => {
   it("returns 200 with the measured data", async () => {
     vi.mocked(runExtract).mockResolvedValue({ title: "Acme" } as any);
-    const res = await request(app).post("/api/extract").send({ url: "https://acme.com" });
+    const res = await request(app)
+      .post("/api/extract")
+      .send({ url: "https://acme.com" });
     expect(res.status).toBe(200);
     expect(res.body.title).toBe("Acme");
   });
@@ -928,6 +998,7 @@ git commit -m "feat(backend): /api/extract + /api/config routes"
 ## Task 9: Manual run script for the extract pipeline
 
 **Files:**
+
 - Create: `apps/backend/scripts/run-extract.ts`
 
 - [ ] **Step 1: Create `apps/backend/scripts/run-extract.ts`**
@@ -940,7 +1011,9 @@ loadEnvFile(process.cwd());
 
 const url = process.argv[2];
 if (!url) {
-  console.error("Usage: npm --workspace @bya/backend run run:extract -- <https-url>");
+  console.error(
+    "Usage: npm --workspace @bya/backend run run:extract -- <https-url>",
+  );
   process.exit(1);
 }
 
@@ -972,6 +1045,7 @@ git commit -m "chore(backend): manual run script for extract pipeline"
 ## Task 10: Gated real e2e smoke test
 
 **Files:**
+
 - Create: `apps/backend/tests/extract.e2e.test.ts`
 
 - [ ] **Step 1: Create the gated test**
@@ -1016,6 +1090,7 @@ git commit -m "test(backend): gated real Playwright e2e smoke for extract"
 ## Self-Review
 
 **Spec coverage (this slice):**
+
 - Workspaces monorepo (`apps/backend`, `packages/shared`) — Tasks 1–3. ✓
 - `legacy/` archive kept runnable — Task 1. ✓
 - Layered backend (routes → pipelines → services) — Tasks 6–8. ✓
