@@ -11,6 +11,7 @@ import { libraryRouter } from "./routes/library.js";
 import { adminRouter } from "./routes/admin.js";
 import { conceptsRouter } from "./routes/concepts.js";
 import { batchRouter } from "./routes/batch.js";
+import { referenceAdsRouter } from "./routes/reference-ads.js";
 
 export function createServer(): Express {
   const app = express();
@@ -25,6 +26,7 @@ export function createServer(): Express {
   app.use("/api", adminRouter);
   app.use("/api", conceptsRouter);
   app.use("/api", batchRouter);
+  app.use("/api", referenceAdsRouter);
 
   // Production: serve the built web app from the same origin as /api, so a deployed frontend
   // needs no CORS config or separate API base URL (the client already calls relative /api).
