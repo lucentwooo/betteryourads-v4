@@ -291,9 +291,13 @@ function PickConcepts({ state, dispatch, usage }: { state: WorkbenchState; dispa
 }
 
 function PickAssets({ state, dispatch, onGenerate, usage }: { state: WorkbenchState; dispatch: Dispatch<Action>; onGenerate: () => void; usage: UsageInfo | null }) {
-  const selectedIdeas = state.selectedIdeaNumbers
-    .map((n) => state.conceptSet!.ad_ideas.find((x, i) => (x.idea_number ?? i + 1) === n))
-    .filter((x): x is NonNullable<typeof x> => Boolean(x));
+  // Carry the canonical selected number `n` alongside each idea so the asset key matches
+  // what runBatch looks up — re-deriving n from this filtered list's index would diverge
+  // when idea_number is absent and the selection is non-contiguous.
+  const selected = state.selectedIdeaNumbers.flatMap((n) => {
+    const idea = state.conceptSet!.ad_ideas.find((x, i) => (x.idea_number ?? i + 1) === n);
+    return idea ? [{ n, idea }] : [];
+  });
   const ready = state.selectedIdeaNumbers.every((n) => {
     const a = state.assets[n];
     return Boolean(a?.ref && a?.logo);
@@ -313,8 +317,7 @@ function PickAssets({ state, dispatch, onGenerate, usage }: { state: WorkbenchSt
           </div>
         </div>
         <div className="stage-body stack">
-          {selectedIdeas.map((idea, i) => {
-            const n = idea.idea_number ?? i + 1;
+          {selected.map(({ n, idea }) => {
             const a = state.assets[n] ?? {};
             return (
               <div key={n} className="concept-assets">

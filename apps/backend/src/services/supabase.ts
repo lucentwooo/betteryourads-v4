@@ -438,16 +438,20 @@ export async function getBatch(batchId: string, userId: string): Promise<BatchVi
     .order("created_at", { ascending: true });
   if (itemsErr) throw new PersistenceError(`Listing batch items failed: ${itemsErr.message}`);
 
+  // generated_ad_id is a to-one FK, so PostgREST embeds generated_ads as a single object;
+  // tolerate the array shape too in case the client/types ever return one.
+  type Embedded = { image_path: string };
   type Row = {
     id: string; idea_number: number | null; idea_name: string | null;
     status: BatchItemStatus; error: string | null;
-    generated_ads: { image_path: string }[] | null;
+    generated_ads: Embedded | Embedded[] | null;
   };
   const out: BatchItemView[] = [];
   for (const r of (items ?? []) as unknown as Row[]) {
+    const embedded = Array.isArray(r.generated_ads) ? r.generated_ads[0] : r.generated_ads;
     let imageUrl: string | null = null;
-    if (r.generated_ads?.[0]?.image_path) {
-      const signed = await admin().storage.from("ads").createSignedUrl(r.generated_ads[0].image_path, SIGNED_URL_TTL_SECONDS);
+    if (embedded?.image_path) {
+      const signed = await admin().storage.from("ads").createSignedUrl(embedded.image_path, SIGNED_URL_TTL_SECONDS);
       imageUrl = signed.data?.signedUrl ?? null;
     }
     out.push({ id: r.id, ideaNumber: r.idea_number, ideaName: r.idea_name, status: r.status, imageUrl, error: r.error });

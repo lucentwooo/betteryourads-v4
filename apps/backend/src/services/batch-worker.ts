@@ -35,8 +35,13 @@ export async function runBatch(args: RunBatchArgs): Promise<void> {
   };
   const workers: Promise<void>[] = [];
   for (let i = 0; i < Math.min(MAX_CONCURRENCY, queue.length); i++) workers.push(take());
-  await Promise.all(workers);
-  await finalizeBatchIfDone(args.batchId);
+  // finalize even if a worker rejects unexpectedly (e.g. updateBatchItem throws while
+  // recording a failure), so the job never gets stuck in 'running'.
+  try {
+    await Promise.all(workers);
+  } finally {
+    await finalizeBatchIfDone(args.batchId);
+  }
 }
 
 async function processItem(args: RunBatchArgs, item: BatchWorkItem): Promise<void> {
