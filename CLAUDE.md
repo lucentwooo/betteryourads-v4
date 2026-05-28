@@ -17,6 +17,8 @@ BetterYourAds turns a website URL into on-brand ad creative through a 3-stage pi
 
 **Secrets** live in a root `.env` (copy from `.env.example`): `OPENROUTER_API_KEY`, `STAGE1_MODEL` / `STAGE2_MODEL`, `IMAGE_BACKEND` + `KIE_*` / `OPENROUTER_IMAGE_*`, and `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` (service-role key is server-only and bypasses RLS).
 
+**Feature list:** `docs/FEATURES.md` is the human-readable catalog of everything the project does. Keep it in sync with the code: when you implement a large feature (a new route, page, pipeline stage, or integration), add a one-line entry to the matching section. When a feature is removed from the code, delete its line — don't leave it listed. Small, internal changes (refactors, bug fixes, helper tweaks) don't belong there.
+
 # Common commands
 
 Run from the repo root; target a workspace with `-w`.
