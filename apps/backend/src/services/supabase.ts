@@ -474,7 +474,7 @@ function refVariantPrefix(variant: ReferenceAdVariant): "with-asset" | "no-asset
 /** Decode a `data:<mime>;base64,<data>` URL to bytes + content type. Throws ValidationError on
  *  a non-image or malformed data URL so the admin gets a clear 422. */
 function decodeImageDataUrl(dataUrl: string): { bytes: Buffer; contentType: string } {
-  const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl);
+  const m = /^data:(image\/[a-zA-Z0-9][a-zA-Z0-9.+-]*);base64,(.+)$/.exec(dataUrl);
   if (!m) throw new ValidationError("Expected a base64 image data URL.");
   return { bytes: Buffer.from(m[2], "base64"), contentType: m[1] };
 }
@@ -508,7 +508,9 @@ export async function createReferenceAd(args: {
   createdBy: string;
 }): Promise<ReferenceAd> {
   const { bytes, contentType } = decodeImageDataUrl(args.dataUrl);
-  const storagePath = `${refVariantPrefix(args.variant)}/${randomUUID()}.png`;
+  // Extension from the actual MIME subtype so a JPEG/WebP isn't stored mislabeled as .png.
+  const ext = contentType.slice("image/".length).split("+")[0].replace("jpeg", "jpg");
+  const storagePath = `${refVariantPrefix(args.variant)}/${randomUUID()}.${ext}`;
   const up = await admin().storage.from("reference-ads").upload(storagePath, bytes, { contentType, upsert: false });
   if (up.error) throw new PersistenceError(`Uploading the reference ad failed: ${up.error.message}`);
 
