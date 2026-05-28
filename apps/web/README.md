@@ -32,23 +32,25 @@ npm test  --workspace @bya/web        # vitest (48 tests)
 - **Library** (`/library`) — grid of generated ads (signed image URLs).
 - **Saved-brand reuse** — a Home brand pill opens `/create?brandId=<id>`, which loads the saved
   brand and jumps straight to pick-ref (skips re-analysis).
+- **Admin** (`/admin`, `admin@betteryourads.dev` only) — accounts table with approve/revoke and
+  one-click user removal. Non-admin users are capped at 10 creatives/day (surfaced in the workbench).
 
 ## Owner steps before a real run
 
-1. **Apply Plan 5 migrations:** `supabase db push` (the migrations under `supabase/migrations/`
-   rename `brands→brand_extractions`, `ads→generated_ads`, add `ad_prompts`). The app's
-   persistence-backed screens need the new schema.
+1. **Apply the migrations by hand.** In the Supabase dashboard → **SQL Editor**, paste and run
+   `supabase/schema.sql` (the paste-once end-state script), or run the files under
+   `supabase/migrations/` in filename order. The persistence-backed screens need this schema.
 2. **`.env`** at the repo root with `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
    `SUPABASE_SERVICE_ROLE_KEY`, `OPENROUTER_API_KEY`, `KIE_API_KEY` (backend reads these;
    `/api/config` exposes url + anon key to the browser).
-3. **Approve a user:** set `profiles.approved = true` for your account, or you'll be held at the
-   approval screen.
+3. **Approve a user:** the admin admits accounts from the **Admin** dashboard (`/admin`); to
+   bootstrap the first admin, set `profiles.approved = true` by hand in the Table Editor, or
+   you'll be held at the approval screen.
 
 ## Deferred (not built)
 
 - **Angle variations / batch** — needs a backend multi-angle endpoint that doesn't exist yet
   (the future batch feature).
-- **Admin panel** — backend run-scripts + tests cover pipeline iteration instead.
 - **Library domain grouping, ad deletion, performance-tag editing, "ship to Meta."**
 
 Slice specs/plans: `docs/superpowers/specs/2026-05-28-web-frontend-*` and

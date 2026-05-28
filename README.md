@@ -67,8 +67,15 @@ The app uses Supabase for auth, saved brand extractions, ad prompts, and an ad L
 
 ### Approving a user
 
-Anyone can sign in, but the app stays locked until you approve them:
+Anyone can sign in, but the app stays locked until you approve them. Approved
+non-admin users can generate up to 10 creatives per day; the admin account is
+uncapped.
 
-1. Have the person sign in once (so their `profiles` row is created).
-2. In the dashboard, open **Table Editor → `profiles`**, find their email, and set
-   **`approved`** to `true`. They get access on their next page load.
+Approve people from the in-app **Admin** dashboard (`/admin`, visible only to
+`admin@betteryourads.dev`): it lists every account with its approved/admin status
+and join date, with one-click **Approve / Revoke** buttons.
+
+To bootstrap the first admin (before anyone can reach the dashboard), set their
+`profiles.approved` to `true` by hand: have them sign in once so their `profiles`
+row is created, then in Supabase open **Table Editor → `profiles`**, find the
+`admin@betteryourads.dev` row, and set **`approved`** to `true`.
