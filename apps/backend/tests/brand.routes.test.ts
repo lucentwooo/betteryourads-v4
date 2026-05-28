@@ -51,6 +51,47 @@ describe("POST /api/brand", () => {
     );
   });
 
+  it("includes partialAnalysis listing missing sections when an agent slice is absent", async () => {
+    approve();
+    // Only brand_identity succeeded; every other expected section is missing.
+    vi.mocked(runBrand).mockResolvedValue({ brand_identity: { brand_name: "Acme" }, schema_version: 1 });
+    vi.mocked(saveBrandExtraction).mockResolvedValue({ id: "b1" });
+    const res = await request(app)
+      .post("/api/brand")
+      .set("Authorization", "Bearer ok")
+      .send({ url: "https://acme.com", measuredSiteData: { title: "Acme" } });
+    expect(res.status).toBe(200);
+    expect(res.body.partialAnalysis).not.toBeNull();
+    expect(res.body.partialAnalysis.missing).toContain("messaging_foundation");
+    expect(res.body.partialAnalysis.missing).toContain("competitor_intelligence");
+    expect(res.body.partialAnalysis.missing).not.toContain("brand_identity");
+  });
+
+  it("returns partialAnalysis null when every expected section is present", async () => {
+    approve();
+    vi.mocked(runBrand).mockResolvedValue({
+      schema_version: 1,
+      brand_identity: {},
+      visual_brand_system: {},
+      product_representation: {},
+      offer_dna: {},
+      messaging_foundation: {},
+      proof_library: {},
+      customer_dna_from_website: {},
+      external_customer_research_plan: {},
+      competitor_intelligence: {},
+      claim_constraints: {},
+      missing_information: {},
+    });
+    vi.mocked(saveBrandExtraction).mockResolvedValue({ id: "b1" });
+    const res = await request(app)
+      .post("/api/brand")
+      .set("Authorization", "Bearer ok")
+      .send({ url: "https://acme.com", measuredSiteData: { title: "Acme" } });
+    expect(res.status).toBe(200);
+    expect(res.body.partialAnalysis).toBeNull();
+  });
+
   it("maps ValidationError to 422", async () => {
     approve();
     vi.mocked(runBrand).mockRejectedValue(new ValidationError("bad input"));
