@@ -1,0 +1,31 @@
+# Render Blueprint: one Docker web service that runs the Express API and serves the built
+# SPA from the same origin (the backend already static-serves apps/web/dist in production).
+# Apply via Render Dashboard -> New -> Blueprint, pointing at this repo. Secrets are
+# sync:false so Render prompts for them on first deploy instead of storing them in git.
+services:
+  - type: web
+    name: betteryourads
+    runtime: docker
+    plan: starter # Chromium needs >512MB; the free plan tends to OOM during extraction.
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: "3000"
+      - key: STAGE1_MODEL
+        value: deepseek/deepseek-v4-flash
+      - key: STAGE2_MODEL
+        value: google/gemini-2.5-flash
+      - key: KIE_IMAGE_MODEL
+        value: gpt-image-2-image-to-image
+      - key: KIE_IMAGE_RESOLUTION
+        value: "1K"
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: KIE_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
