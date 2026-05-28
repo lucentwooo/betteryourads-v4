@@ -27,12 +27,14 @@ What BetterYourAds can do, as of the `dev` branch. Grouped by area; one line per
 - `GET /api/health` — health check.
 - `GET /api/brands` / `GET /api/brand/:id` — list saved brand extractions; fetch one with its measured data + generated ads.
 - `GET /api/ads` — list the user's generated ads.
+- `GET /api/reference-ads?variant=` — list curated reference ads for a variant (`with_asset` / `no_asset`), each with a signed URL.
 
 ## Admin API (`requireApprovedUser` + admin gate)
 
 - `GET /api/admin/users` — list all accounts (email, approval, admin flag, join date, last sign-in).
 - `PATCH /api/admin/users/:id/approval` — approve / revoke a user (can't self-modify).
 - `DELETE /api/admin/users/:id` — permanently delete an account and its data (can't self-delete).
+- `POST /api/admin/reference-ads` / `DELETE /api/admin/reference-ads/:id` — upload / remove a curated reference ad.
 
 ## Auth & access control
 
@@ -45,14 +47,15 @@ What BetterYourAds can do, as of the `dev` branch. Grouped by area; one line per
 ## Web frontend (`apps/web`)
 
 - **Home `/`** — dashboard: user email, saved-brand and ad counts, recent ad thumbnails, quick link to create.
-- **Create `/create`** — 4-step workbench: paste URL (extract + brand) → pick from 5 generated concepts (multi-select, capped at the daily limit) → add a reference ad / logo / optional product per concept → batch-generate with a live results gallery and per-ad downloads.
+- **Create `/create`** — 4-step workbench: paste URL (extract + brand) → pick from 5 generated concepts (multi-select, capped at the daily limit) → add a reference ad (upload or pick from a curated library that auto-switches on product-asset presence) / logo / optional product per concept → batch-generate with a live results gallery and per-ad downloads.
 - **Library `/library`** — grid of generated ads with date, aspect ratio, and resolution.
 - **Admin `/admin`** — account table with one-click approve/revoke and type-to-confirm delete.
+- **Admin `/admin/reference-ads`** — manage the two curated reference libraries (with-asset / no-asset): upload, label, and delete thumbnails.
 - **Brand preset** — workbench can preload a saved brand via `?brandId=<id>`, skipping the extract/brand steps.
 
 ## Shared package (`@bya/shared`)
 
-- Zod schemas shared by backend and web: `MeasuredSiteData`, `BrandExtraction`, `AdPrompt`, `RenderOutput`, `ConceptSet` / `AdIdea`, plus library/admin DTOs (`BrandSummary`, `BrandDetail`, `AdSummary`, `AdminUser`).
+- Zod schemas shared by backend and web: `MeasuredSiteData`, `BrandExtraction`, `AdPrompt`, `RenderOutput`, `ConceptSet` / `AdIdea`, plus library/admin DTOs (`BrandSummary`, `BrandDetail`, `AdSummary`, `AdminUser`, `ReferenceAd`).
 
 ## CLI scripts (`apps/backend`, run with `-w @bya/backend`)
 
@@ -61,7 +64,7 @@ What BetterYourAds can do, as of the `dev` branch. Grouped by area; one line per
 
 ## Infrastructure & integrations
 
-- **Supabase** — Auth (JWT), Postgres (`profiles`, `brand_extractions`, `ad_prompts`, `generated_ads`, `ad_concept_sets`, `batch_jobs`, `batch_items`) with RLS, and a private `ads` storage bucket.
+- **Supabase** — Auth (JWT), Postgres (`profiles`, `brand_extractions`, `ad_prompts`, `generated_ads`, `ad_concept_sets`, `batch_jobs`, `batch_items`, `reference_ads`) with RLS, and private `ads` + `reference-ads` storage buckets.
 - **OpenRouter** — Stage 1 / Stage 2 / Stage 3 (concepts) models, configurable via env.
 - **KIE** — image-generation backend for Stage 3.
 - **Playwright** — headless Chromium for website extraction.
