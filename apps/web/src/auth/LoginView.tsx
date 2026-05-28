@@ -2,13 +2,12 @@ import { useState, type FormEvent } from "react";
 import { useAuth } from "./useAuth";
 import { AuthLayout } from "./AuthLayout";
 
-type Mode = "sign-in" | "sign-up" | "magic-link" | "forgot";
+type Mode = "sign-in" | "sign-up" | "forgot";
 type Msg = { type: "error" | "info"; text: string };
 
 const HEADINGS: Record<Mode, string> = {
   "sign-in": "Sign in",
   "sign-up": "Create account",
-  "magic-link": "Magic link",
   forgot: "Reset password",
 };
 
@@ -23,6 +22,11 @@ export function LoginView() {
   const showPassword = mode === "sign-in" || mode === "sign-up";
   const origin = window.location.origin;
 
+  function switchMode(next: Mode) {
+    setMode(next);
+    setMsg(null);
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!supabase) return;
@@ -36,9 +40,6 @@ export function LoginView() {
       } else if (mode === "sign-up") {
         const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: origin } });
         setMsg(error ? { type: "error", text: error.message } : { type: "info", text: "Check your email to verify your account." });
-      } else if (mode === "magic-link") {
-        const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: origin } });
-        setMsg(error ? { type: "error", text: error.message } : { type: "info", text: "Check your email for the sign-in link." });
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: origin });
         setMsg(error ? { type: "error", text: error.message } : { type: "info", text: "Check your email for a reset link." });
@@ -48,35 +49,67 @@ export function LoginView() {
     }
   }
 
-  const submitLabel =
-    mode === "sign-in" ? "Sign in" : mode === "sign-up" ? "Create account" : mode === "magic-link" ? "Send link" : "Send reset";
+  const submitLabel = mode === "sign-in" ? "Sign in" : mode === "sign-up" ? "Create account" : "Send reset link";
 
   return (
     <AuthLayout>
-      <h2 style={{ marginBottom: "var(--space-4)" }}>{HEADINGS[mode]}</h2>
+      <h2>{HEADINGS[mode]}</h2>
+
+      {mode === "forgot" ? (
+        <p className="sub">Enter your email and we'll send you a link to reset your password.</p>
+      ) : (
+        <div className="auth-tabs">
+          <button
+            type="button"
+            aria-pressed={mode === "sign-in"}
+            className={`auth-tab${mode === "sign-in" ? " active" : ""}`}
+            onClick={() => switchMode("sign-in")}
+          >
+            Sign in
+          </button>
+          <button
+            type="button"
+            aria-pressed={mode === "sign-up"}
+            className={`auth-tab${mode === "sign-up" ? " active" : ""}`}
+            onClick={() => switchMode("sign-up")}
+          >
+            Create account
+          </button>
+        </div>
+      )}
+
       <form onSubmit={submit}>
         <label className="field">
           <span>Email</span>
           <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </label>
         {showPassword && (
-          <label className="field" style={{ marginTop: "var(--space-3)" }}>
+          <label className="field">
             <span>Password</span>
             <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </label>
         )}
         {msg && (
-          <p style={{ marginTop: "var(--space-3)", color: msg.type === "error" ? "var(--bya-oxblood)" : "var(--fg-2)" }}>{msg.text}</p>
+          <p className={`msg${msg.type === "error" ? " error" : ""}`} role={msg.type === "error" ? "alert" : undefined}>
+            {msg.text}
+          </p>
         )}
         <button className="btn primary" type="submit" disabled={busy} style={{ marginTop: "var(--space-4)", width: "100%" }}>
           {busy ? "…" : submitLabel}
         </button>
       </form>
-      <div style={{ marginTop: "var(--space-4)", display: "flex", gap: "var(--space-3)", flexWrap: "wrap" }}>
-        {mode !== "sign-in" && <button className="btn ghost" type="button" onClick={() => { setMode("sign-in"); setMsg(null); }}>Sign in</button>}
-        {mode !== "sign-up" && <button className="btn ghost" type="button" onClick={() => { setMode("sign-up"); setMsg(null); }}>Create account</button>}
-        {mode !== "magic-link" && <button className="btn ghost" type="button" onClick={() => { setMode("magic-link"); setMsg(null); }}>Magic link</button>}
-        {mode !== "forgot" && <button className="btn ghost" type="button" onClick={() => { setMode("forgot"); setMsg(null); }}>Forgot password</button>}
+
+      <div className="auth-foot">
+        {mode === "sign-in" && (
+          <button className="link-btn" type="button" onClick={() => switchMode("forgot")}>
+            Forgot password?
+          </button>
+        )}
+        {mode === "forgot" && (
+          <button className="link-btn" type="button" onClick={() => switchMode("sign-in")}>
+            Back to sign in
+          </button>
+        )}
       </div>
     </AuthLayout>
   );

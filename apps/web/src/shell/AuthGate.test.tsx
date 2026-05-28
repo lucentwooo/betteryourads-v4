@@ -7,7 +7,7 @@ import type { AuthStatus } from "../auth/status";
 vi.mock("../auth/useAuth", () => ({ useAuth: vi.fn() }));
 const mockUseAuth = vi.mocked(useAuth);
 
-const fakeSupabase = { auth: { signInWithPassword: vi.fn(), signUp: vi.fn(), signInWithOtp: vi.fn(), resetPasswordForEmail: vi.fn(), updateUser: vi.fn() } };
+const fakeSupabase = { auth: { signInWithPassword: vi.fn(), signUp: vi.fn(), resetPasswordForEmail: vi.fn(), updateUser: vi.fn() } };
 const value = (status: AuthStatus) =>
   ({ status, supabase: fakeSupabase, clearRecovery: vi.fn(), signOut: vi.fn() }) as unknown as ReturnType<typeof useAuth>;
 
@@ -24,7 +24,7 @@ describe("AuthGate", () => {
   it("renders the login view when signed out", () => {
     mockUseAuth.mockReturnValue(value("signed-out"));
     render(<AuthGate><div>APP</div></AuthGate>);
-    expect(screen.getByRole("button", { name: /^sign in$/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.queryByText("APP")).toBeNull();
   });
 

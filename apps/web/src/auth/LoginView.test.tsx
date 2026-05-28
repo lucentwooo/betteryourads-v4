@@ -8,7 +8,6 @@ vi.mock("./useAuth", () => ({ useAuth: vi.fn() }));
 const auth = {
   signInWithPassword: vi.fn(),
   signUp: vi.fn(),
-  signInWithOtp: vi.fn(),
   resetPasswordForEmail: vi.fn(),
 };
 
@@ -17,7 +16,6 @@ beforeEach(() => {
   vi.mocked(useAuth).mockReturnValue({ supabase: { auth } } as unknown as ReturnType<typeof useAuth>);
   auth.signInWithPassword.mockResolvedValue({ error: null });
   auth.signUp.mockResolvedValue({ error: null });
-  auth.signInWithOtp.mockResolvedValue({ error: null });
   auth.resetPasswordForEmail.mockResolvedValue({ error: null });
 });
 
@@ -25,49 +23,45 @@ function type(label: RegExp, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 }
 
+// "Sign in" / "Create account" appear on both the mode toggle and the submit
+// button, so always submit via the type="submit" button to avoid ambiguity.
+function submitForm(container: HTMLElement) {
+  fireEvent.click(container.querySelector('button[type="submit"]')!);
+}
+
 describe("LoginView", () => {
   it("signs in with email + password", async () => {
-    render(<LoginView />);
+    const { container } = render(<LoginView />);
     type(/email/i, "a@b.com");
     type(/password/i, "secret1");
-    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
+    submitForm(container);
     await waitFor(() => expect(auth.signInWithPassword).toHaveBeenCalledWith({ email: "a@b.com", password: "secret1" }));
   });
 
   it("shows the error message when sign-in fails", async () => {
     auth.signInWithPassword.mockResolvedValue({ error: { message: "Invalid login" } });
-    render(<LoginView />);
+    const { container } = render(<LoginView />);
     type(/email/i, "a@b.com");
     type(/password/i, "nope");
-    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
+    submitForm(container);
     await waitFor(() => expect(screen.getByText("Invalid login")).toBeInTheDocument());
   });
 
-  it("switches to magic-link mode and sends an OTP", async () => {
-    render(<LoginView />);
-    fireEvent.click(screen.getByRole("button", { name: /magic link/i }));
-    type(/email/i, "a@b.com");
-    fireEvent.click(screen.getByRole("button", { name: /send link/i }));
-    await waitFor(() => expect(auth.signInWithOtp).toHaveBeenCalledWith({ email: "a@b.com", options: { emailRedirectTo: window.location.origin } }));
-    expect(screen.getByText(/check your email/i)).toBeInTheDocument();
-  });
-
   it("switches to forgot mode and requests a reset", async () => {
-    render(<LoginView />);
+    const { container } = render(<LoginView />);
     fireEvent.click(screen.getByRole("button", { name: /forgot password/i }));
     type(/email/i, "a@b.com");
-    fireEvent.click(screen.getByRole("button", { name: /send reset/i }));
+    submitForm(container);
     await waitFor(() => expect(auth.resetPasswordForEmail).toHaveBeenCalledWith("a@b.com", { redirectTo: window.location.origin }));
   });
 
   it("switches to sign-up mode, creates an account, and shows the check-email message", async () => {
     const { container } = render(<LoginView />);
-    // Switch into sign-up mode via the ghost link
+    // Switch into sign-up mode via the toggle (the submit button still reads "Sign in" here).
     fireEvent.click(screen.getByRole("button", { name: /create account/i }));
     type(/email/i, "a@b.com");
     type(/password/i, "secret1");
-    // Submit button is type="submit"; click it to avoid ambiguity with the mode-switch link
-    fireEvent.click(container.querySelector('button[type="submit"]')!);
+    submitForm(container);
     await waitFor(() =>
       expect(auth.signUp).toHaveBeenCalledWith({
         email: "a@b.com",

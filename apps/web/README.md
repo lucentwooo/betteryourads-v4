@@ -23,7 +23,7 @@ npm test  --workspace @bya/web        # vitest (48 tests)
 
 ## What's built
 
-- **Auth** — Supabase sign-in / sign-up / magic-link / forgot-password + password recovery,
+- **Auth** — Supabase sign-in / sign-up / forgot-password + password recovery,
   behind an **approval gate** (`profiles.approved`). Unapproved users see "you're on the list".
 - **Workbench** (`/create`) — the single-ad flow: URL → analyze (extract + brand) → pick
   reference ad + logo (+ optional product image) → generate (ad-prompt + render) → preview &

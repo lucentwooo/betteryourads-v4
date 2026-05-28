@@ -340,6 +340,31 @@ body { background: var(--bg); color: var(--fg); overflow: hidden; }
 .auth-card h2 { font-family: var(--font-sans); font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 8px; }
 .auth-card .sub { font-family: var(--font-sans); font-size: 13px; color: var(--fg-2); margin: 0 0 24px; }
 .auth-card .msg { font-family: var(--font-mono); font-size: 11px; color: var(--fg-2); margin-top: 14px; padding: 10px; border: 1px solid var(--fg); border-radius: 4px; background: var(--bg-raised); }
+.auth-card .msg.error { color: var(--bya-oxblood); border-color: var(--bya-oxblood); background: var(--bya-oxblood-soft); }
+
+/* Mode toggle — segmented control so sign-in vs create-account is unmistakable */
+.auth-tabs {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+  padding: 4px; margin: 0 0 24px;
+  background: var(--bg-raised); border: 1px solid var(--fg); border-radius: var(--radius-md);
+}
+.auth-tab {
+  font-family: var(--font-sans); font-size: 14px; font-weight: 600;
+  padding: 10px 12px; border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: var(--fg-3); cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.auth-tab:hover { color: var(--fg); }
+.auth-tab.active { background: var(--fg); color: var(--bg); }
+
+/* Secondary text actions under the form (forgot / back) */
+.auth-foot { margin-top: 16px; display: flex; justify-content: center; }
+.link-btn {
+  font-family: var(--font-sans); font-size: 14px; font-weight: 500;
+  background: 0; border: 0; padding: 4px; cursor: pointer;
+  color: var(--accent); text-underline-offset: 2px;
+}
+.link-btn:hover { text-decoration: underline; }
 
 /* ----- Helpers --------------------------------------------------- */
 .row { display: flex; gap: 12px; align-items: stretch; }
