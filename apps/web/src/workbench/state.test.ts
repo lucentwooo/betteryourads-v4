@@ -71,10 +71,12 @@ describe("workbench reducer", () => {
 
   it("PRESET_BRAND jumps to pick-ref with the loaded brand", () => {
     const be = { brand_identity: { brand_name: "Acme" } } as never;
-    const s = reducer(initialState, { type: "PRESET_BRAND", brandExtraction: be, brandExtractionId: "be1", url: "https://acme.com" });
+    const msd = { title: "Acme", colors: { accent_cta: [{ hex: "#ff0000", count: 1 }] } } as never;
+    const s = reducer(initialState, { type: "PRESET_BRAND", brandExtraction: be, brandExtractionId: "be1", measuredSiteData: msd, url: "https://acme.com" });
     expect(s.stage).toBe("pick-ref");
     expect(s.brandExtraction).toBe(be);
     expect(s.brandExtractionId).toBe("be1");
+    expect(s.measuredSiteData).toBe(msd);
     expect(s.url).toBe("https://acme.com");
   });
 

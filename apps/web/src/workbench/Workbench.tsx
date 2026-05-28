@@ -1,5 +1,6 @@
 import { useReducer, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
+import { MeasuredSiteData } from "@bya/shared";
 import { reducer, initialState } from "./state";
 import { Dropzone } from "./Dropzone";
 import { brandName, positioningLine, accentColor } from "./brandChip";
@@ -21,7 +22,11 @@ export default function Workbench() {
     presetDone.current = true;
     let active = true;
     api.getBrand(brandId)
-      .then((detail) => { if (active) dispatch({ type: "PRESET_BRAND", brandExtraction: detail.brandExtraction, brandExtractionId: detail.id }); })
+      .then((detail) => {
+        if (!active) return;
+        const msd = MeasuredSiteData.safeParse(detail.measuredSiteData);
+        dispatch({ type: "PRESET_BRAND", brandExtraction: detail.brandExtraction, brandExtractionId: detail.id, measuredSiteData: msd.success ? msd.data : null });
+      })
       .catch((e) => { if (active) dispatch({ type: "FAILED", message: e instanceof ApiError ? e.message : "Could not load that brand." }); });
     return () => { active = false; };
   }, [brandId]);
