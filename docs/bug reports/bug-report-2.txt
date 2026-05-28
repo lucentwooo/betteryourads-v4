@@ -1,0 +1,45 @@
+Bug Report: BetterYourAds v4
+
+Purpose:
+This report records the user-deletion cleanup bug found during the database and storage deletion-flow audit.
+
+Bug:
+User deletion cleanup deletes Supabase Storage metadata directly from SQL.
+
+File:
+supabase/migrations/20260528120500_cleanup_user_storage.sql
+apps/backend/src/services/supabase.ts
+apps/backend/src/routes/admin.ts
+
+Why it is a bug:
+The admin delete route correctly deletes the Supabase auth user through auth.admin.deleteUser(userId), which should trigger database FK cascades for profiles, brand_extractions, ad_prompts, generated_ads, and brand_assets.
+
+The new cleanup migration then tries to remove user-owned files by deleting rows directly from storage.objects. Supabase Storage objects should be deleted through the Storage API. Direct SQL deletion can remove object metadata without reliably deleting the underlying stored file, which means the account appears cleaned from the database while real storage bytes may remain orphaned.
+
+How to reproduce:
+1. Apply the current migrations, including 20260528120500_cleanup_user_storage.sql.
+2. Create a user and generate at least one ad so an object exists in the ads bucket under <userId>/.
+3. Upload or create at least one brand asset so an object exists in the brand-assets bucket under <userId>/.
+4. Delete the user through the admin dashboard or DELETE /api/admin/users/:id.
+5. Confirm public database rows are removed by FK cascade.
+6. Inspect Supabase Storage at the bucket/object level and confirm whether the physical files were removed, not just storage.objects metadata.
+
+Expected fix:
+Move storage cleanup into the backend deleteUser flow before deleting the auth user.
+
+Recommended approach:
+1. List all objects under <userId>/ in the ads bucket.
+2. List all objects under <userId>/ in the brand-assets bucket.
+3. Delete those paths with admin().storage.from(bucket).remove(paths), batching if needed.
+4. Only after storage cleanup succeeds, call admin().auth.admin.deleteUser(userId).
+5. Remove or replace the SQL trigger so it no longer deletes from storage.objects directly.
+6. Update the deleteUser comment, which currently says orphaned storage is acceptable, because the new expected behaviour is full storage cleanup.
+
+Risk level:
+P1
+
+Suggested test:
+Add backend tests for deleteUser that mock both storage buckets and auth.admin.deleteUser. Assert that user-prefixed objects are listed and removed from ads and brand-assets before auth deletion is called. Add a failure test where storage cleanup fails and auth deletion is not attempted, so the system does not delete the database user while leaving storage behind.
+
+Verification notes:
+Code audit confirmed the row-level database cleanup path is mostly correct because the admin route calls auth.admin.deleteUser and user-owned tables use on delete cascade. The remaining bug is storage cleanup, because the current migration deletes directly from storage.objects instead of using the Supabase Storage API.
