@@ -1,3 +1,34 @@
+# Project context
+
+BetterYourAds turns a website URL into on-brand ad creative through a 3-stage pipeline:
+
+1. **Extract / Brand (Stage 1)** — headless Chromium (Playwright) reads exact colors, fonts, and text off the live page; an OpenRouter LLM turns that measured data into structured brand "DNA".
+2. **Ad prompt (Stage 2)** — a vision model turns the brand DNA (+ optional user direction / product asset) into a structured image-generation prompt.
+3. **Render (Stage 3)** — the prompt goes to an image backend (KIE GPT-Image, or an OpenRouter image model) and the result is persisted to Supabase Storage.
+
+**Monorepo** (npm workspaces, Node ≥20):
+
+- `apps/backend` (`@bya/backend`) — Express + TypeScript API; the current rebuild. Routes: `/api/extract`, `/api/brand`, `/api/ad-prompt`, `/api/render`, `/api/config` — all gated by `requireApprovedUser`.
+- `apps/web` (`@bya/web`) — React + Vite + react-router frontend.
+- `packages/shared` (`@bya/shared`) — zod schemas shared by both (`brand-extraction`, `ad-prompt`, `render`, `measured-site-data`).
+- `legacy/` — the original single-file Express prototype (what `main` and the root `README.md` still describe). Don't build on it.
+
+**Branches are independent lines — never merge them together.** `main` = legacy prototype; `feature/jerey-refactor` = TS backend rebuild; `feature/web-frontend` = React frontend.
+
+**Secrets** live in a root `.env` (copy from `.env.example`): `OPENROUTER_API_KEY`, `STAGE1_MODEL` / `STAGE2_MODEL`, `IMAGE_BACKEND` + `KIE_*` / `OPENROUTER_IMAGE_*`, and `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` (service-role key is server-only and bypasses RLS).
+
+# Common commands
+
+Run from the repo root; target a workspace with `-w`.
+
+- **Install:** `npm install`, then `npx playwright install chromium` (the backend needs the browser).
+- **Backend dev server:** `npm run dev -w @bya/backend`
+- **Backend tests:** `npm test -w @bya/backend` (vitest; gated e2e tests skip without keys)
+- **Pipeline scripts (run one stage from the CLI):** `npm run run:extract -w @bya/backend` — also `run:brand`, `run:ad-prompt`, `run:render`
+- **Web dev server:** `npm run dev -w @bya/web`
+- **Web build / typecheck:** `npm run build -w @bya/web`
+- **Web tests:** `npm test -w @bya/web`
+
 # Coding rules
 
 These override defaults. The generic "write clean code" stuff is assumed — only the deltas live here.
@@ -8,7 +39,7 @@ These override defaults. The generic "write clean code" stuff is assumed — onl
 - **Touch the fewest files possible.** Before editing a second file, ask: is this edit _required_ for the task to work, or am I improving things uphill? If the latter, stop and surface it as a suggestion in chat instead.
 - **No drive-by changes.** Unrelated lint fixes, import reordering, removing "unused" code you don't fully understand, swapping `let` to `const` in untouched blocks — all out of scope unless asked.
 - **Don't create new files unless necessary.** Prefer editing an existing file. New file requires a real reason (it's a new module the task needs, the existing file would become unwieldy, etc.) — say the reason in your response.
-- **Don't add new dependencies without flagging it first.** A `pnpm add` is a decision, not an implementation detail.
+- **Don't add new dependencies without flagging it first.** An `npm install <pkg> -w <workspace>` is a decision, not an implementation detail.
 
 ## Anti-over-engineering
 
@@ -37,6 +68,13 @@ These override defaults. The generic "write clean code" stuff is assumed — onl
 
 - When integrating changes from another branch, **rebase, don't merge.** No merge commits in the history.
 - When pushing rebased branches, use `git push --force-with-lease` (never plain `--force`). If the lease check fails, stop and surface it — someone else pushed and I need to know.
+
+## Database migrations (Supabase)
+
+- **Migrations are applied by hand, not by the CLI.** The owner has no Supabase CLI installed and doesn't want one. When a migration needs applying, give the owner the SQL to paste into the Supabase dashboard → SQL Editor → Run. Don't tell them to run `supabase db push`, `supabase login`, or `supabase link`.
+- **Never run or recommend `supabase db push` on this project.** The existing migrations were applied manually, so the `supabase_migrations.schema_migrations` history is empty. A `db push` would try to re-run all of them, and the `rename` migration is not idempotent — it would error on the already-renamed tables.
+- **New migration files still go in `supabase/migrations/` with a timestamp prefix** (the prefix is the apply order). After authoring one, hand the owner its SQL to paste, and remind them to run files in filename order if there's more than one. Keep migrations idempotent where possible (`create ... if not exists`, `drop policy if exists` then `create`).
+- **To verify a migration landed**, give the owner a `select ... from information_schema.tables` query for the dashboard — that's the confirmation step, not anything CLI-based.
 
 ## Response style
 

@@ -1,0 +1,26 @@
+P1: Generated ads are not linked to the saved brand/prompt path.
+Workbench.tsx (line 33) discards /api/brand’s returned id; Workbench.tsx (line 46) discards /api/ad-prompt’s returned id; Workbench.tsx (line 52) renders inline instead of passing adPromptId. This means performance memory and generated-ad prompt linkage do not work from the normal UI flow.
+
+P1: Fresh setup docs can initialise the wrong schema/app.
+README.md (line 17) still says node server.js, and README.md (line 59) says to paste supabase/schema.sql. But schema.sql (line 39) still defines legacy brands/ads, while the backend expects migrated brand_extractions, generated_ads, and ad_prompts.
+
+P2: Auth bootstrap can hang forever.
+AuthProvider.tsx (line 23) has no catch around api.getConfig(). If backend config fails or Supabase env is missing, initialized never flips and the user stays on Loading....
+
+P2: Signed-in users can also hang if profile lookup fails.
+AuthProvider.tsx (line 55) ignores Supabase profile query errors and sets profile to null; status.ts (line 12) treats “session but no profile” as loading. Missing profiles table, RLS issues, or a missing row becomes an infinite loading screen.
+
+P2: Production API wiring is dev-only.
+vite.config.ts (line 11) only proxies /api in Vite dev. server.ts (line 9) does not serve the built web app and has no CORS. Separate frontend/backend deployment will fail unless hosted behind one origin or given a real API base URL.
+
+P2: Backend port fallback can silently break the web app in local dev.
+index.ts (line 10) auto-increments when port 3000 is busy, but the web proxy remains fixed to http://localhost:3000. Backend may print 3001, while the web app still calls the wrong server.
+
+P2: API client assumes every response body is JSON.
+client.ts (line 52) does JSON.parse(text) before checking res.ok. Proxy failures, Express 413 HTML, or other non-JSON errors become raw parse errors instead of ApiError, so UI error handling degrades.
+
+P3: Home and Library hide API failures as empty states.
+Home.tsx (line 24) and Library.tsx (line 13) swallow fetch errors. A real 401, 403, 500, or backend outage looks like “no ads/brands”.
+
+P3: Parallel brand agents can save partial brand records without surfacing it.
+brand.ts (line 22) merges successful agent slices and only requires brand_identity. That is resilient, but it can silently omit proof/customer/competitor/constraint sections and still persist the brand.
