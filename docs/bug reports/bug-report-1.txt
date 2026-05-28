@@ -1,0 +1,383 @@
+Bug Report: BetterYourAds v4
+
+Purpose:
+This report rewrites the current bug notes into a fix-ready format. Each item includes the affected file, why it is a bug, how to reproduce it, the expected fix, risk level, and a suggested test.
+
+Bug:
+Generated ads are not linked to the saved brand and prompt path.
+
+File:
+apps/web/src/pages/Workbench.tsx
+
+Why it is a bug:
+Workbench.tsx discards the id returned by /api/brand, discards the id returned by /api/ad-prompt, and renders generated ads inline instead of passing adPromptId. The backend already supports brandExtractionId and adPromptId, but the normal UI flow bypasses that relationship. This leaves generated_ads rows unlinked to their saved prompts and weakens future performance memory.
+
+How to reproduce:
+1. Start the backend and web app.
+2. Use the Workbench flow to analyse a brand, generate an ad prompt, and render an ad.
+3. Check the generated_ads row in Supabase.
+4. Confirm the row is missing the expected brandExtractionId and/or adPromptId linkage.
+
+Expected fix:
+Persist and carry the returned brandExtractionId and adPromptId through the Workbench state. When rendering an ad from a generated prompt, send the relevant adPromptId and brandExtractionId to the backend so generated_ads rows are connected to the saved brand and prompt records.
+
+Risk level:
+P1
+
+Suggested test:
+Add or update an integration test for the Workbench/API flow that creates a brand extraction, creates an ad prompt, renders an ad, and asserts the generated_ads record is linked to the saved brand extraction and prompt.
+
+Bug:
+Fresh setup docs can initialise the wrong schema and app entry point.
+
+File:
+README.md
+supabase/schema.sql
+
+Why it is a bug:
+README.md still says to run node server.js and tells users to paste supabase/schema.sql. supabase/schema.sql still defines legacy brands and ads tables, while the TypeScript backend expects migrated brand_extractions, generated_ads, and ad_prompts tables. README.md also still describes Brands and Ads instead of the current table names.
+
+How to reproduce:
+1. Follow README.md from a clean checkout.
+2. Run the documented server command.
+3. Paste the documented Supabase schema.
+4. Try to use the current TypeScript backend routes that expect brand_extractions, generated_ads, and ad_prompts.
+5. Observe startup or database failures caused by stale setup instructions and schema mismatch.
+
+Expected fix:
+Update README.md to use the current package scripts and TypeScript backend workflow. Replace or update supabase/schema.sql so the documented setup creates the tables expected by the current backend. Update table descriptions so they match brand_extractions, generated_ads, and ad_prompts.
+
+Risk level:
+P1
+
+Suggested test:
+Perform a clean setup using only README.md, then run backend tests and a smoke test against the brand, prompt, and generated ad routes.
+
+Bug:
+The web workspace cannot currently run tests or type-check from the installed node_modules.
+
+File:
+apps/web/package.json
+package-lock.json
+apps/web/vite.config.ts
+apps/web/tsconfig.json
+
+Why it is a bug:
+npm.cmd test --workspace @bya/web fails before Vitest runs because @vitejs/plugin-react cannot be resolved from apps/web/vite.config.ts. npm.cmd ls react react-router-dom @vitejs/plugin-react --workspace @bya/web returns empty even though apps/web/package.json and package-lock.json list those dependencies. npx.cmd tsc -p apps/web/tsconfig.json --noEmit also fails with missing React, router, and testing-library modules.
+
+How to reproduce:
+1. Run npm.cmd test --workspace @bya/web.
+2. Run npm.cmd ls react react-router-dom @vitejs/plugin-react --workspace @bya/web.
+3. Run npx.cmd tsc -p apps/web/tsconfig.json --noEmit.
+4. Observe dependency resolution failures before the web test suite or type-check can complete.
+
+Expected fix:
+Repair workspace dependency installation and lockfile state so @bya/web can resolve React, React Router, @vitejs/plugin-react, Testing Library, and other declared web dependencies from the installed node_modules. Confirm the workspace scripts work from a clean install.
+
+Risk level:
+P1
+
+Suggested test:
+Run npm.cmd install from the repo root, then run npm.cmd test --workspace @bya/web and npx.cmd tsc -p apps/web/tsconfig.json --noEmit successfully.
+
+Bug:
+Auth bootstrap can hang forever.
+
+File:
+apps/web/src/auth/AuthProvider.tsx
+
+Why it is a bug:
+AuthProvider.tsx has no catch around api.getConfig(). If backend config fails, /api/config is unreachable, or Supabase environment values are missing or malformed, initialized never flips. AuthGate then stays on Loading forever.
+
+How to reproduce:
+1. Stop the backend or make /api/config return an error.
+2. Open the web app.
+3. Observe the auth gate staying on the loading state indefinitely.
+
+Expected fix:
+Wrap api.getConfig() in error handling. Ensure initialized is set even when config loading fails, and expose a visible auth/config error state instead of leaving the app in permanent loading.
+
+Risk level:
+P2
+
+Suggested test:
+Mock api.getConfig() to reject and assert AuthProvider exits loading and renders a recoverable error or signed-out/config-failed state.
+
+Bug:
+Signed-in users can hang if profile lookup fails.
+
+File:
+apps/web/src/auth/AuthProvider.tsx
+apps/web/src/auth/status.ts
+
+Why it is a bug:
+AuthProvider.tsx starts the profiles query, but the then branch ignores errors and sets profile to null. status.ts treats "session but no profile" as loading. Missing profiles table, RLS issues, a missing profile row, or network failure can become an infinite loading screen instead of signed-out, awaiting-approval, or a visible auth error.
+
+How to reproduce:
+1. Sign in with a valid Supabase session.
+2. Break the profiles query by removing the profile row, denying RLS access, or making the profiles table unavailable.
+3. Reload the app.
+4. Observe the app staying in a loading state indefinitely.
+
+Expected fix:
+Handle profile query errors explicitly. Distinguish between profile still loading, missing profile, rejected profile access, and query failure. Ensure the auth status function cannot classify "session exists but profile lookup failed" as endless loading.
+
+Risk level:
+P2
+
+Suggested test:
+Add auth status tests for session plus profile error, session plus missing profile, and session plus awaiting approval. Add an AuthProvider test that verifies profile query failure exits loading.
+
+Bug:
+Supabase config readiness is misleading.
+
+File:
+apps/backend/src/config/index.ts
+apps/web/src/auth/AuthProvider.tsx
+
+Why it is a bug:
+config/index.ts marks supabaseConfigured true using only SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. The browser also needs SUPABASE_ANON_KEY, which is returned by the config endpoint and used by AuthProvider.tsx. A missing anon key can still break frontend auth while the config response says Supabase is configured.
+
+How to reproduce:
+1. Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
+2. Leave SUPABASE_ANON_KEY missing.
+3. Start the app and call /api/config.
+4. Observe that Supabase may be reported as configured even though frontend auth cannot initialise correctly.
+
+Expected fix:
+Include SUPABASE_ANON_KEY in Supabase readiness checks for frontend auth. Return a clear config status or error when the anon key is missing.
+
+Risk level:
+P2
+
+Suggested test:
+Add backend config tests for missing SUPABASE_ANON_KEY and assert the response does not report frontend Supabase auth as ready.
+
+Bug:
+Production API wiring is dev-only.
+
+File:
+apps/web/vite.config.ts
+apps/backend/src/server.ts
+apps/web/src/lib/api/client.ts
+
+Why it is a bug:
+vite.config.ts only proxies /api in Vite dev. server.ts does not serve the built web app and has no CORS setup. If the frontend and backend are deployed separately, API calls will fail unless both are hosted behind one origin or the frontend can use a real API base URL with CORS support.
+
+How to reproduce:
+1. Build the frontend.
+2. Serve the built frontend separately from the backend.
+3. Attempt to call an /api route from the deployed frontend.
+4. Observe failed requests caused by missing production proxy, API base URL handling, or CORS support.
+
+Expected fix:
+Choose and implement one production deployment strategy. Either serve the built web app from the backend under the same origin, or add a configurable frontend API base URL and backend CORS configuration for separate deployments.
+
+Risk level:
+P2
+
+Suggested test:
+Add a production smoke test or documented verification command that serves the built frontend and confirms it can call /api/config and one authenticated API route using the intended deployment topology.
+
+Bug:
+Backend port fallback can silently break the web app in local dev.
+
+File:
+apps/backend/src/index.ts
+apps/web/vite.config.ts
+
+Why it is a bug:
+The backend auto-increments when port 3000 is busy, but vite.config.ts keeps the web proxy fixed to http://localhost:3000. The backend may print 3001 while the web app still sends /api calls to the wrong server.
+
+How to reproduce:
+1. Start any process on port 3000.
+2. Start the backend and observe it selecting port 3001.
+3. Start the Vite web app.
+4. Use a feature that calls /api.
+5. Observe requests still being proxied to localhost:3000.
+
+Expected fix:
+Make the backend port deterministic for local development, or make the Vite proxy read the same configured backend port. Avoid silent auto-increment unless the frontend proxy can follow it.
+
+Risk level:
+P2
+
+Suggested test:
+Add a config test or dev smoke test that sets a non-default backend port and verifies the web proxy targets that port.
+
+Bug:
+API client assumes every response body is JSON.
+
+File:
+apps/web/src/lib/api/client.ts
+
+Why it is a bug:
+client.ts runs JSON.parse(text) before checking res.ok. Proxy failures, Express 413 HTML, empty non-JSON responses, and plain-text server errors become raw parse errors instead of ApiError. This weakens UI error handling and can hide the real HTTP status.
+
+How to reproduce:
+1. Make an API route return a non-JSON error response, empty body, or HTML error page.
+2. Call it through the web API client.
+3. Observe JSON.parse throwing before ApiError can be created with the HTTP status and useful message.
+
+Expected fix:
+Check res.ok and content type before parsing JSON. For non-JSON or empty responses, throw ApiError with status and fallback text. Preserve structured JSON error handling when the body is valid JSON.
+
+Risk level:
+P2
+
+Suggested test:
+Add API client tests for JSON success, JSON error, empty error, plain-text error, and HTML error responses.
+
+Bug:
+Persistence can orphan uploaded ad images if the database insert fails.
+
+File:
+apps/backend/src/services/supabase.ts
+
+Why it is a bug:
+The backend uploads the rendered image to the ads bucket before inserting the generated_ads row. If the insert fails, the uploaded object remains in storage without a database record. The route returns an error, but storage has already changed.
+
+How to reproduce:
+1. Configure Supabase storage upload to succeed.
+2. Force the generated_ads insert to fail, for example by violating a database constraint or mocking the insert call to reject.
+3. Render and persist an ad.
+4. Observe the route error while the uploaded image object remains in storage.
+
+Expected fix:
+Add cleanup after insert failure by deleting the uploaded object, or change the persistence flow so storage and database state cannot diverge silently. Return a clear error if cleanup also fails.
+
+Risk level:
+P2
+
+Suggested test:
+Mock storage upload success and database insert failure, then assert the service attempts to remove the uploaded object and reports the original persistence failure.
+
+Bug:
+Saved ads can silently disappear from Library if signing fails.
+
+File:
+apps/backend/src/services/supabase.ts
+apps/web/src/pages/Library.tsx
+
+Why it is a bug:
+listGeneratedAds creates signed URLs and silently continues when signing fails. That avoids a hard error, but it hides corrupted storage paths, expired or missing files, bucket policy issues, and Supabase signing failures by returning fewer ads than actually exist.
+
+How to reproduce:
+1. Save multiple generated ads.
+2. Break one ad's storage path or deny signing access.
+3. Load the Library.
+4. Observe the broken ad missing from the response or UI without a visible warning.
+
+Expected fix:
+Return the ad record with an explicit image signing error, or return a partial failure warning that the frontend can display. Do not silently drop saved ads from Library results.
+
+Risk level:
+P2
+
+Suggested test:
+Mock signed URL creation failure for one saved ad and assert listGeneratedAds still exposes the record with an error marker or surfaces a partial failure response.
+
+Bug:
+.env.example describes legacy image-backend settings that the TypeScript backend no longer uses.
+
+File:
+.env.example
+apps/backend/src/services/rendering
+apps/backend/src/config/index.ts
+
+Why it is a bug:
+.env.example still documents IMAGE_BACKEND, OPENROUTER_IMAGE_MODEL, and OPENROUTER_IMAGE_MODELS. The current TypeScript backend render pipeline uses KIE through KIE_IMAGE_MODEL and KIE_IMAGE_RESOLUTION, so the example file can mislead setup and debugging.
+
+How to reproduce:
+1. Set up the project using only .env.example.
+2. Configure the legacy IMAGE_BACKEND or OPENROUTER_IMAGE_MODEL values.
+3. Start the backend and attempt image generation.
+4. Observe that those settings do not control the current TypeScript render path.
+
+Expected fix:
+Remove legacy image-backend variables from .env.example, or clearly mark them as unused if they are intentionally kept for reference. Add the current KIE variables required by the active backend.
+
+Risk level:
+P2
+
+Suggested test:
+Compare documented environment variables with backend config validation. Add a config test that confirms required KIE image settings are documented and legacy settings are not required by the active backend.
+
+Bug:
+Home and Library hide API failures as empty states.
+
+File:
+apps/web/src/pages/Home.tsx
+apps/web/src/pages/Library.tsx
+
+Why it is a bug:
+Home.tsx and Library.tsx swallow fetch errors. A real 401, 403, 500, schema mismatch, or backend outage can look like "no ads" or "no brands" instead of a visible error. This makes debugging and user recovery harder.
+
+How to reproduce:
+1. Make the backend return 500 for the Home or Library data fetch.
+2. Load the affected page.
+3. Observe the page showing an empty state rather than an API error.
+
+Expected fix:
+Track fetch errors in page state and render a visible error state with retry where appropriate. Keep true empty states only for successful empty responses.
+
+Risk level:
+P3
+
+Suggested test:
+Mock failed Home and Library API calls and assert each page renders an error state instead of the empty-state copy.
+
+Bug:
+Parallel brand agents can save partial brand records without surfacing it.
+
+File:
+apps/backend/src/routes/brand.ts
+
+Why it is a bug:
+brand.ts merges successful agent slices and only requires brand_identity before persisting. This is resilient, but it can silently omit proof, customer, competitor, constraint, and missing-information sections while still saving the brand as if analysis completed.
+
+How to reproduce:
+1. Mock one or more brand analysis agents to fail while brand_identity succeeds.
+2. Submit a brand analysis request.
+3. Observe that the brand can be saved without a visible partial-analysis warning.
+
+Expected fix:
+Surface partial-analysis status in the API response and persisted record, or fail the request when required agent sections are missing. The frontend should clearly show when analysis is partial rather than complete.
+
+Risk level:
+P3
+
+Suggested test:
+Add backend tests for partial brand-agent failure and assert the response either fails explicitly or includes a partialAnalysis flag with details about missing sections.
+
+Bug:
+Saved-brand reuse loses measured site data in frontend state.
+
+File:
+apps/web/src/pages/Workbench.tsx
+apps/web/src/state/state.ts
+
+Why it is a bug:
+Workbench.tsx dispatches PRESET_BRAND with only detail.brandExtraction even though getBrand returns measuredSiteData. state.ts also only restores brandExtraction and url. The saved-brand flow therefore cannot use measured site colour and font data for the brand panel or any future reuse logic.
+
+How to reproduce:
+1. Analyse and save a brand that includes measured site data.
+2. Reuse the saved brand from the frontend.
+3. Inspect Workbench state or UI sections that depend on measured site colours/fonts.
+4. Observe measuredSiteData missing after reuse.
+
+Expected fix:
+Carry measuredSiteData through getBrand, PRESET_BRAND, and state restoration. Ensure saved-brand reuse restores the same measured site information available immediately after first analysis.
+
+Risk level:
+P3
+
+Suggested test:
+Add a state reducer test or Workbench integration test that presets a saved brand with measuredSiteData and asserts the state retains colour and font data.
+
+Verification notes:
+npm.cmd test --workspace @bya/backend passed with 121 tests passed and 5 skipped.
+npx.cmd tsc -p apps/backend/tsconfig.json --noEmit passed.
+npm.cmd test --workspace @bya/web failed during config load because @vitejs/plugin-react is missing from installed node_modules.
+npx.cmd tsc -p apps/web/tsconfig.json --noEmit failed because web dependencies are missing from installed node_modules.
+KIE's current docs confirmed gpt-image-2-image-to-image is a valid createTask model slug and task states include success/fail with result URLs that should be downloaded promptly.
