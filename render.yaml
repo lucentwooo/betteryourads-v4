@@ -6,7 +6,7 @@ services:
   - type: web
     name: betteryourads
     runtime: docker
-    plan: starter # Chromium needs >512MB; the free plan tends to OOM during extraction.
+    plan: free # 512MB — Chromium extraction may OOM; bump to starter if /api/extract crashes.
     healthCheckPath: /api/health
     envVars:
       - key: PORT
