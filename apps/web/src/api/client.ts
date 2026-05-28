@@ -9,6 +9,8 @@ import type {
   AdSummary,
   BrandDetail,
   AdminUser,
+  ConceptSet,
+  AdIdea,
 } from "@bya/shared";
 
 export type AppConfig = {
@@ -96,6 +98,14 @@ async function request<T>(path: string, body?: unknown, method?: "GET" | "POST" 
   return json as T;
 }
 
+export type BatchItemStatus = "queued" | "running" | "done" | "error";
+export type BatchItemView = {
+  id: string; ideaNumber: number | null; ideaName: string | null;
+  status: BatchItemStatus; imageUrl: string | null; error: string | null;
+};
+export type BatchView = { id: string; status: BatchItemStatus; items: BatchItemView[] };
+export type BatchItemInput = { concept: AdIdea; referenceAdImage: string; logoImage: string; productAsset?: string };
+
 export const api = {
   getConfig: () => request<AppConfig>("/api/config"),
   extract: (url: string) => request<MeasuredSiteData>("/api/extract", { url }),
@@ -106,6 +116,11 @@ export const api = {
   getAds: () => request<AdSummary[]>("/api/ads"),
   adPrompt: (req: AdPromptRequest) => request<{ id: string; adPrompt: AdPrompt }>("/api/ad-prompt", req),
   render: (req: RenderRequest) => request<{ id: string; imageUrl: string }>("/api/render", req),
+  concepts: (req: { brandExtraction: BrandExtraction; brandExtractionId: string }) =>
+    request<{ id: string; conceptSet: ConceptSet }>("/api/concepts", req),
+  startBatch: (req: { brandExtractionId: string; brandExtraction: BrandExtraction; items: BatchItemInput[] }) =>
+    request<{ batchId: string }>("/api/batch", req),
+  getBatch: (batchId: string) => request<BatchView>(`/api/batch/${batchId}`),
   getUsage: () => request<UsageInfo>("/api/usage"),
   getAdminUsers: () => request<AdminUser[]>("/api/admin/users"),
   deleteAdminUser: (id: string) => request<{ ok: true }>(`/api/admin/users/${id}`, undefined, "DELETE"),
