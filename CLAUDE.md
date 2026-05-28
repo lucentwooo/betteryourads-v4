@@ -69,6 +69,21 @@ These override defaults. The generic "write clean code" stuff is assumed — onl
 - When integrating changes from another branch, **rebase, don't merge.** No merge commits in the history.
 - When pushing rebased branches, use `git push --force-with-lease` (never plain `--force`). If the lease check fails, stop and surface it — someone else pushed and I need to know.
 
+### Branch-lifecycle tags (because rebase erases topology)
+
+Rebasing flattens history into one line, so the graph can't show when a branch forked, rebased, or merged. We record those events with **annotated tags** instead — the graph stays linear, and `git tag -n --sort=-creatordate` reads back as a dated ledger. Always use `-a` (annotated, so the tag carries an author/date/message), and push tags so they're shared (`git push origin <tag>`).
+
+- **On branch creation** — tag the base commit the branch forks from:
+  `git tag -a fork/<branch> <base-sha> -m "fork: <branch> from <base-branch>@<short-sha> (YYYY-MM-DD)"`
+- **On each rebase** — tag the new base so the rebase is dated and the old→new fork is recorded:
+  `git tag -a rebased/<branch>/<YYYY-MM-DD> <new-base-sha> -m "rebased <branch> onto <base-branch>@<short-sha>"`
+  (Only tag rebases that move the branch onto a new base — skip trivial in-place `--autosquash` cleanups.)
+- **On merge/integration** — after the fast-forward, tag the resulting tip:
+  `git tag -a merged/<branch> -m "merged <branch> into <target-branch> (YYYY-MM-DD)"`
+- **Before deleting a merged branch**, make sure its `merged/<branch>` tag exists and is pushed — the tag is the durable record once the branch ref is gone.
+- **Naming:** lowercase, slashes for grouping (`fork/`, `rebased/`, `merged/`), dates as `YYYY-MM-DD`. Use `--force-with-lease` semantics only for branches, never retag a pushed tag to a different commit (delete + recreate with a new name instead).
+- **To read the history:** `git tag -n9 --sort=-creatordate "fork/*" "rebased/*" "merged/*"`, or `git log --oneline --decorate --simplify-by-decoration` to see the tags inline on the linear graph.
+
 ## Database migrations (Supabase)
 
 - **Migrations are applied by hand, not by the CLI.** The owner has no Supabase CLI installed and doesn't want one. When a migration needs applying, give the owner the SQL to paste into the Supabase dashboard → SQL Editor → Run. Don't tell them to run `supabase db push`, `supabase login`, or `supabase link`.
