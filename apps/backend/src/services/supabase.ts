@@ -118,6 +118,17 @@ export async function getAdPrompt(id: string, userId: string): Promise<AdPrompt 
 
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
+/** Remove the just-uploaded storage object after a post-upload failure and build the error
+ *  to throw. Keeps the ORIGINAL failure as the primary cause; if cleanup itself fails, that
+ *  is appended to the message. Callers `throw` the returned error. */
+async function cleanupUpload(imagePath: string, originalMessage: string): Promise<PersistenceError> {
+  const removed = await admin().storage.from("ads").remove([imagePath]);
+  if (removed.error) {
+    return new PersistenceError(`${originalMessage} (cleanup of orphaned upload also failed: ${removed.error.message})`);
+  }
+  return new PersistenceError(originalMessage);
+}
+
 export async function persistRenderedAd(args: {
   userId: string;
   imageUrl: string; // KIE-hosted result URL (temporary)
@@ -152,11 +163,13 @@ export async function persistRenderedAd(args: {
     })
     .select("id")
     .single();
-  if (error || !data) throw new PersistenceError(`Saving the ad record failed: ${error?.message ?? "no row"}`);
+  if (error || !data) {
+    throw await cleanupUpload(imagePath, `Saving the ad record failed: ${error?.message ?? "no row"}`);
+  }
 
   const signed = await admin().storage.from("ads").createSignedUrl(imagePath, SIGNED_URL_TTL_SECONDS);
   if (signed.error || !signed.data) {
-    throw new PersistenceError(`Signing the image URL failed: ${signed.error?.message ?? "no url"}`);
+    throw await cleanupUpload(imagePath, `Signing the image URL failed: ${signed.error?.message ?? "no url"}`);
   }
   return { id: rowId(data), imageUrl: signed.data.signedUrl };
 }
@@ -199,7 +212,18 @@ export async function listGeneratedAds(userId: string): Promise<AdSummary[]> {
   const out: AdSummary[] = [];
   for (const r of rows) {
     const signed = await admin().storage.from("ads").createSignedUrl(r.image_path, SIGNED_URL_TTL_SECONDS);
-    if (signed.error || !signed.data) continue; // skip unsignable rows rather than failing the whole list
+    if (signed.error || !signed.data) {
+      // Keep the row visible with an explicit marker rather than silently dropping it.
+      out.push({
+        id: r.id,
+        imageUrl: null,
+        imageError: `Signing the image URL failed: ${signed.error?.message ?? "no url"}`,
+        aspectRatio: r.aspect_ratio,
+        resolution: r.resolution,
+        createdAt: r.created_at,
+      });
+      continue;
+    }
     out.push({ id: r.id, imageUrl: signed.data.signedUrl, aspectRatio: r.aspect_ratio, resolution: r.resolution, createdAt: r.created_at });
   }
   return out;

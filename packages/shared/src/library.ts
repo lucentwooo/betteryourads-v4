@@ -9,10 +9,12 @@ export const BrandSummary = z.object({
 });
 export type BrandSummary = z.infer<typeof BrandSummary>;
 
-/** Row summary for the library (GET /api/ads). imageUrl is a freshly-signed Storage URL. */
+/** Row summary for the library (GET /api/ads). imageUrl is a freshly-signed Storage URL,
+ *  or null when signing failed — in which case imageError carries the reason. */
 export const AdSummary = z.object({
   id: z.string(),
-  imageUrl: z.string(),
+  imageUrl: z.string().nullable(),
+  imageError: z.string().optional(),
   aspectRatio: z.string().nullable(),
   resolution: z.string().nullable(),
   createdAt: z.string(),

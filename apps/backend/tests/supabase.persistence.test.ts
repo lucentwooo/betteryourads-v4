@@ -20,7 +20,8 @@ const from = vi.fn(() => chain);
 
 const upload = vi.fn();
 const createSignedUrl = vi.fn();
-const storage = { from: vi.fn(() => ({ upload, createSignedUrl })) };
+const remove = vi.fn();
+const storage = { from: vi.fn(() => ({ upload, createSignedUrl, remove })) };
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({ auth: { getUser: vi.fn() }, from, storage }),
@@ -32,6 +33,7 @@ import {
   saveAdPrompt,
   getAdPrompt,
   persistRenderedAd,
+  listGeneratedAds,
   assemblePerformanceMemory,
 } from "../src/services/supabase.js";
 import { PersistenceError } from "../src/lib/errors.js";
@@ -179,21 +181,58 @@ describe("persistRenderedAd", () => {
     ).rejects.toBeInstanceOf(PersistenceError);
   });
 
-  it("throws PersistenceError when the generated_ads insert errors", async () => {
+  it("removes the orphaned upload and throws when the generated_ads insert errors", async () => {
     upload.mockResolvedValue({ data: { path: "ignored" }, error: null });
     single.mockResolvedValue({ data: null, error: { message: "db down" } });
+    remove.mockResolvedValue({ data: {}, error: null });
     await expect(
       persistRenderedAd({ userId: "u1", imageUrl: "https://cdn/x", prompt: "{}", aspectRatio: null, resolution: null }),
     ).rejects.toBeInstanceOf(PersistenceError);
+    const uploadPath = upload.mock.calls[0][0];
+    expect(remove).toHaveBeenCalledWith([uploadPath]);
   });
 
-  it("throws PersistenceError when signing the url errors", async () => {
+  it("removes the orphaned upload and throws when signing the url errors", async () => {
     upload.mockResolvedValue({ data: { path: "ignored" }, error: null });
     single.mockResolvedValue({ data: { id: "a1" }, error: null });
     createSignedUrl.mockResolvedValue({ data: null, error: { message: "no signer" } });
+    remove.mockResolvedValue({ data: {}, error: null });
     await expect(
       persistRenderedAd({ userId: "u1", imageUrl: "https://cdn/x", prompt: "{}", aspectRatio: null, resolution: null }),
     ).rejects.toBeInstanceOf(PersistenceError);
+    const uploadPath = upload.mock.calls[0][0];
+    expect(remove).toHaveBeenCalledWith([uploadPath]);
+  });
+
+  it("surfaces the original error and notes cleanup failure when remove also fails", async () => {
+    upload.mockResolvedValue({ data: { path: "ignored" }, error: null });
+    single.mockResolvedValue({ data: null, error: { message: "db down" } });
+    remove.mockResolvedValue({ data: null, error: { message: "remove failed" } });
+    await expect(
+      persistRenderedAd({ userId: "u1", imageUrl: "https://cdn/x", prompt: "{}", aspectRatio: null, resolution: null }),
+    ).rejects.toThrow(/db down.*remove failed/);
+  });
+});
+
+describe("listGeneratedAds", () => {
+  it("keeps a row whose signed url fails, marking imageUrl null with an error", async () => {
+    order.mockResolvedValue({
+      data: [
+        { id: "a1", image_path: "u1/a1.png", aspect_ratio: "1:1", resolution: "1K", created_at: "2026-05-28T00:00:00Z" },
+        { id: "a2", image_path: "u1/a2.png", aspect_ratio: "9:16", resolution: "1K", created_at: "2026-05-27T00:00:00Z" },
+      ],
+      error: null,
+    });
+    createSignedUrl
+      .mockResolvedValueOnce({ data: { signedUrl: "https://signed/a1.png" }, error: null })
+      .mockResolvedValueOnce({ data: null, error: { message: "missing file" } });
+
+    const out = await listGeneratedAds("u1");
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({ id: "a1", imageUrl: "https://signed/a1.png" });
+    expect(out[1].id).toBe("a2");
+    expect(out[1].imageUrl).toBeNull();
+    expect(out[1].imageError).toContain("missing file");
   });
 });
 
