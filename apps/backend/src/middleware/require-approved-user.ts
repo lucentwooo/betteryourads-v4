@@ -19,17 +19,6 @@ function bearerToken(header: string | undefined): string | null {
 }
 
 export async function requireApprovedUser(req: Request, res: Response, next: NextFunction): Promise<void> {
-  // TEMP (feature/ui-polish-n-temp-login): local dev bypass to unblock UI work. Off unless
-  // AUTH_BYPASS=1. Maps requests to a fixed admin so user-scoped reads/writes resolve to a
-  // real row. Remove this block (and the AUTH_BYPASS_* env vars) when auth work resumes.
-  if (process.env.AUTH_BYPASS === "1") {
-    req.user = {
-      id: process.env.AUTH_BYPASS_USER_ID ?? "",
-      email: process.env.AUTH_BYPASS_EMAIL ?? null,
-    };
-    next();
-    return;
-  }
   try {
     const token = bearerToken(req.headers.authorization);
     if (!token) throw new AuthError("Authentication required.");
