@@ -329,7 +329,7 @@ function ConceptAssetCard({ n, idea, assets, showCopyToAll, dispatch }: {
       dispatch({ type: "SET_ASSET", ideaNumber: n, slot: "ref", dataUrl });
       setLibError(null);
     } catch {
-      setLibError("Could not load that reference — try another or upload your own.");
+      setLibError("Couldn't use that reference — try another or upload your own above.");
     } finally {
       setLoadingId(null);
     }
@@ -338,6 +338,7 @@ function ConceptAssetCard({ n, idea, assets, showCopyToAll, dispatch }: {
   const libHint = variant === "no_asset"
     ? "These don't use a product image. Add a product asset below and a different library, built around your product, will appear here."
     : "Showing references designed to feature your product asset.";
+
 
   return (
     <div className="concept-assets">
