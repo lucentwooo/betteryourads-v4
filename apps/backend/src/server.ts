@@ -8,6 +8,7 @@ import { brandRouter } from "./routes/brand.js";
 import { adPromptRouter } from "./routes/ad-prompt.js";
 import { renderRouter } from "./routes/render.js";
 import { libraryRouter } from "./routes/library.js";
+import { adminRouter } from "./routes/admin.js";
 
 export function createServer(): Express {
   const app = express();
@@ -19,6 +20,7 @@ export function createServer(): Express {
   app.use("/api", adPromptRouter);
   app.use("/api", renderRouter);
   app.use("/api", libraryRouter);
+  app.use("/api", adminRouter);
 
   // Production: serve the built web app from the same origin as /api, so a deployed frontend
   // needs no CORS config or separate API base URL (the client already calls relative /api).

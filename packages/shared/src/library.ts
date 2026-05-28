@@ -21,6 +21,18 @@ export const AdSummary = z.object({
 });
 export type AdSummary = z.infer<typeof AdSummary>;
 
+/** A user account row for the admin dashboard (GET /api/admin/users). lastSignInAt is null
+ *  for users who have never signed in. */
+export const AdminUser = z.object({
+  id: z.string(),
+  email: z.string().nullable(),
+  approved: z.boolean(),
+  isAdmin: z.boolean(),
+  createdAt: z.string(),
+  lastSignInAt: z.string().nullable(),
+});
+export type AdminUser = z.infer<typeof AdminUser>;
+
 /** Full saved brand for reuse (GET /api/brand/:id). measuredSiteData is opaque jsonb. */
 export const BrandDetail = z.object({
   id: z.string(),

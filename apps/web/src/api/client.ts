@@ -8,6 +8,7 @@ import type {
   BrandSummary,
   AdSummary,
   BrandDetail,
+  AdminUser,
 } from "@bya/shared";
 
 export type AppConfig = {
@@ -65,13 +66,13 @@ function errorShape(json: unknown): { message?: string; code?: string; stage?: E
   return {};
 }
 
-async function request<T>(path: string, body?: unknown): Promise<T> {
+async function request<T>(path: string, body?: unknown, method?: "GET" | "POST" | "DELETE"): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const token = tokenProvider ? await tokenProvider() : null;
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const res = await fetch(path, {
-    method: body === undefined ? "GET" : "POST",
+    method: method ?? (body === undefined ? "GET" : "POST"),
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -98,4 +99,6 @@ export const api = {
   getAds: () => request<AdSummary[]>("/api/ads"),
   adPrompt: (req: AdPromptRequest) => request<{ id: string; adPrompt: AdPrompt }>("/api/ad-prompt", req),
   render: (req: RenderRequest) => request<{ id: string; imageUrl: string }>("/api/render", req),
+  getAdminUsers: () => request<AdminUser[]>("/api/admin/users"),
+  deleteAdminUser: (id: string) => request<{ ok: true }>(`/api/admin/users/${id}`, undefined, "DELETE"),
 };

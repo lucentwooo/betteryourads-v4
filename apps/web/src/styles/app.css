@@ -163,6 +163,12 @@ body { background: var(--bg); color: var(--fg); overflow: hidden; }
 .btn.sm { font-size: 13px; padding: 6px 10px; }
 .btn.icon { padding: 8px; }
 
+/* Destructive variants — semantic oxblood, visually separated from primary actions. */
+.btn.danger { background: var(--bya-oxblood); border-color: var(--bya-oxblood); color: var(--bg); }
+.btn.danger:hover { background: #861313; border-color: #861313; }
+.btn.danger-ghost { border-color: transparent; color: var(--bya-oxblood); }
+.btn.danger-ghost:hover { background: var(--bya-oxblood-soft); }
+
 /* ----- Badge ------------------------------------------------------ */
 .badge {
   font-family: var(--font-sans); font-size: 11px; font-weight: 600;
@@ -249,6 +255,28 @@ body { background: var(--bg); color: var(--fg); overflow: hidden; }
 .lib-card .meta { padding: 10px 12px; }
 .lib-card .meta .url { font-family: var(--font-sans); font-size: 13px; font-weight: 500; color: var(--fg); }
 .lib-card .meta .when { font-family: var(--font-mono); font-size: 10px; color: var(--fg-3); margin-top: 2px; }
+
+/* ----- Admin accounts table -------------------------------------- */
+.admin-table-wrap {
+  border: 1px solid var(--fg); border-radius: var(--radius-md);
+  overflow: hidden; overflow-x: auto;
+}
+.admin-table { width: 100%; border-collapse: collapse; font-family: var(--font-sans); }
+.admin-table th {
+  text-align: left; font-size: var(--size-12); font-weight: 600;
+  text-transform: uppercase; letter-spacing: var(--track-caps); color: var(--fg-3);
+  padding: 12px 16px; border-bottom: 1px solid var(--fg); background: var(--bg-raised);
+  white-space: nowrap;
+}
+.admin-table td {
+  padding: 14px 16px; border-bottom: 1px solid var(--border-hairline);
+  font-size: var(--size-14); color: var(--fg); vertical-align: middle;
+}
+.admin-table tbody tr:last-child td { border-bottom: none; }
+.admin-table tbody tr:hover { background: var(--bg-raised); }
+.admin-table .ta-right { text-align: right; }
+.admin-table .cell-email { font-weight: 500; word-break: break-all; }
+.admin-table .cell-mono { font-family: var(--font-mono); font-size: var(--size-12); color: var(--fg-2); white-space: nowrap; }
 
 /* ----- Login screen ---------------------------------------------- */
 .auth-screen {

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { BrandExtraction, AdPrompt, type BrandSummary, type AdSummary, type BrandDetail } from "@bya/shared";
+import { BrandExtraction, AdPrompt, type BrandSummary, type AdSummary, type BrandDetail, type AdminUser } from "@bya/shared";
 import { PersistenceError } from "../lib/errors.js";
 
 // Service-role Supabase client + typed persistence. Server-only: this key bypasses RLS,
@@ -34,6 +34,40 @@ export async function isApproved(userId: string): Promise<boolean> {
   const { data, error } = await admin().from("profiles").select("approved").eq("id", userId).single();
   if (error || !data) return false;
   return data.approved === true;
+}
+
+/** All accounts for the admin dashboard. Auth users (email, created/last-sign-in) joined to
+ *  their profile flags (approved, is_admin), newest first. */
+export async function listAllUsers(): Promise<AdminUser[]> {
+  const { data: list, error: listErr } = await admin().auth.admin.listUsers({ page: 1, perPage: 1000 });
+  if (listErr) throw new PersistenceError(`Listing users failed: ${listErr.message}`);
+
+  const { data: profileRows, error: profErr } = await admin().from("profiles").select("id, approved, is_admin");
+  if (profErr) throw new PersistenceError(`Listing profiles failed: ${profErr.message}`);
+  type ProfileRow = { id: string; approved: boolean; is_admin: boolean };
+  const flags = new Map((profileRows as unknown as ProfileRow[]).map((p) => [p.id, p]));
+
+  return list.users
+    .map((u) => {
+      const p = flags.get(u.id);
+      return {
+        id: u.id,
+        email: u.email ?? null,
+        approved: p?.approved ?? false,
+        isAdmin: p?.is_admin ?? false,
+        createdAt: u.created_at,
+        lastSignInAt: u.last_sign_in_at ?? null,
+      };
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/** Delete an auth user. FK `on delete cascade` removes their profile, brand_extractions,
+ *  ad_prompts, and generated_ads rows; storage objects are orphaned (acceptable — private
+ *  bucket, no public access). */
+export async function deleteUser(userId: string): Promise<void> {
+  const { error } = await admin().auth.admin.deleteUser(userId);
+  if (error) throw new PersistenceError(`Deleting the user failed: ${error.message}`);
 }
 
 /** Narrow an untyped Supabase row to its `id`. The client has no generated types here. */

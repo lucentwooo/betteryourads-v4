@@ -1,6 +1,6 @@
 import { NavLink, Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
-import { IconHome, IconSparkle, IconGrid } from "../ui/icons";
+import { IconHome, IconSparkle, IconGrid, IconUsers } from "../ui/icons";
 
 const NAV = [
   { to: "/", label: "Home", Icon: IconHome, end: true },
@@ -12,7 +12,11 @@ const CRUMBS: Record<string, string> = {
   "/": "Home",
   "/create": "Make an ad",
   "/library": "Library",
+  "/admin": "Accounts",
 };
+
+// Only this account sees / can reach the admin dashboard (mirrors the backend gate).
+const ADMIN_EMAIL = "admin@betteryourads.dev";
 
 function initial(email: string | null): string {
   return email?.trim()?.[0]?.toUpperCase() ?? "?";
@@ -22,6 +26,7 @@ export function AppShell() {
   const { email, signOut } = useAuth();
   const { pathname } = useLocation();
   const current = CRUMBS[pathname] ?? "Make an ad";
+  const isAdmin = email?.toLowerCase() === ADMIN_EMAIL;
 
   return (
     <div className="app">
@@ -49,6 +54,16 @@ export function AppShell() {
             </NavLink>
           ))}
         </div>
+
+        {isAdmin && (
+          <div className="nav-section">
+            <h6>Admin</h6>
+            <NavLink to="/admin" className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
+              <IconUsers />
+              <span>Accounts</span>
+            </NavLink>
+          </div>
+        )}
 
         <div className="footer">
           <div className="user">

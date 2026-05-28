@@ -5,6 +5,7 @@ import { AppShell } from "./shell/AppShell";
 import Home from "./home/Home";
 import Library from "./library/Library";
 import Workbench from "./workbench/Workbench";
+import AdminDashboard from "./admin/AdminDashboard";
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
               <Route path="/" element={<Home />} />
               <Route path="/create" element={<Workbench />} />
               <Route path="/library" element={<Library />} />
+              <Route path="/admin" element={<AdminDashboard />} />
             </Route>
           </Routes>
         </AuthGate>
