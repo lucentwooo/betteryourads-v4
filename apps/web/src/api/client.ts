@@ -80,5 +80,5 @@ export const api = {
   getBrand: (id: string) => request<BrandDetail>(`/api/brand/${id}`),
   getAds: () => request<AdSummary[]>("/api/ads"),
   adPrompt: (req: AdPromptRequest) => request<{ adPrompt: AdPrompt }>("/api/ad-prompt", req),
-  render: (req: RenderRequest) => request<{ imageUrl: string }>("/api/render", req),
+  render: (req: RenderRequest) => request<{ id: string; imageUrl: string }>("/api/render", req),
 };

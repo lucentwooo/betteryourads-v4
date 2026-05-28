@@ -30,7 +30,7 @@ export function RecoveryView() {
           <span>New password</span>
           <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </label>
-        {error && <p style={{ marginTop: "var(--space-3)", color: "var(--oxblood)" }}>{error}</p>}
+        {error && <p style={{ marginTop: "var(--space-3)", color: "var(--bya-oxblood)" }}>{error}</p>}
         <button className="btn primary" type="submit" disabled={busy} style={{ marginTop: "var(--space-4)", width: "100%" }}>
           {busy ? "…" : "Set password"}
         </button>

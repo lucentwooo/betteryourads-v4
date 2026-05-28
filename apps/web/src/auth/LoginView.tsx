@@ -66,7 +66,7 @@ export function LoginView() {
           </label>
         )}
         {msg && (
-          <p style={{ marginTop: "var(--space-3)", color: msg.type === "error" ? "var(--oxblood)" : "var(--fg-2)" }}>{msg.text}</p>
+          <p style={{ marginTop: "var(--space-3)", color: msg.type === "error" ? "var(--bya-oxblood)" : "var(--fg-2)" }}>{msg.text}</p>
         )}
         <button className="btn primary" type="submit" disabled={busy} style={{ marginTop: "var(--space-4)", width: "100%" }}>
           {busy ? "…" : submitLabel}
