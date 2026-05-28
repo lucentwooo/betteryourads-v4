@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import Workbench from "./Workbench";
 
 vi.mock("../api/client", async () => {
@@ -12,6 +13,7 @@ vi.mock("../api/client", async () => {
       adPrompt: vi.fn(),
       render: vi.fn(),
       getConfig: vi.fn(),
+      getBrand: vi.fn(),
     },
   };
 });
@@ -26,7 +28,7 @@ describe("Workbench flow", () => {
     vi.mocked(api.adPrompt).mockResolvedValue({ adPrompt: { ad_prompt: {} } } as never);
     vi.mocked(api.render).mockResolvedValue({ imageUrl: "https://img/out.png" } as never);
 
-    const { container } = render(<Workbench />);
+    const { container } = render(<MemoryRouter><Workbench /></MemoryRouter>);
 
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "https://acme.com" } });
     fireEvent.click(screen.getByRole("button", { name: /analyze brand/i }));
@@ -45,7 +47,7 @@ describe("Workbench flow", () => {
 
   it("shows an error when analysis fails", async () => {
     vi.mocked(api.extract).mockRejectedValue(new Error("nope"));
-    render(<Workbench />);
+    render(<MemoryRouter><Workbench /></MemoryRouter>);
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "https://acme.com" } });
     fireEvent.click(screen.getByRole("button", { name: /analyze brand/i }));
     await waitFor(() => expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument());
@@ -57,7 +59,7 @@ describe("Workbench flow", () => {
     vi.mocked(api.adPrompt).mockResolvedValue({ adPrompt: { ad_prompt: {} } } as never);
     vi.mocked(api.render).mockRejectedValue(new Error("render exploded"));
 
-    const { container } = render(<Workbench />);
+    const { container } = render(<MemoryRouter><Workbench /></MemoryRouter>);
 
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "https://acme.com" } });
     fireEvent.click(screen.getByRole("button", { name: /analyze brand/i }));
@@ -72,5 +74,21 @@ describe("Workbench flow", () => {
     fireEvent.click(screen.getByRole("button", { name: /make my ad/i }));
 
     await waitFor(() => expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument());
+  });
+
+  it("presets a saved brand from ?brandId and lands in pick-ref", async () => {
+    vi.mocked(api.getBrand).mockResolvedValue({
+      id: "b1",
+      brandExtraction: { brand_identity: { brand_name: "Acme" } },
+      measuredSiteData: null,
+    } as never);
+    render(
+      <MemoryRouter initialEntries={["/create?brandId=b1"]}>
+        <Workbench />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText("Acme")).toBeInTheDocument());
+    // pick-ref shows the "Make my ad" button
+    expect(screen.getByRole("button", { name: /make my ad/i })).toBeInTheDocument();
   });
 });
