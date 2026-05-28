@@ -73,7 +73,7 @@ function errorShape(json: unknown): { message?: string; code?: string; stage?: E
   return {};
 }
 
-async function request<T>(path: string, body?: unknown, method?: "GET" | "POST" | "DELETE"): Promise<T> {
+async function request<T>(path: string, body?: unknown, method?: "GET" | "POST" | "DELETE" | "PATCH"): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const token = tokenProvider ? await tokenProvider() : null;
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -109,4 +109,6 @@ export const api = {
   getUsage: () => request<UsageInfo>("/api/usage"),
   getAdminUsers: () => request<AdminUser[]>("/api/admin/users"),
   deleteAdminUser: (id: string) => request<{ ok: true }>(`/api/admin/users/${id}`, undefined, "DELETE"),
+  setUserApproval: (id: string, approved: boolean) =>
+    request<{ ok: true }>(`/api/admin/users/${id}/approval`, { approved }, "PATCH"),
 };

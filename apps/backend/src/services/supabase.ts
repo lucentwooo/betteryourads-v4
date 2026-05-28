@@ -62,6 +62,13 @@ export async function listAllUsers(): Promise<AdminUser[]> {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
+/** Set a user's `profiles.approved` flag — admins use this to admit accounts off the
+ *  sign-up waiting list (or revoke access). */
+export async function setUserApproved(userId: string, approved: boolean): Promise<void> {
+  const { error } = await admin().from("profiles").update({ approved }).eq("id", userId);
+  if (error) throw new PersistenceError(`Updating approval failed: ${error.message}`);
+}
+
 /** Delete every storage object under a user's `<userId>/` prefix in one bucket, using the
  *  Storage API (deleting storage.objects rows directly leaves the backing files orphaned).
  *  Lists+removes in pages until the prefix is empty. */

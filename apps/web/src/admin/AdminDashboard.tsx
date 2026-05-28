@@ -23,6 +23,7 @@ export default function AdminDashboard() {
   const [confirming, setConfirming] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [updating, setUpdating] = useState<string | null>(null);
   const [rowError, setRowError] = useState<Record<string, string>>({});
 
   const confirmUser = users.find((u) => u.id === confirming) ?? null;
@@ -56,6 +57,19 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => load(), [load]);
+
+  async function setApproval(id: string, approved: boolean) {
+    setUpdating(id);
+    setRowError((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    try {
+      await api.setUserApproval(id, approved);
+      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, approved } : u)));
+    } catch (e) {
+      setRowError((prev) => ({ ...prev, [id]: e instanceof ApiError ? e.message : "Could not update approval." }));
+    } finally {
+      setUpdating(null);
+    }
+  }
 
   async function remove(id: string) {
     setDeleting(id);
@@ -149,14 +163,32 @@ export default function AdminDashboard() {
                       {isSelf ? (
                         <span className="small" style={{ color: "var(--fg-3)" }}>—</span>
                       ) : (
-                        <button
-                          className="btn sm danger-ghost"
-                          onClick={() => { setConfirming(u.id); setConfirmText(""); }}
-                          aria-label={`Remove ${u.email ?? "account"}`}
-                        >
-                          <IconTrash width={14} height={14} />
-                          Remove
-                        </button>
+                        <>
+                          <div className="actions-row" style={{ gap: "var(--space-2)", justifyContent: "flex-end" }}>
+                            <button
+                              className={`btn sm ${u.approved ? "ghost" : "primary"}`}
+                              onClick={() => void setApproval(u.id, !u.approved)}
+                              disabled={updating === u.id}
+                            >
+                              {updating === u.id
+                                ? <span className="spinner" style={{ width: 14, height: 14 }} />
+                                : u.approved ? "Revoke" : "Approve"}
+                            </button>
+                            <button
+                              className="btn sm danger-ghost"
+                              onClick={() => { setConfirming(u.id); setConfirmText(""); }}
+                              aria-label={`Remove ${u.email ?? "account"}`}
+                            >
+                              <IconTrash width={14} height={14} />
+                              Remove
+                            </button>
+                          </div>
+                          {rowError[u.id] && confirming !== u.id && (
+                            <div className="small" role="alert" style={{ color: "var(--bya-oxblood)", marginTop: "var(--space-2)" }}>
+                              {rowError[u.id]}
+                            </div>
+                          )}
+                        </>
                       )}
                     </td>
                   </tr>
