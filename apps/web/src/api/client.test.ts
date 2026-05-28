@@ -49,6 +49,7 @@ describe("api client", () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }));
     await api.getAds();
     expect(fetchMock.mock.calls[0][0]).toBe("/api/ads");
+    expect(fetchMock.mock.calls[0][1].method).toBe("GET");
   });
 
   it("GETs /api/brand/:id", async () => {

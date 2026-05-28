@@ -1,4 +1,4 @@
-import { useReducer, useState, useEffect } from "react";
+import { useReducer, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { reducer, initialState } from "./state";
 import { Dropzone } from "./Dropzone";
@@ -14,21 +14,16 @@ export default function Workbench() {
   const [urlInput, setUrlInput] = useState("");
   const [searchParams] = useSearchParams();
   const brandId = searchParams.get("brandId");
+  const presetDone = useRef(false);
 
   useEffect(() => {
-    if (!brandId) return;
+    if (!brandId || presetDone.current) return;
+    presetDone.current = true;
     let active = true;
-    api
-      .getBrand(brandId)
-      .then((detail) => {
-        if (active) dispatch({ type: "PRESET_BRAND", brandExtraction: detail.brandExtraction });
-      })
-      .catch((e) => {
-        if (active) dispatch({ type: "FAILED", message: e instanceof ApiError ? e.message : "Could not load that brand." });
-      });
-    return () => {
-      active = false;
-    };
+    api.getBrand(brandId)
+      .then((detail) => { if (active) dispatch({ type: "PRESET_BRAND", brandExtraction: detail.brandExtraction }); })
+      .catch((e) => { if (active) dispatch({ type: "FAILED", message: e instanceof ApiError ? e.message : "Could not load that brand." }); });
+    return () => { active = false; };
   }, [brandId]);
 
   async function runAnalyze(url: string) {
