@@ -82,6 +82,20 @@ describe("POST /api/render", () => {
     expect(runRender).not.toHaveBeenCalled();
   });
 
+  it("validates adPromptId even when an inline adPrompt is supplied", async () => {
+    approve();
+    vi.mocked(getAdPrompt).mockResolvedValue(null);
+    const res = await request(app)
+      .post("/api/render")
+      .set("Authorization", "Bearer ok")
+      .send({ ...body, adPromptId: "foreign-prompt" });
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    expect(getAdPrompt).toHaveBeenCalledWith("foreign-prompt", "u1");
+    expect(runRender).not.toHaveBeenCalled();
+    expect(persistRenderedAd).not.toHaveBeenCalled();
+  });
+
   it("maps a PersistenceError from the save to 500", async () => {
     approve();
     vi.mocked(runRender).mockResolvedValue({ imageUrl: "https://cdn/out.png", aspectRatio: "1:1", resolution: "1K" });

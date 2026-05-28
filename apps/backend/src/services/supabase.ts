@@ -75,9 +75,20 @@ export async function setUserApproved(userId: string, approved: boolean): Promis
 /** Delete every storage object under a user's `<userId>/` prefix in one bucket, using the
  *  Storage API (deleting storage.objects rows directly leaves the backing files orphaned).
  *  Lists+removes in pages until the prefix is empty. */
-async function removeUserBucketFiles(bucket: "ads" | "brand-assets", userId: string): Promise<void> {
+function isMissingBucket(error: { message?: string; error?: string; statusCode?: string | number }): boolean {
+  const status = String(error.statusCode ?? "");
+  const text = `${error.message ?? ""} ${error.error ?? ""}`.toLowerCase();
+  return status === "404" || text.includes("bucket not found");
+}
+
+async function removeUserBucketFiles(
+  bucket: "ads" | "brand-assets",
+  userId: string,
+  optional = false,
+): Promise<void> {
   for (;;) {
     const { data, error } = await admin().storage.from(bucket).list(userId, { limit: 100 });
+    if (optional && error && isMissingBucket(error)) return;
     if (error) throw new PersistenceError(`Listing ${bucket} files for cleanup failed: ${error.message}`);
     const files = data ?? [];
     if (files.length === 0) return;
@@ -94,7 +105,7 @@ async function removeUserBucketFiles(bucket: "ads" | "brand-assets", userId: str
  *  account intact rather than orphaning files by deleting the user that owns them. */
 export async function deleteUser(userId: string): Promise<void> {
   await removeUserBucketFiles("ads", userId);
-  await removeUserBucketFiles("brand-assets", userId);
+  await removeUserBucketFiles("brand-assets", userId, true);
   const { error } = await admin().auth.admin.deleteUser(userId);
   if (error) throw new PersistenceError(`Deleting the user failed: ${error.message}`);
 }

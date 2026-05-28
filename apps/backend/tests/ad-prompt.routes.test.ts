@@ -94,6 +94,20 @@ describe("POST /api/ad-prompt", () => {
     expect(runAdPrompt).not.toHaveBeenCalled();
   });
 
+  it("validates brandExtractionId even when an inline brandExtraction is supplied", async () => {
+    approve();
+    vi.mocked(getBrandExtraction).mockResolvedValue(null);
+    const res = await request(app)
+      .post("/api/ad-prompt")
+      .set("Authorization", "Bearer ok")
+      .send({ ...body, brandExtractionId: "foreign-brand" });
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    expect(getBrandExtraction).toHaveBeenCalledWith("foreign-brand", "u1");
+    expect(runAdPrompt).not.toHaveBeenCalled();
+    expect(saveAdPrompt).not.toHaveBeenCalled();
+  });
+
   it("maps a PersistenceError from the save to 500", async () => {
     approve();
     vi.mocked(runAdPrompt).mockResolvedValue({ ad_prompt: { goal: "x" }, schema_version: 1 });

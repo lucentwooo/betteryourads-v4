@@ -28,9 +28,10 @@ renderRouter.post("/render", requireApprovedUser, async (req, res) => {
     // An inline adPrompt takes precedence for rendering; adPromptId (when given) is the
     // prompt to look up AND the FK recorded on the row. Callers send one or the other.
     let adPrompt = req.body?.adPrompt;
-    if (!adPrompt && adPromptId) {
-      adPrompt = await getAdPrompt(adPromptId, userId);
-      if (!adPrompt) throw new ValidationError("adPromptId not found.");
+    if (adPromptId) {
+      const savedAdPrompt = await getAdPrompt(adPromptId, userId);
+      if (!savedAdPrompt) throw new ValidationError("adPromptId not found.");
+      if (!adPrompt) adPrompt = savedAdPrompt;
     }
 
     const rendered = await runRender({

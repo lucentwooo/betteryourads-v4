@@ -270,6 +270,16 @@ describe("deleteUser", () => {
     expect(deleteUserFn).toHaveBeenCalledWith("u1");
   });
 
+  it("still deletes the auth user when the optional brand-assets bucket is absent", async () => {
+    list
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({ data: null, error: { message: "Bucket not found", statusCode: "404" } });
+    deleteUserFn.mockResolvedValue({ data: {}, error: null });
+    await deleteUser("u1");
+    expect(remove).not.toHaveBeenCalled();
+    expect(deleteUserFn).toHaveBeenCalledWith("u1");
+  });
+
   it("aborts without deleting the auth user when storage removal fails", async () => {
     list.mockResolvedValueOnce({ data: [{ name: "a1.png" }], error: null });
     remove.mockResolvedValue({ data: null, error: { message: "remove failed" } });

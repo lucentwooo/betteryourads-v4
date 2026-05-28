@@ -14,9 +14,10 @@ adPromptRouter.post("/ad-prompt", requireApprovedUser, async (req, res) => {
     const userDirection = req.body?.userDirection;
 
     let brandExtraction = req.body?.brandExtraction;
-    if (!brandExtraction && brandExtractionId) {
-      brandExtraction = await getBrandExtraction(brandExtractionId, userId);
-      if (!brandExtraction) throw new ValidationError("brandExtractionId not found.");
+    if (brandExtractionId) {
+      const savedBrandExtraction = await getBrandExtraction(brandExtractionId, userId);
+      if (!savedBrandExtraction) throw new ValidationError("brandExtractionId not found.");
+      if (!brandExtraction) brandExtraction = savedBrandExtraction;
     }
 
     // brandExtractionId anchors performance memory to that brand's prior ads, so we assemble
