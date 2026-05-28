@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { BrandExtraction, AdPrompt, ConceptSet, type BrandSummary, type AdSummary, type BrandDetail, type AdminUser } from "@bya/shared";
-import { PersistenceError } from "../lib/errors.js";
+import { BrandExtraction, AdPrompt, ConceptSet, type BrandSummary, type AdSummary, type BrandDetail, type AdminUser, type ReferenceAd, type ReferenceAdVariant } from "@bya/shared";
+import { PersistenceError, ValidationError } from "../lib/errors.js";
 
 // Service-role Supabase client + typed persistence. Server-only: this key bypasses RLS,
 // so every write sets user_id explicitly (never relies on auth.uid()). Reads/writes throw
@@ -464,4 +464,77 @@ export async function getBatch(batchId: string, userId: string): Promise<BatchVi
 export async function markStaleBatchItems(): Promise<void> {
   await admin().from("batch_items").update({ status: "error", error: "Interrupted by a server restart." }).in("status", ["queued", "running"]);
   await admin().from("batch_jobs").update({ status: "error" }).in("status", ["queued", "running"]);
+}
+
+/** Map a variant to its folder prefix within the `reference-ads` bucket. */
+function refVariantPrefix(variant: ReferenceAdVariant): "with-asset" | "no-asset" {
+  return variant === "with_asset" ? "with-asset" : "no-asset";
+}
+
+/** Decode a `data:<mime>;base64,<data>` URL to bytes + content type. Throws ValidationError on
+ *  a non-image or malformed data URL so the admin gets a clear 422. */
+function decodeImageDataUrl(dataUrl: string): { bytes: Buffer; contentType: string } {
+  const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl);
+  if (!m) throw new ValidationError("Expected a base64 image data URL.");
+  return { bytes: Buffer.from(m[2], "base64"), contentType: m[1] };
+}
+
+/** All curated references for one variant, newest first, each with a freshly-signed URL.
+ *  Rows whose URL can't be signed are skipped (a missing file shouldn't break the grid). */
+export async function listReferenceAds(variant: ReferenceAdVariant): Promise<ReferenceAd[]> {
+  const { data, error } = await admin()
+    .from("reference_ads")
+    .select("id, variant, label, storage_path, created_at")
+    .eq("variant", variant)
+    .order("created_at", { ascending: false });
+  if (error) throw new PersistenceError(`Listing reference ads failed: ${error.message}`);
+  type Row = { id: string; variant: ReferenceAdVariant; label: string | null; storage_path: string; created_at: string };
+  const rows = (data ?? []) as unknown as Row[];
+  const out: ReferenceAd[] = [];
+  for (const r of rows) {
+    const signed = await admin().storage.from("reference-ads").createSignedUrl(r.storage_path, SIGNED_URL_TTL_SECONDS);
+    if (signed.error || !signed.data) continue;
+    out.push({ id: r.id, variant: r.variant, label: r.label, url: signed.data.signedUrl, createdAt: r.created_at });
+  }
+  return out;
+}
+
+/** Upload a curated reference image to the bucket and insert its row. On a failed insert the
+ *  just-uploaded object is removed so no orphan file is left. Returns the row with a signed URL. */
+export async function createReferenceAd(args: {
+  variant: ReferenceAdVariant;
+  label: string | null;
+  dataUrl: string;
+  createdBy: string;
+}): Promise<ReferenceAd> {
+  const { bytes, contentType } = decodeImageDataUrl(args.dataUrl);
+  const storagePath = `${refVariantPrefix(args.variant)}/${randomUUID()}.png`;
+  const up = await admin().storage.from("reference-ads").upload(storagePath, bytes, { contentType, upsert: false });
+  if (up.error) throw new PersistenceError(`Uploading the reference ad failed: ${up.error.message}`);
+
+  const { data, error } = await admin()
+    .from("reference_ads")
+    .insert({ variant: args.variant, label: args.label, storage_path: storagePath, created_by: args.createdBy })
+    .select("id, created_at")
+    .single();
+  if (error || !data) {
+    const removed = await admin().storage.from("reference-ads").remove([storagePath]);
+    const suffix = removed.error ? ` (cleanup of orphaned upload also failed: ${removed.error.message})` : "";
+    throw new PersistenceError(`Saving the reference ad failed: ${error?.message ?? "no row"}${suffix}`);
+  }
+  const row = data as unknown as { id: string; created_at: string };
+  const signed = await admin().storage.from("reference-ads").createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+  if (signed.error || !signed.data) throw new PersistenceError(`Signing the reference ad URL failed: ${signed.error?.message ?? "no url"}`);
+  return { id: row.id, variant: args.variant, label: args.label, url: signed.data.signedUrl, createdAt: row.created_at };
+}
+
+/** Remove a curated reference: delete its storage object (best-effort if already gone) then
+ *  the row. Throws PersistenceError if the row delete fails. */
+export async function deleteReferenceAd(id: string): Promise<void> {
+  const { data, error } = await admin().from("reference_ads").select("storage_path").eq("id", id).single();
+  if (error || !data) throw new PersistenceError(`Reference ad not found: ${error?.message ?? "no row"}`);
+  const storagePath = (data as { storage_path: string }).storage_path;
+  await admin().storage.from("reference-ads").remove([storagePath]); // best-effort; ignore missing file
+  const del = await admin().from("reference_ads").delete().eq("id", id);
+  if (del.error) throw new PersistenceError(`Deleting the reference ad failed: ${del.error.message}`);
 }
