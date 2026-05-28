@@ -30,4 +30,11 @@ describe("loadConfig", () => {
     expect(cfg.supabaseAnonKey).toBe("anon-123");
     expect(JSON.stringify(cfg)).not.toContain("service-secret-456");
   });
+
+  it("is supabaseConfigured only when url, service-role, and anon key are all present", () => {
+    const full = { SUPABASE_URL: "u", SUPABASE_SERVICE_ROLE_KEY: "s", SUPABASE_ANON_KEY: "a" };
+    expect(loadConfig(full).supabaseConfigured).toBe(true);
+    // Missing anon key would break frontend auth, so it must not report configured.
+    expect(loadConfig({ ...full, SUPABASE_ANON_KEY: undefined }).supabaseConfigured).toBe(false);
+  });
 });

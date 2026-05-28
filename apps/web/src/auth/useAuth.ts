@@ -4,6 +4,7 @@ import type { AuthStatus, Profile } from "./status";
 
 export type AuthValue = {
   status: AuthStatus;
+  error: string | null;
   userId: string | null;
   email: string | null;
   profile: Profile | null;

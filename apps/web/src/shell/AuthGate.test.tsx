@@ -45,4 +45,12 @@ describe("AuthGate", () => {
     render(<AuthGate><div>APP</div></AuthGate>);
     expect(screen.getByText("APP")).toBeInTheDocument();
   });
+
+  it("shows an error screen (not the app) on error status", () => {
+    mockUseAuth.mockReturnValue({ ...value("error"), error: "Authentication is not configured." } as ReturnType<typeof useAuth>);
+    render(<AuthGate><div>APP</div></AuthGate>);
+    expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
+    expect(screen.getByText(/not configured/i)).toBeInTheDocument();
+    expect(screen.queryByText("APP")).toBeNull();
+  });
 });

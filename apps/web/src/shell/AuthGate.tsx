@@ -5,13 +5,21 @@ import { RecoveryView } from "../auth/RecoveryView";
 import { AuthLayout } from "../auth/AuthLayout";
 
 export function AuthGate({ children }: { children: ReactNode }) {
-  const { status } = useAuth();
+  const { status, error } = useAuth();
 
   if (status === "loading") {
     return (
       <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
         <p>Loading…</p>
       </div>
+    );
+  }
+  if (status === "error") {
+    return (
+      <AuthLayout>
+        <h2 style={{ marginBottom: "var(--space-3)" }}>Something went wrong</h2>
+        <p>{error ?? "We couldn't start sign-in. Please try again."}</p>
+      </AuthLayout>
     );
   }
   if (status === "recovery") return <RecoveryView />;

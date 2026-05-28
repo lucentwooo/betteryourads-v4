@@ -55,7 +55,9 @@ export function loadConfig(env: Env = process.env): AppConfig {
     kieResolution: env.KIE_IMAGE_RESOLUTION ?? "1K",
     openrouterConfigured: Boolean(env.OPENROUTER_API_KEY),
     kieConfigured: Boolean(env.KIE_API_KEY),
-    supabaseConfigured: Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),
+    // Frontend auth needs the anon key too (returned to the browser), so it counts toward
+    // "configured" — otherwise /api/config can report ready while client auth can't init.
+    supabaseConfigured: Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY && env.SUPABASE_ANON_KEY),
     supabaseUrl: env.SUPABASE_URL ?? "",
     supabaseAnonKey: env.SUPABASE_ANON_KEY ?? "",
   };
