@@ -54,6 +54,12 @@ export class ForbiddenError extends AppError {
   }
 }
 
+export class RateLimitError extends AppError {
+  constructor(message: string) {
+    super(message, "RATE_LIMITED", 429, "render");
+  }
+}
+
 export interface HttpError {
   status: number;
   body: { error: { code: string; message: string; stage?: Stage } };

@@ -7,10 +7,11 @@ vi.mock("../src/services/supabase.js", () => ({
   isApproved: vi.fn(),
   getAdPrompt: vi.fn(),
   persistRenderedAd: vi.fn(),
+  countAdsToday: vi.fn(),
 }));
 
 import { runRender } from "../src/pipelines/render.js";
-import { getUserFromToken, isApproved, getAdPrompt, persistRenderedAd } from "../src/services/supabase.js";
+import { getUserFromToken, isApproved, getAdPrompt, persistRenderedAd, countAdsToday } from "../src/services/supabase.js";
 import { ValidationError, KieError, PersistenceError } from "../src/lib/errors.js";
 import { createServer } from "../src/server.js";
 
@@ -20,6 +21,7 @@ beforeEach(() => vi.resetAllMocks());
 function approve() {
   vi.mocked(getUserFromToken).mockResolvedValue({ id: "u1", email: "a@b.com" });
   vi.mocked(isApproved).mockResolvedValue(true);
+  vi.mocked(countAdsToday).mockResolvedValue(0);
 }
 
 const body = {
@@ -95,6 +97,28 @@ describe("POST /api/render", () => {
     const res = await request(app).post("/api/render").set("Authorization", "Bearer ok").send({});
     expect(res.status).toBe(422);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("429s when a non-admin user has hit the daily creative limit", async () => {
+    approve();
+    vi.mocked(countAdsToday).mockResolvedValue(10);
+    const res = await request(app).post("/api/render").set("Authorization", "Bearer ok").send(body);
+    expect(res.status).toBe(429);
+    expect(res.body.error.code).toBe("RATE_LIMITED");
+    expect(runRender).not.toHaveBeenCalled();
+    expect(persistRenderedAd).not.toHaveBeenCalled();
+  });
+
+  it("lets the admin user past the daily limit", async () => {
+    vi.mocked(getUserFromToken).mockResolvedValue({ id: "admin", email: "admin@betteryourads.dev" });
+    vi.mocked(isApproved).mockResolvedValue(true);
+    vi.mocked(countAdsToday).mockResolvedValue(999);
+    vi.mocked(runRender).mockResolvedValue({ imageUrl: "https://cdn/out.png", aspectRatio: "1:1", resolution: "1K" });
+    vi.mocked(persistRenderedAd).mockResolvedValue({ id: "a9", imageUrl: "https://signed/z.png" });
+    const res = await request(app).post("/api/render").set("Authorization", "Bearer ok").send(body);
+    expect(res.status).toBe(200);
+    expect(countAdsToday).not.toHaveBeenCalled();
+    expect(runRender).toHaveBeenCalled();
   });
 
   it("maps KieError to 502 with stage render", async () => {

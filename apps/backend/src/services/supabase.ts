@@ -227,6 +227,20 @@ export async function persistRenderedAd(args: {
   return { id: rowId(data), imageUrl: signed.data.signedUrl };
 }
 
+/** Number of generated_ads rows the user created since the start of the current UTC day.
+ *  Used to enforce the per-day creative cap. */
+export async function countAdsToday(userId: string): Promise<number> {
+  const startOfDay = new Date();
+  startOfDay.setUTCHours(0, 0, 0, 0);
+  const { count, error } = await admin()
+    .from("generated_ads")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", startOfDay.toISOString());
+  if (error) throw new PersistenceError(`Counting today's ads failed: ${error.message}`);
+  return count ?? 0;
+}
+
 export async function listBrandExtractions(userId: string): Promise<BrandSummary[]> {
   const { data, error } = await admin()
     .from("brand_extractions")

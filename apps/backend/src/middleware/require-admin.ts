@@ -3,7 +3,7 @@ import { ForbiddenError, toHttpError } from "../lib/errors.js";
 
 // The single account allowed into the admin dashboard. Intentionally a specific email rather
 // than the `profiles.is_admin` flag, since other accounts may also carry is_admin.
-const ADMIN_EMAIL = "admin@betteryourads.dev";
+export const ADMIN_EMAIL = "admin@betteryourads.dev";
 
 // Runs AFTER requireApprovedUser (which sets req.user from the verified JWT).
 export async function requireAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
