@@ -62,10 +62,29 @@ export async function listAllUsers(): Promise<AdminUser[]> {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-/** Delete an auth user. FK `on delete cascade` removes their profile, brand_extractions,
- *  ad_prompts, and generated_ads rows; storage objects are orphaned (acceptable — private
- *  bucket, no public access). */
+/** Delete every storage object under a user's `<userId>/` prefix in one bucket, using the
+ *  Storage API (deleting storage.objects rows directly leaves the backing files orphaned).
+ *  Lists+removes in pages until the prefix is empty. */
+async function removeUserBucketFiles(bucket: "ads" | "brand-assets", userId: string): Promise<void> {
+  for (;;) {
+    const { data, error } = await admin().storage.from(bucket).list(userId, { limit: 100 });
+    if (error) throw new PersistenceError(`Listing ${bucket} files for cleanup failed: ${error.message}`);
+    const files = data ?? [];
+    if (files.length === 0) return;
+    const paths = files.map((f) => `${userId}/${f.name}`);
+    const { error: rmErr } = await admin().storage.from(bucket).remove(paths);
+    if (rmErr) throw new PersistenceError(`Removing ${bucket} files for cleanup failed: ${rmErr.message}`);
+  }
+}
+
+/** Delete a user and all their data. Storage objects can't be reached by FK cascade, so we
+ *  remove them via the Storage API FIRST; only if that succeeds do we delete the auth user
+ *  (whose `on delete cascade` then removes their profile, brand_extractions, ad_prompts,
+ *  generated_ads, and brand_assets rows). Cleaning storage first means a failure leaves the
+ *  account intact rather than orphaning files by deleting the user that owns them. */
 export async function deleteUser(userId: string): Promise<void> {
+  await removeUserBucketFiles("ads", userId);
+  await removeUserBucketFiles("brand-assets", userId);
   const { error } = await admin().auth.admin.deleteUser(userId);
   if (error) throw new PersistenceError(`Deleting the user failed: ${error.message}`);
 }

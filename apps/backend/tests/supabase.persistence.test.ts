@@ -21,10 +21,13 @@ const from = vi.fn(() => chain);
 const upload = vi.fn();
 const createSignedUrl = vi.fn();
 const remove = vi.fn();
-const storage = { from: vi.fn(() => ({ upload, createSignedUrl, remove })) };
+const list = vi.fn();
+const storage = { from: vi.fn(() => ({ upload, createSignedUrl, remove, list })) };
+
+const deleteUserFn = vi.fn();
 
 vi.mock("@supabase/supabase-js", () => ({
-  createClient: () => ({ auth: { getUser: vi.fn() }, from, storage }),
+  createClient: () => ({ auth: { getUser: vi.fn(), admin: { deleteUser: deleteUserFn } }, from, storage }),
 }));
 
 import {
@@ -35,6 +38,7 @@ import {
   persistRenderedAd,
   listGeneratedAds,
   assemblePerformanceMemory,
+  deleteUser,
 } from "../src/services/supabase.js";
 import { PersistenceError } from "../src/lib/errors.js";
 
@@ -233,6 +237,57 @@ describe("listGeneratedAds", () => {
     expect(out[1].id).toBe("a2");
     expect(out[1].imageUrl).toBeNull();
     expect(out[1].imageError).toContain("missing file");
+  });
+});
+
+describe("deleteUser", () => {
+  it("removes the user's files from both buckets before deleting the auth user", async () => {
+    list
+      .mockResolvedValueOnce({ data: [{ name: "a1.png" }, { name: "a2.png" }], error: null }) // ads page 1
+      .mockResolvedValueOnce({ data: [], error: null }) // ads page 2 (empty -> stop)
+      .mockResolvedValueOnce({ data: [{ name: "logo.png" }], error: null }) // brand-assets page 1
+      .mockResolvedValueOnce({ data: [], error: null }); // brand-assets page 2 (empty -> stop)
+    remove.mockResolvedValue({ data: {}, error: null });
+    deleteUserFn.mockResolvedValue({ data: {}, error: null });
+
+    await deleteUser("u1");
+
+    expect(storage.from).toHaveBeenCalledWith("ads");
+    expect(storage.from).toHaveBeenCalledWith("brand-assets");
+    expect(remove).toHaveBeenCalledWith(["u1/a1.png", "u1/a2.png"]);
+    expect(remove).toHaveBeenCalledWith(["u1/logo.png"]);
+    // Storage cleanup must complete before the auth user is deleted.
+    const lastRemoveOrder = Math.max(...remove.mock.invocationCallOrder);
+    expect(deleteUserFn.mock.invocationCallOrder[0]).toBeGreaterThan(lastRemoveOrder);
+    expect(deleteUserFn).toHaveBeenCalledWith("u1");
+  });
+
+  it("deletes the auth user even when the buckets are empty", async () => {
+    list.mockResolvedValue({ data: [], error: null });
+    deleteUserFn.mockResolvedValue({ data: {}, error: null });
+    await deleteUser("u1");
+    expect(remove).not.toHaveBeenCalled();
+    expect(deleteUserFn).toHaveBeenCalledWith("u1");
+  });
+
+  it("aborts without deleting the auth user when storage removal fails", async () => {
+    list.mockResolvedValueOnce({ data: [{ name: "a1.png" }], error: null });
+    remove.mockResolvedValue({ data: null, error: { message: "remove failed" } });
+    await expect(deleteUser("u1")).rejects.toBeInstanceOf(PersistenceError);
+    expect(deleteUserFn).not.toHaveBeenCalled();
+  });
+
+  it("aborts without deleting the auth user when listing storage fails", async () => {
+    list.mockResolvedValueOnce({ data: null, error: { message: "list failed" } });
+    await expect(deleteUser("u1")).rejects.toBeInstanceOf(PersistenceError);
+    expect(remove).not.toHaveBeenCalled();
+    expect(deleteUserFn).not.toHaveBeenCalled();
+  });
+
+  it("throws PersistenceError when auth deletion fails after storage cleanup", async () => {
+    list.mockResolvedValue({ data: [], error: null });
+    deleteUserFn.mockResolvedValue({ data: null, error: { message: "auth boom" } });
+    await expect(deleteUser("u1")).rejects.toBeInstanceOf(PersistenceError);
   });
 });
 
