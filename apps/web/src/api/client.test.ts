@@ -69,4 +69,34 @@ describe("api client", () => {
       stage: "auth",
     });
   });
+
+  it("throws ApiError (not a parse error) on a plain-text error body", async () => {
+    fetchMock.mockResolvedValue(new Response("Request Entity Too Large", { status: 413 }));
+    await expect(api.extract("https://x.com")).rejects.toMatchObject({
+      name: "ApiError",
+      status: 413,
+      message: "Request Entity Too Large",
+    });
+  });
+
+  it("throws ApiError on an HTML error page", async () => {
+    fetchMock.mockResolvedValue(
+      new Response("<html><body>502 Bad Gateway</body></html>", { status: 502 }),
+    );
+    await expect(api.extract("https://x.com")).rejects.toMatchObject({ name: "ApiError", status: 502 });
+  });
+
+  it("throws ApiError on an empty error body", async () => {
+    fetchMock.mockResolvedValue(new Response("", { status: 500 }));
+    await expect(api.extract("https://x.com")).rejects.toMatchObject({
+      name: "ApiError",
+      status: 500,
+      message: "Request failed (500)",
+    });
+  });
+
+  it("returns null for an empty successful body without throwing", async () => {
+    fetchMock.mockResolvedValue(new Response("", { status: 200 }));
+    await expect(api.getConfig()).resolves.toBeNull();
+  });
 });

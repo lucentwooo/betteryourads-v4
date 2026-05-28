@@ -45,6 +45,26 @@ export function setTokenProvider(fn: () => Promise<string | null>): void {
   tokenProvider = fn;
 }
 
+/** Best-effort JSON parse: a proxy 502, an Express HTML error page, or an empty body must
+ *  not throw a raw SyntaxError before we can build an ApiError. Returns null when the body
+ *  is empty or not JSON. */
+function parseBody(text: string): unknown {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function errorShape(json: unknown): { message?: string; code?: string; stage?: ErrorStage } {
+  if (json && typeof json === "object" && "error" in json) {
+    const err = (json as { error: unknown }).error;
+    if (err && typeof err === "object") return err as { message?: string; code?: string; stage?: ErrorStage };
+  }
+  return {};
+}
+
 async function request<T>(path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const token = tokenProvider ? await tokenProvider() : null;
@@ -57,16 +77,12 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
   });
 
   const text = await res.text();
-  const json = text ? JSON.parse(text) : null;
+  const json = parseBody(text);
 
   if (!res.ok) {
-    const err = json?.error ?? {};
-    throw new ApiError(
-      err.message ?? `Request failed (${res.status})`,
-      err.code ?? "UNKNOWN",
-      res.status,
-      err.stage,
-    );
+    const err = errorShape(json);
+    const fallback = text.trim() ? text.trim().slice(0, 300) : `Request failed (${res.status})`;
+    throw new ApiError(err.message ?? fallback, err.code ?? "UNKNOWN", res.status, err.stage);
   }
   // Trusted fetch boundary — backend validates shape before sending; add a runtime validator here if ever needed.
   return json as T;
