@@ -29,10 +29,10 @@ Uploading a one-off reference stays available as a fallback.
   when a product asset is present, otherwise the no-asset library.
 - **Organization:** **flat grid of thumbnails**, optional label per item. No tags, no
   per-user libraries, no reordering (YAGNI — can extend later).
-- **Stage 2 layout:** **library first, upload secondary** — grid is prominent; "upload your
-  own instead" is a smaller secondary option.
-- **Hint:** even though switching is automatic, surface a line telling the user a different
-  library appears when a product asset is added.
+- **Stage 2 layout:** **library first, upload secondary** — the curated library grid is
+  prominent; "upload your own instead" is the secondary option.
+- **Hint:** even though switching is automatic, surface a line telling the user that adding a
+  product asset shows a different reference library (the with-asset set).
 
 ## Architecture
 
@@ -99,7 +99,8 @@ Add a **Reference ads** section to the dashboard (alongside Accounts):
 
 ### Workbench (`apps/web/src/workbench/`)
 
-In Stage 2's `PickRef`, the reference-ad slot becomes **library-first**:
+In Stage 2's `PickRef`, the reference-ad slot is **library-first** with upload as a secondary
+option:
 
 1. **Library grid (primary):** fetches `GET /api/reference-ads?variant=…` where variant is
    derived from whether `productAsset` is set in workbench state. Clicking a thumbnail fetches
@@ -107,9 +108,9 @@ In Stage 2's `PickRef`, the reference-ad slot becomes **library-first**:
    produces**, so Stage 2 (`/api/ad-prompt`) and Stage 3 (`/api/render`) need **no changes**.
 2. **Upload (secondary):** the existing `Dropzone` stays, presented as a smaller "upload your
    own instead" affordance below the grid.
-3. **Hint line** above the grid, contextual on product-asset state:
-   - no asset: *"Showing references that don't use a product image. Add a product asset to
-     unlock references built around your product."*
+3. **Hint line** near the library, contextual on product-asset state:
+   - no asset: *"Showing references that don't use a product image. Add a product asset and a
+     different library — built around your product — will appear here."*
    - with asset: *"Showing references designed to feature your product asset."*
 
 Selecting a library reference and selecting an uploaded file are mutually exclusive for the
@@ -133,8 +134,10 @@ User (Stage 2): productAsset? → variant → GET /api/reference-ads?variant
   failure, do **not** insert the row (no orphan rows).
 - Admin delete: remove storage object then row; if the object is already gone, still remove the
   row (don't block on a missing file).
-- Workbench: if the library fails to load, show an inline error and fall back to the upload
-  option (user is never blocked from creating an ad).
+- Workbench: a reference ad is **required**. If the user has selected neither an uploaded
+  reference nor a library reference, block generation with a clear error — never silently
+  proceed. If the library fails to load, show an inline error; the user can still upload their
+  own to satisfy the requirement, but an empty `refImage` always errors rather than skipping.
 
 ## Out of scope (YAGNI)
 
