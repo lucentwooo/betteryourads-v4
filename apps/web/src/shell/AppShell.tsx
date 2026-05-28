@@ -10,6 +10,7 @@ export function AppShell() {
           <span className="wordmark">BetterYourAds</span>
         </div>
         <NavLink to="/">Home</NavLink>
+        <NavLink to="/create">Make an ad</NavLink>
         <NavLink to="/library">Library</NavLink>
       </nav>
       <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
