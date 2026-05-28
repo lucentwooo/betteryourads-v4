@@ -66,6 +66,10 @@ These override defaults. The generic "write clean code" stuff is assumed — onl
 - If the task is ambiguous in a way that affects which files you'll touch or which approach you'll take, ask one short question before writing code. A 10-second clarification beats a 200-line revert.
 - If you discovered something mid-task that changes scope (the bug is actually elsewhere, the requested approach won't work, there's a simpler way), stop and surface it. Don't quietly do a different task.
 
+## Code review
+
+- **Run `/code-review` when a feature is implemented.** Once a feature is done (a new route, page, pipeline stage, or integration — the same threshold that warrants a `docs/FEATURES.md` entry), run `/code-review` on the diff before considering the work finished. Skip it for small, internal changes (refactors, bug fixes, helper tweaks).
+
 ## Git
 
 - When integrating changes from another branch, **rebase, don't merge.** No merge commits in the history.
