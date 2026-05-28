@@ -13,6 +13,7 @@ const CRUMBS: Record<string, string> = {
   "/create": "Make an ad",
   "/library": "Library",
   "/admin": "Accounts",
+  "/admin/reference-ads": "Reference ads",
 };
 
 // Only this account sees / can reach the admin dashboard (mirrors the backend gate).
@@ -58,9 +59,13 @@ export function AppShell() {
         {isAdmin && (
           <div className="nav-section">
             <h6>Admin</h6>
-            <NavLink to="/admin" className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
+            <NavLink to="/admin" end className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
               <IconUsers />
               <span>Accounts</span>
+            </NavLink>
+            <NavLink to="/admin/reference-ads" className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
+              <IconGrid />
+              <span>Reference ads</span>
             </NavLink>
           </div>
         )}

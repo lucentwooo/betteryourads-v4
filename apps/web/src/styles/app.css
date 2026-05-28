@@ -542,6 +542,107 @@ body { background: var(--bg); color: var(--fg); overflow: hidden; }
 }
 .swatch .chip { width: 16px; height: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-hairline); flex-shrink: 0; }
 
+/* ----- Admin: Reference-ads page --------------------------------- */
+/* Tab switcher — mirrors .auth-tabs pattern, flush left */
+.ref-ads-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-raised);
+  border: 1px solid var(--fg);
+  border-radius: var(--radius-md);
+}
+.ref-ads-tab {
+  font-family: var(--font-sans);
+  font-size: var(--size-14);
+  font-weight: 500;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  min-height: 44px; /* touch target */
+}
+.ref-ads-tab:hover { color: var(--fg); }
+.ref-ads-tab.active { background: var(--fg); color: var(--bg); font-weight: 600; }
+.ref-ads-tab[aria-selected="true"] { background: var(--fg); color: var(--bg); font-weight: 600; }
+
+/* Upload row */
+.ref-ads-upload-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* Grid override: larger min for admin context */
+.ref-ads-grid {
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+}
+
+/* Thumb wrapper — relative container for overlay and label */
+.ref-ads-thumb-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Delete button — top-right overlay on the thumb */
+.ref-ads-del-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border: 1px solid var(--fg);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--fg-2);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  min-height: 28px;
+}
+.ref-ads-thumb-wrap:hover .ref-ads-del-btn,
+.ref-ads-thumb-wrap:focus-within .ref-ads-del-btn {
+  opacity: 1;
+}
+.ref-ads-del-btn:hover { color: var(--bya-oxblood); border-color: var(--bya-oxblood); }
+.ref-ads-del-label { line-height: 1; }
+
+/* Spinner overlay while deleting */
+.ref-ads-del-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.55);
+  display: grid;
+  place-items: center;
+}
+
+/* Inline confirm row below thumb */
+.ref-ads-confirm-row {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+/* Optional label below thumb */
+.ref-ads-label {
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  color: var(--fg-3);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ----- Responsive ------------------------------------------------ */
 @media (max-width: 720px) {
   body { overflow: auto; }

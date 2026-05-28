@@ -6,6 +6,7 @@ import Home from "./home/Home";
 import Library from "./library/Library";
 import Workbench from "./workbench/Workbench";
 import AdminDashboard from "./admin/AdminDashboard";
+import ReferenceAdsAdmin from "./admin/ReferenceAdsAdmin";
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
               <Route path="/create" element={<Workbench />} />
               <Route path="/library" element={<Library />} />
               <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/reference-ads" element={<ReferenceAdsAdmin />} />
             </Route>
           </Routes>
         </AuthGate>
