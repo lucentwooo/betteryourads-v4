@@ -1,5 +1,6 @@
 -- ============================================================================
--- BetterYourAds — auth/profiles, brands, ads, and storage.
+-- BetterYourAds — auth/profiles, brand extractions, ad prompts, generated ads,
+-- and storage. Reflects the current schema the TypeScript backend expects.
 -- Run once in the Supabase dashboard: SQL Editor → paste → Run.
 -- Safe to re-run (idempotent).
 -- ============================================================================
@@ -35,40 +36,58 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
--- brands: saved website analyses (one per user+website).
-create table if not exists public.brands (
-  id          uuid primary key default gen_random_uuid(),
-  user_id     uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  name        text,
-  website_url text not null,
-  analysis    jsonb,
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now(),
+-- brand_extractions: saved Stage-1 website analyses (one per user+website).
+create table if not exists public.brand_extractions (
+  id                 uuid primary key default gen_random_uuid(),
+  user_id            uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  name               text,
+  website_url        text not null,
+  analysis           jsonb,
+  measured_site_data jsonb,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now(),
   unique (user_id, website_url)
 );
-alter table public.brands enable row level security;
-drop policy if exists "own brands" on public.brands;
-create policy "own brands" on public.brands
+alter table public.brand_extractions enable row level security;
+drop policy if exists "own brand_extractions" on public.brand_extractions;
+create policy "own brand_extractions" on public.brand_extractions
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
--- ads: generated ad records (image bytes live in Storage; inserted by server).
-create table if not exists public.ads (
+-- ad_prompts: structured Stage-2 output, linked to its brand extraction.
+create table if not exists public.ad_prompts (
+  id                  uuid primary key default gen_random_uuid(),
+  user_id             uuid not null references auth.users(id) on delete cascade,
+  brand_extraction_id uuid references public.brand_extractions(id) on delete set null,
+  variant             text not null check (variant in ('no_asset', 'w_asset')),
+  ad_prompt_json      jsonb not null,
+  user_direction      jsonb,
+  model               text,
+  created_at          timestamptz not null default now()
+);
+alter table public.ad_prompts enable row level security;
+drop policy if exists "own ad_prompts" on public.ad_prompts;
+create policy "own ad_prompts" on public.ad_prompts
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- generated_ads: Stage-3 ad records (image bytes live in Storage; inserted by server).
+create table if not exists public.generated_ads (
   id           uuid primary key default gen_random_uuid(),
   user_id      uuid not null references auth.users(id) on delete cascade,
-  brand_id     uuid references public.brands(id) on delete set null,
+  ad_prompt_id uuid references public.ad_prompts(id) on delete set null,
   website_url  text,
   image_path   text not null,
   prompt       text,
   aspect_ratio text,
   resolution   text,
+  performance  jsonb,
   created_at   timestamptz not null default now()
 );
-alter table public.ads enable row level security;
-drop policy if exists "own ads read" on public.ads;
-create policy "own ads read" on public.ads
+alter table public.generated_ads enable row level security;
+drop policy if exists "own generated_ads read" on public.generated_ads;
+create policy "own generated_ads read" on public.generated_ads
   for select using (auth.uid() = user_id);
-drop policy if exists "own ads delete" on public.ads;
-create policy "own ads delete" on public.ads
+drop policy if exists "own generated_ads delete" on public.generated_ads;
+create policy "own generated_ads delete" on public.generated_ads
   for delete using (auth.uid() = user_id);
 
 -- Storage: private bucket for ad images; users read only their own <uid>/ prefix.
@@ -80,50 +99,5 @@ drop policy if exists "own ad files read" on storage.objects;
 create policy "own ad files read" on storage.objects
   for select using (
     bucket_id = 'ads'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
--- brand_assets: user-uploaded product / UI / mockup images, saved per brand.
--- Bytes live in the private `brand-assets` Storage bucket; rows inserted by the
--- browser via Auth.client (anon key + user JWT) under RLS, like `brands`.
-create table if not exists public.brand_assets (
-  id          uuid primary key default gen_random_uuid(),
-  user_id     uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  brand_id    uuid not null references public.brands(id) on delete cascade,
-  image_path  text not null,
-  kind        text not null default 'product',
-  label       text,
-  created_at  timestamptz not null default now()
-);
-alter table public.brand_assets enable row level security;
-drop policy if exists "own brand_assets" on public.brand_assets;
-create policy "own brand_assets" on public.brand_assets
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
--- Storage: private bucket for product assets. Unlike `ads` (server-written, read-only
--- policy), this bucket is written FROM THE BROWSER, so it needs read+insert+delete,
--- each scoped to the user's <uid>/ prefix.
-insert into storage.buckets (id, name, public)
-values ('brand-assets', 'brand-assets', false)
-on conflict (id) do nothing;
-
-drop policy if exists "own brand-asset files read" on storage.objects;
-create policy "own brand-asset files read" on storage.objects
-  for select to authenticated using (
-    bucket_id = 'brand-assets'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
-drop policy if exists "own brand-asset files write" on storage.objects;
-create policy "own brand-asset files write" on storage.objects
-  for insert to authenticated with check (
-    bucket_id = 'brand-assets'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
-drop policy if exists "own brand-asset files delete" on storage.objects;
-create policy "own brand-asset files delete" on storage.objects
-  for delete to authenticated using (
-    bucket_id = 'brand-assets'
     and (storage.foldername(name))[1] = auth.uid()::text
   );

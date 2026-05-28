@@ -1,81 +1,74 @@
-# OpenRouter Site Analyzer
+# BetterYourAds
 
-Analyze a website with an OpenRouter LLM (Gemini 2.5 Pro, GPT-4o, etc.), grounded on
-**real extracted data** — exact colors, fonts, and text are pulled from the live rendered
-page by a headless browser, so the model stops guessing hex codes.
+Turn a website URL into on-brand ad creative through a 3-stage pipeline:
+
+1. **Extract / Brand (Stage 1)** — headless Chromium (Playwright) reads exact colors,
+   fonts, and text off the live page; an OpenRouter LLM turns that measured data into
+   structured brand "DNA".
+2. **Ad prompt (Stage 2)** — a vision model turns the brand DNA (+ optional user
+   direction / product asset) into a structured image-generation prompt.
+3. **Render (Stage 3)** — the prompt goes to KIE GPT-Image and the result is persisted to
+   Supabase Storage.
+
+## Layout
+
+Monorepo (npm workspaces, Node ≥20):
+
+- `apps/backend` (`@bya/backend`) — Express + TypeScript API. Routes under `/api/*`
+  (`extract`, `brand`, `ad-prompt`, `render`, `config`), all gated by an approval check.
+- `apps/web` (`@bya/web`) — React + Vite frontend. See `apps/web/README.md`.
+- `packages/shared` (`@bya/shared`) — zod schemas shared by both.
 
 ## One-time setup
 
 ```powershell
 npm install
-npx playwright install chromium
+npx playwright install chromium   # the backend needs the browser
 ```
+
+Then copy `.env.example` to `.env` at the repo root and fill in your keys
+(`OPENROUTER_API_KEY`, `STAGE1_MODEL` / `STAGE2_MODEL`, `KIE_API_KEY`, and the
+`SUPABASE_*` keys). See the Supabase section below.
 
 ## Run
 
 ```powershell
-node server.js
+# backend API (http://localhost:3000)
+npm run dev -w @bya/backend
+
+# web app (Vite dev server; proxies /api → http://localhost:3000)
+npm run dev -w @bya/web
 ```
 
-Then open the **`http://localhost:<port>`** URL it prints (default **3000**) in your browser.
+To run a single pipeline stage from the CLI:
 
-> **Important:** open that exact URL — do NOT double-click `index.html` (a `file://` page
-> can't reach the backend).
-> If 3000 is busy, the server auto-picks the next free port and prints it. Override with
-> `$env:PORT=9000; node server.js`. Whatever port you use must match the redirect URL
-> registered in Supabase (see below).
+```powershell
+npm run run:extract -w @bya/backend     # also run:brand, run:ad-prompt, run:render
+```
 
-## Use
+Tests: `npm test -w @bya/backend` and `npm test -w @bya/web`.
 
-1. Paste your OpenRouter API key (saved in your browser only).
-2. Pick a model.
-3. Enter the website URL to analyze.
-4. Click **Send**.
+## Supabase setup
 
-On Send, the app:
-1. Loads the URL in a real Chromium browser and extracts exact colors / fonts / CSS
-   color variables / page text (`POST /extract`).
-2. Injects that as authoritative "MEASURED SITE DATA" into the baked-in strategist prompt.
-3. Sends it to the chosen model via OpenRouter.
-
-The **analysis prompt is baked in** (collapsible section to view/edit/reset).
-
-## Notes & limits
-
-- **Colors/fonts/text are exact** (read from `getComputedStyle` on the live page).
-- Optional "web-search other pages" checkbox adds OpenRouter's `:online` plugin to let the
-  model also pull pricing/case-study pages beyond the one URL. Costs extra per request.
-- Only the entered URL is rendered; sub-pages are not crawled by the browser (use the
-  `:online` option for those).
-- Logos detected via `<img>` tags only; inline-SVG logos won't be picked up.
-
-## Customer logins & saved ads (Supabase)
-
-This app uses Supabase for magic-link login, saved brand analyses, and an ad Library.
-
-### One-time Supabase setup
+The app uses Supabase for auth, saved brand extractions, ad prompts, and an ad Library.
 
 1. **Create the database structure.** In your Supabase dashboard, open **SQL Editor**,
-   paste the contents of `supabase/schema.sql`, and click **Run**. (Safe to re-run.)
+   paste the contents of `supabase/schema.sql`, and click **Run**. This creates the
+   `profiles`, `brand_extractions`, `ad_prompts`, and `generated_ads` tables plus the
+   private `ads` storage bucket. (Safe to re-run.)
 2. **Allow the login redirect.** Go to **Authentication → URL Configuration**. Set
-   **Site URL** to `http://localhost:3000` and add `http://localhost:3000` to
-   **Redirect URLs**.
+   **Site URL** and add it to **Redirect URLs** (the web dev server's origin).
 3. **Keys.** Ensure `.env` has `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and
-   `SUPABASE_SERVICE_ROLE_KEY` (the service-role key is secret, server-only).
-4. **Run** (the default port is now 3000): `node server.js`. To pin it explicitly,
-   `PORT=3000 node server.js`. Keep the port matching the redirect URL above.
+   `SUPABASE_SERVICE_ROLE_KEY` (the service-role key is secret, server-only — it bypasses
+   Row Level Security).
 
-### Approving a user (demo gate)
+> Migrations live in `supabase/migrations/` and are applied by hand in the SQL Editor.
+> `supabase/schema.sql` is the single paste-once script that creates the current end state.
 
-Anyone can request a magic link, but the app stays locked until you approve them:
+### Approving a user
 
-1. Have the person sign in once (so their row is created).
-2. In the dashboard, open **Table Editor → `profiles`**, find their email, and tick
-   **`approved`** (set it to `true`). They get access on their next page load.
+Anyone can sign in, but the app stays locked until you approve them:
 
-### What gets saved
-
-- **Brands** (`brands` table): each analyzed website's brand JSON. Switch between them
-  with the "Your saved brands" dropdown.
-- **Ads** (`ads` table + private `ads` storage bucket): every generated image, copied off
-  KIE so it doesn't expire. Browse them on the **My Ad Library** page.
+1. Have the person sign in once (so their `profiles` row is created).
+2. In the dashboard, open **Table Editor → `profiles`**, find their email, and set
+   **`approved`** to `true`. They get access on their next page load.
