@@ -176,7 +176,11 @@ export default function AdminDashboard() {
                             </button>
                             <button
                               className="btn sm danger-ghost"
-                              onClick={() => { setConfirming(u.id); setConfirmText(""); }}
+                              onClick={() => {
+                                setConfirming(u.id);
+                                setConfirmText("");
+                                setRowError((prev) => { const next = { ...prev }; delete next[u.id]; return next; });
+                              }}
                               aria-label={`Remove ${u.email ?? "account"}`}
                             >
                               <IconTrash width={14} height={14} />

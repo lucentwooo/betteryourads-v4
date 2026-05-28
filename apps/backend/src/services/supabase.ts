@@ -65,8 +65,11 @@ export async function listAllUsers(): Promise<AdminUser[]> {
 /** Set a user's `profiles.approved` flag — admins use this to admit accounts off the
  *  sign-up waiting list (or revoke access). */
 export async function setUserApproved(userId: string, approved: boolean): Promise<void> {
-  const { error } = await admin().from("profiles").update({ approved }).eq("id", userId);
+  const { data, error } = await admin().from("profiles").update({ approved }).eq("id", userId).select("id");
   if (error) throw new PersistenceError(`Updating approval failed: ${error.message}`);
+  // A zero-row update isn't an error in PostgREST — treat "no profile matched" as a failure so
+  // the admin isn't told an approval succeeded when nothing was written.
+  if (!data || data.length === 0) throw new PersistenceError("No profile found for that user.");
 }
 
 /** Delete every storage object under a user's `<userId>/` prefix in one bucket, using the
