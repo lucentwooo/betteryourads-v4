@@ -362,3 +362,102 @@ export async function getConceptSet(brandExtractionId: string, userId: string): 
   const parsed = ConceptSet.safeParse((data as { concept_set: unknown }).concept_set);
   return parsed.success ? parsed.data : null;
 }
+
+export type BatchItemStatus = "queued" | "running" | "done" | "error";
+
+export type BatchItemView = {
+  id: string;
+  ideaNumber: number | null;
+  ideaName: string | null;
+  status: BatchItemStatus;
+  imageUrl: string | null;
+  error: string | null;
+};
+
+export type BatchView = { id: string; status: BatchItemStatus; items: BatchItemView[] };
+
+export async function createBatch(args: {
+  userId: string;
+  brandExtractionId: string | null;
+  items: { ideaNumber: number | null; ideaName: string | null }[];
+}): Promise<{ batchId: string; itemIds: string[] }> {
+  const { data: job, error: jobErr } = await admin()
+    .from("batch_jobs")
+    .insert({ user_id: args.userId, brand_extraction_id: args.brandExtractionId, status: "running", total: args.items.length })
+    .select("id")
+    .single();
+  if (jobErr || !job) throw new PersistenceError(`Creating the batch failed: ${jobErr?.message ?? "no row"}`);
+  const batchId = rowId(job);
+
+  const rows = args.items.map((it) => ({
+    batch_id: batchId,
+    user_id: args.userId,
+    idea_number: it.ideaNumber,
+    idea_name: it.ideaName,
+    status: "queued" as const,
+  }));
+  const { data: items, error: itemsErr } = await admin().from("batch_items").insert(rows).select("id");
+  if (itemsErr || !items) throw new PersistenceError(`Creating batch items failed: ${itemsErr?.message ?? "no rows"}`);
+  return { batchId, itemIds: (items as { id: string }[]).map((r) => r.id) };
+}
+
+export async function updateBatchItem(
+  itemId: string,
+  patch: { status: BatchItemStatus; generatedAdId?: string | null; error?: string | null },
+): Promise<void> {
+  const { error } = await admin()
+    .from("batch_items")
+    .update({ status: patch.status, generated_ad_id: patch.generatedAdId ?? null, error: patch.error ?? null })
+    .eq("id", itemId);
+  if (error) throw new PersistenceError(`Updating a batch item failed: ${error.message}`);
+}
+
+export async function finalizeBatchIfDone(batchId: string): Promise<void> {
+  const { data, error } = await admin().from("batch_items").select("status").eq("batch_id", batchId);
+  if (error || !data) throw new PersistenceError(`Reading batch items failed: ${error?.message ?? "no rows"}`);
+  const statuses = (data as { status: BatchItemStatus }[]).map((r) => r.status);
+  if (statuses.some((s) => s === "queued" || s === "running")) return;
+  const jobStatus: BatchItemStatus = statuses.every((s) => s === "error") ? "error" : "done";
+  const { error: upErr } = await admin().from("batch_jobs").update({ status: jobStatus }).eq("id", batchId);
+  if (upErr) throw new PersistenceError(`Finalizing the batch failed: ${upErr.message}`);
+}
+
+export async function getBatch(batchId: string, userId: string): Promise<BatchView | null> {
+  const { data: job, error: jobErr } = await admin()
+    .from("batch_jobs")
+    .select("id, status")
+    .eq("id", batchId)
+    .eq("user_id", userId)
+    .single();
+  if (jobErr || !job) return null;
+
+  const { data: items, error: itemsErr } = await admin()
+    .from("batch_items")
+    .select("id, idea_number, idea_name, status, error, generated_ads ( image_path )")
+    .eq("batch_id", batchId)
+    .order("created_at", { ascending: true });
+  if (itemsErr) throw new PersistenceError(`Listing batch items failed: ${itemsErr.message}`);
+
+  type Row = {
+    id: string; idea_number: number | null; idea_name: string | null;
+    status: BatchItemStatus; error: string | null;
+    generated_ads: { image_path: string }[] | null;
+  };
+  const out: BatchItemView[] = [];
+  for (const r of (items ?? []) as unknown as Row[]) {
+    let imageUrl: string | null = null;
+    if (r.generated_ads?.[0]?.image_path) {
+      const signed = await admin().storage.from("ads").createSignedUrl(r.generated_ads[0].image_path, SIGNED_URL_TTL_SECONDS);
+      imageUrl = signed.data?.signedUrl ?? null;
+    }
+    out.push({ id: r.id, ideaNumber: r.idea_number, ideaName: r.idea_name, status: r.status, imageUrl, error: r.error });
+  }
+  const j = job as { id: string; status: BatchItemStatus };
+  return { id: j.id, status: j.status, items: out };
+}
+
+/** On boot: any item still queued/running was orphaned by a restart — fail it and its job. */
+export async function markStaleBatchItems(): Promise<void> {
+  await admin().from("batch_items").update({ status: "error", error: "Interrupted by a server restart." }).in("status", ["queued", "running"]);
+  await admin().from("batch_jobs").update({ status: "error" }).in("status", ["queued", "running"]);
+}
