@@ -10,8 +10,8 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           Generate on-brand ads from your website in minutes.
         </p>
       </aside>
-      <main style={{ display: "grid", placeItems: "center", padding: "var(--space-6)" }}>
-        <div className="stage" style={{ width: "100%", maxWidth: 380 }}>{children}</div>
+      <main style={{ display: "grid", placeItems: "center", padding: "var(--space-6)", background: "var(--bg-raised)" }}>
+        <div className="auth-card">{children}</div>
       </main>
     </div>
   );

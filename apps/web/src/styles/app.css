@@ -315,12 +315,6 @@ body { background: var(--bg); color: var(--fg); overflow: hidden; }
   color: var(--fg);
 }
 
-/* Pull quote (used once on the marketing-y panel) */
-.pull {
-  font-family: var(--font-serif); font-style: italic; font-weight: 400;
-  font-size: 28px; line-height: 1.2; color: var(--fg);
-}
-
 /* ----- Spinner --------------------------------------------------- */
 .spinner {
   display: inline-block;
@@ -332,3 +326,80 @@ body { background: var(--bg); color: var(--fg); overflow: hidden; }
   animation: bya-spin 0.7s linear infinite;
 }
 @keyframes bya-spin { to { transform: rotate(360deg); } }
+
+/* ----- Dropzone -------------------------------------------------- */
+.dropzone {
+  border: 1px dashed var(--fg-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  display: grid; place-items: center;
+  padding: var(--space-4);
+  cursor: pointer;
+  color: var(--fg-3);
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.dropzone:hover { border-color: var(--fg); color: var(--fg-2); }
+.dropzone.is-dragging { border-color: var(--accent); border-style: solid; background: var(--accent-soft); color: var(--accent); }
+.dropzone.has-value { border-style: solid; border-color: var(--fg); background: var(--bg); padding: var(--space-2); }
+.dropzone .dz-hint { font-family: var(--font-sans); font-size: var(--size-14); }
+
+/* ----- Step progress (workbench) --------------------------------- */
+.steps { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-5); }
+.steps .step { display: flex; align-items: center; gap: var(--space-2); }
+.steps .step .dot {
+  width: 22px; height: 22px; border-radius: var(--radius-full);
+  border: 1px solid var(--fg-3); display: grid; place-items: center;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--fg-3);
+  flex-shrink: 0;
+}
+.steps .step .lbl { font-family: var(--font-sans); font-size: var(--size-12); color: var(--fg-3); white-space: nowrap; }
+.steps .step.active .dot { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.steps .step.active .lbl { color: var(--fg); font-weight: 600; }
+.steps .step.done .dot { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.steps .step.done .lbl { color: var(--fg-2); }
+.steps .bar { flex: 1; height: 1px; background: var(--border-hairline); min-width: var(--space-4); }
+
+/* ----- Section header -------------------------------------------- */
+.section { margin-top: var(--space-6); }
+.section-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--space-4); margin-bottom: var(--space-4);
+}
+
+/* ----- Empty / loading state ------------------------------------- */
+.empty {
+  border: 1px dashed var(--fg-3); border-radius: var(--radius-md);
+  padding: var(--space-7) var(--space-5); text-align: center;
+  color: var(--fg-3); display: flex; flex-direction: column;
+  align-items: center; gap: var(--space-3);
+}
+
+/* ----- Inline status row (spinner + label) ----------------------- */
+.status-row { display: flex; align-items: center; gap: var(--space-3); color: var(--fg-2); font-size: var(--size-14); }
+
+/* ----- Stack utility (vertical rhythm) --------------------------- */
+.stack { display: flex; flex-direction: column; gap: var(--space-4); }
+.stack-sm { display: flex; flex-direction: column; gap: var(--space-2); }
+.actions-row { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+
+/* ----- Swatch ---------------------------------------------------- */
+.swatch {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  font-family: var(--font-mono); font-size: var(--size-12); color: var(--fg-2);
+}
+.swatch .chip { width: 16px; height: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-hairline); flex-shrink: 0; }
+
+/* ----- Responsive ------------------------------------------------ */
+@media (max-width: 720px) {
+  body { overflow: auto; }
+  .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; min-height: 100vh; }
+  .rail { flex-direction: row; flex-wrap: wrap; align-items: center; border-right: none; border-bottom: 1px solid var(--fg); gap: var(--space-4); }
+  .rail .nav-section { flex-direction: row; }
+  .rail .footer { margin-top: 0; margin-left: auto; }
+  .canvas { padding: var(--space-5) var(--space-4); }
+  .brand-panel { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

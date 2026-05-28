@@ -1,13 +1,51 @@
 import { useReducer, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { MeasuredSiteData } from "@bya/shared";
-import { reducer, initialState } from "./state";
+import { reducer, initialState, type Stage, type WorkbenchState, type Action } from "./state";
+import type { Dispatch } from "react";
 import { Dropzone } from "./Dropzone";
 import { brandName, positioningLine, accentColor } from "./brandChip";
 import { api, ApiError } from "../api/client";
+import { IconDownload } from "../ui/icons";
 
 function message(e: unknown): string {
   return e instanceof ApiError ? e.message : "Something went wrong.";
+}
+
+const STEP_LABELS = ["Analyze brand", "Add assets", "Generate"] as const;
+
+function stepStates(stage: Stage): ("done" | "active" | "")[] {
+  switch (stage) {
+    case "idle":
+    case "analyzing":
+      return ["active", "", ""];
+    case "pick-ref":
+      return ["done", "active", ""];
+    case "generating":
+      return ["done", "done", "active"];
+    case "ready":
+      return ["done", "done", "done"];
+    default:
+      return ["", "", ""];
+  }
+}
+
+function Stepper({ stage }: { stage: Stage }) {
+  if (stage === "error") return null;
+  const states = stepStates(stage);
+  return (
+    <nav className="steps" aria-label="Progress">
+      {STEP_LABELS.map((label, i) => (
+        <div className="step-wrap" key={label} style={{ display: "contents" }}>
+          <div className={`step ${states[i]}`}>
+            <span className="dot">{states[i] === "done" ? "✓" : i + 1}</span>
+            <span className="lbl">{label}</span>
+          </div>
+          {i < STEP_LABELS.length - 1 && <span className="bar" />}
+        </div>
+      ))}
+    </nav>
+  );
 }
 
 export default function Workbench() {
@@ -70,124 +108,182 @@ export default function Workbench() {
 
   const { stage } = state;
 
-  if (stage === "idle") {
-    return (
+  return (
+    <div style={{ maxWidth: 760 }}>
+      <Stepper stage={stage} />
+
+      {stage === "idle" && (
+        <div className="stage active">
+          <div className="stage-head">
+            <div className="left">
+              <span className="num">1</span>
+              <div>
+                <div className="title">Make an ad</div>
+                <div className="sub">Paste your website — we'll read your brand automatically.</div>
+              </div>
+            </div>
+          </div>
+          <div className="stage-body">
+            <div className="field">
+              <label htmlFor="site-url">Website URL</label>
+              <input
+                id="site-url"
+                className="input"
+                type="url"
+                inputMode="url"
+                placeholder="https://yoursite.com"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && urlInput.trim()) runAnalyze(urlInput.trim()); }}
+              />
+              <span className="hint">We read colors, fonts, logos and copy straight from the page.</span>
+            </div>
+            <button
+              className="btn primary"
+              disabled={!urlInput.trim()}
+              onClick={() => runAnalyze(urlInput.trim())}
+            >
+              Analyze brand
+            </button>
+          </div>
+        </div>
+      )}
+
+      {stage === "analyzing" && (
+        <div className="stage active">
+          <div className="stage-body">
+            <div className="status-row">
+              <span className="spinner" />
+              Reading {hostnameOf(state.url)}…
+            </div>
+          </div>
+        </div>
+      )}
+
+      {stage === "pick-ref" && (
+        <PickRef state={state} dispatch={dispatch} onGenerate={runGenerate} />
+      )}
+
+      {stage === "generating" && (
+        <div className="stage active">
+          <div className="stage-body">
+            <div className="status-row">
+              <span className="spinner" />
+              Generating your ad…
+            </div>
+          </div>
+        </div>
+      )}
+
+      {stage === "ready" && (
+        <div className="stage done">
+          <div className="stage-head">
+            <div className="left">
+              <span className="num">✓</span>
+              <div>
+                <div className="title">Your ad is ready</div>
+                <div className="sub">Download it, or start over to make another.</div>
+              </div>
+            </div>
+          </div>
+          <div className="stage-body">
+            <img src={state.imageUrl ?? ""} alt="Generated ad" style={{ maxWidth: "100%", borderRadius: "var(--radius-md)", border: "1px solid var(--border-hairline)" }} />
+            <div className="actions-row" style={{ marginTop: "var(--space-4)" }}>
+              <a href={state.imageUrl ?? ""} download className="btn primary">
+                <IconDownload className="ico" width={14} height={14} />
+                Download
+              </a>
+              <button className="btn" onClick={() => dispatch({ type: "RESET" })}>
+                Start over
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {stage === "error" && (
+        <div className="stage">
+          <div className="stage-body">
+            <span className="badge error" style={{ marginBottom: "var(--space-3)" }}>Error</span>
+            <p style={{ color: "var(--bya-oxblood)", margin: "0 0 var(--space-4)" }}>{state.error}</p>
+            <button className="btn" onClick={() => dispatch({ type: "RETRY" })}>
+              Try again
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function hostnameOf(url: string): string {
+  try { return new URL(url).hostname; } catch { return url; }
+}
+
+function PickRef({ state, dispatch, onGenerate }: { state: WorkbenchState; dispatch: Dispatch<Action>; onGenerate: () => void }) {
+  const be = state.brandExtraction;
+  const msd = state.measuredSiteData;
+  const accent = accentColor(be, msd);
+  const positioning = positioningLine(be);
+
+  return (
+    <div className="stack">
       <div className="stage">
-        <h1>Make an ad</h1>
-        <div className="field">
-          <label>Website URL</label>
-          <input
-            className="input"
-            type="url"
-            placeholder="https://yoursite.com"
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
+        <div className="stage-head">
+          <div className="left">
+            <span className="num">✓</span>
+            <div>
+              <div className="title">{brandName(be)}</div>
+              {positioning && <div className="sub">{positioning}</div>}
+            </div>
+          </div>
+          {accent && (
+            <span className="swatch">
+              <span className="chip" style={{ background: accent }} />
+              {accent}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="stage active">
+        <div className="stage-head">
+          <div className="left">
+            <span className="num">2</span>
+            <div>
+              <div className="title">Add your assets</div>
+              <div className="sub">A reference ad and your logo are required. A product image is optional.</div>
+            </div>
+          </div>
+        </div>
+        <div className="stage-body stack">
+          <Dropzone
+            label="Reference ad"
+            required
+            value={state.refImage}
+            onPick={(d) => dispatch({ type: "SET_REF", dataUrl: d })}
           />
-        </div>
-        <button
-          className="btn primary"
-          disabled={!urlInput.trim()}
-          onClick={() => runAnalyze(urlInput.trim())}
-        >
-          Analyze brand
-        </button>
-      </div>
-    );
-  }
-
-  if (stage === "analyzing") {
-    let hostname = "";
-    try { hostname = new URL(state.url).hostname; } catch { hostname = state.url; }
-    return (
-      <div className="stage">
-        <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--fg-2)", fontSize: 14 }}>
-          <span className="spinner" />
-          Reading {hostname}…
-        </div>
-      </div>
-    );
-  }
-
-  if (stage === "pick-ref") {
-    const be = state.brandExtraction;
-    const msd = state.measuredSiteData;
-    const accent = accentColor(be, msd);
-    return (
-      <div className="stage">
-        <div className="brand-panel" style={{ marginBottom: 20 }}>
-          <strong>{brandName(be)}</strong>
-          {positioningLine(be) && <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--fg-2)" }}>{positioningLine(be)}</p>}
-          <span
-            className="badge"
-            style={{ background: accent, color: "#fff", marginTop: 8, display: "inline-block" }}
+          <Dropzone
+            label="Logo"
+            required
+            height={96}
+            value={state.logoImage}
+            onPick={(d) => dispatch({ type: "SET_LOGO", dataUrl: d })}
+          />
+          <Dropzone
+            label="Product image (optional)"
+            value={state.productAsset}
+            onPick={(d) => dispatch({ type: "SET_PRODUCT", dataUrl: d })}
+          />
+          <button
+            className="btn primary"
+            disabled={!(state.refImage && state.logoImage)}
+            onClick={() => onGenerate()}
           >
-            {accent}
-          </span>
-        </div>
-        <Dropzone
-          label="Reference ad"
-          value={state.refImage}
-          onPick={(d) => dispatch({ type: "SET_REF", dataUrl: d })}
-        />
-        <Dropzone
-          label="Logo"
-          height={96}
-          value={state.logoImage}
-          onPick={(d) => dispatch({ type: "SET_LOGO", dataUrl: d })}
-        />
-        <Dropzone
-          label="Product image (optional)"
-          value={state.productAsset}
-          onPick={(d) => dispatch({ type: "SET_PRODUCT", dataUrl: d })}
-        />
-        <button
-          className="btn primary"
-          disabled={!(state.refImage && state.logoImage)}
-          onClick={() => runGenerate()}
-        >
-          Make my ad
-        </button>
-      </div>
-    );
-  }
-
-  if (stage === "generating") {
-    return (
-      <div className="stage">
-        <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--fg-2)", fontSize: 14 }}>
-          <span className="spinner" />
-          Generating your ad…
-        </div>
-      </div>
-    );
-  }
-
-  if (stage === "ready") {
-    return (
-      <div className="stage">
-        <img src={state.imageUrl ?? ""} alt="Generated ad" style={{ maxWidth: "100%" }} />
-        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          <a href={state.imageUrl ?? ""} download className="btn">
-            Download
-          </a>
-          <button className="btn" onClick={() => dispatch({ type: "RESET" })}>
-            Start over
+            Make my ad
           </button>
         </div>
       </div>
-    );
-  }
-
-  if (stage === "error") {
-    return (
-      <div className="stage">
-        <p style={{ color: "var(--bya-oxblood)" }}>{state.error}</p>
-        <button className="btn" onClick={() => dispatch({ type: "RETRY" })}>
-          Try again
-        </button>
-      </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 }

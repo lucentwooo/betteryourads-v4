@@ -22,35 +22,51 @@ export default function Library() {
   useEffect(() => load(), [load]);
 
   return (
-    <div>
-      <h1>My Ad Library</h1>
-      {loading ? (
-        <p>Loading…</p>
-      ) : error ? (
+    <div className="stack">
+      <div className="section-head" style={{ marginBottom: 0 }}>
+        <h1>Ad library</h1>
+        <Link to="/create" className="btn primary">Make an ad</Link>
+      </div>
+
+      {loading && (
+        <div className="status-row"><span className="spinner" /> Loading your ads…</div>
+      )}
+
+      {!loading && error && (
         <div className="stage">
-          <p style={{ color: "var(--bya-oxblood)" }}>{error}</p>
-          <button className="btn" onClick={() => load()}>Try again</button>
+          <div className="stage-body">
+            <p style={{ color: "var(--bya-oxblood)", margin: "0 0 var(--space-4)" }}>{error}</p>
+            <button className="btn" onClick={() => load()}>Try again</button>
+          </div>
         </div>
-      ) : ads.length === 0 ? (
-        <p>No ads yet — generate one → <Link to="/create">Make an ad</Link></p>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 12, marginTop: 12 }}>
+      )}
+
+      {!loading && !error && ads.length === 0 && (
+        <div className="empty">
+          <p className="lead" style={{ margin: 0 }}>No ads yet</p>
+          <p className="small" style={{ margin: 0 }}>Generate one and it'll show up here.</p>
+          <Link to="/create" className="btn primary" style={{ marginTop: "var(--space-2)" }}>Make an ad</Link>
+        </div>
+      )}
+
+      {!loading && !error && ads.length > 0 && (
+        <div className="lib-grid">
           {ads.map((ad) => (
-            <div key={ad.id}>
+            <div className="lib-card" key={ad.id}>
               {ad.imageUrl ? (
-                <a href={ad.imageUrl} target="_blank" rel="noreferrer">
-                  <img src={ad.imageUrl} alt="Generated ad" style={{ width: "100%", borderRadius: 4 }} />
+                <a className="thumb" href={ad.imageUrl} target="_blank" rel="noreferrer">
+                  <img src={ad.imageUrl} alt="Generated ad" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 </a>
               ) : (
-                <div
-                  role="img"
-                  aria-label="Image unavailable"
-                  style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-2)", color: "var(--fg-2)", fontSize: 12, textAlign: "center", padding: 8 }}
-                >
-                  Image unavailable
+                <div className="thumb">
+                  <span role="img" aria-label="Image unavailable" className="meta" style={{ padding: "var(--space-4)", textAlign: "center" }}>
+                    Image unavailable
+                  </span>
                 </div>
               )}
-              <p style={{ fontSize: 12, color: "var(--fg-2)", marginTop: 4 }}>{ad.createdAt.slice(0, 10)}</p>
+              <div className="meta">
+                <div className="when">{ad.createdAt.slice(0, 10)} · {ad.aspectRatio} · {ad.resolution}</div>
+              </div>
             </div>
           ))}
         </div>
