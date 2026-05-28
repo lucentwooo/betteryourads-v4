@@ -323,10 +323,6 @@ body { background: var(--bg); color: var(--fg); overflow: hidden; }
   outline-offset: 2px;
 }
 
-.ref-lib-thumb.is-selected {
-  outline-color: var(--accent);
-}
-
 .ref-lib-thumb.is-loading {
   opacity: 0.6;
   cursor: wait;
