@@ -9,7 +9,7 @@ const mockUseAuth = vi.mocked(useAuth);
 
 const fakeSupabase = { auth: { signInWithPassword: vi.fn(), signUp: vi.fn(), signInWithOtp: vi.fn(), resetPasswordForEmail: vi.fn(), updateUser: vi.fn() } };
 const value = (status: AuthStatus) =>
-  ({ status, supabase: fakeSupabase, clearRecovery: vi.fn() }) as unknown as ReturnType<typeof useAuth>;
+  ({ status, supabase: fakeSupabase, clearRecovery: vi.fn(), signOut: vi.fn() }) as unknown as ReturnType<typeof useAuth>;
 
 describe("AuthGate", () => {
   beforeEach(() => mockUseAuth.mockReset());
@@ -38,6 +38,15 @@ describe("AuthGate", () => {
     mockUseAuth.mockReturnValue(value("awaiting-approval"));
     render(<AuthGate><div>APP</div></AuthGate>);
     expect(screen.getByText(/on the list/i)).toBeInTheDocument();
+  });
+
+  it("lets an awaiting-approval user sign out", async () => {
+    const v = value("awaiting-approval");
+    mockUseAuth.mockReturnValue(v);
+    render(<AuthGate><div>APP</div></AuthGate>);
+    const button = screen.getByRole("button", { name: /sign out/i });
+    button.click();
+    expect(v.signOut).toHaveBeenCalled();
   });
 
   it("renders children when approved", () => {

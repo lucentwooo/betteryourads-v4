@@ -5,7 +5,7 @@ import { RecoveryView } from "../auth/RecoveryView";
 import { AuthLayout } from "../auth/AuthLayout";
 
 export function AuthGate({ children }: { children: ReactNode }) {
-  const { status, error } = useAuth();
+  const { status, error, signOut } = useAuth();
 
   if (status === "loading") {
     return (
@@ -29,6 +29,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
       <AuthLayout>
         <h2 style={{ marginBottom: "var(--space-3)" }}>You're on the list</h2>
         <p>Your account is awaiting approval. We'll email you when it's ready.</p>
+        <button
+          className="btn"
+          style={{ marginTop: "var(--space-4)" }}
+          onClick={() => void signOut()}
+        >
+          Sign out
+        </button>
       </AuthLayout>
     );
   }
