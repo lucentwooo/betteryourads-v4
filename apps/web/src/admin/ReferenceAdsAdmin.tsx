@@ -36,11 +36,13 @@ export default function ReferenceAdsAdmin() {
     return () => { active = false; };
   }, []);
 
-  const isAdmin = !email || email.toLowerCase() === ADMIN_EMAIL;
+  // Block only once auth has resolved to a non-admin email; an unresolved (null) email is
+  // allowed through, matching AdminDashboard (the route is admin-gated server-side too).
+  const blocked = email != null && email.toLowerCase() !== ADMIN_EMAIL;
   useEffect(() => {
-    if (!isAdmin) return;
+    if (blocked) return;
     return load(activeTab);
-  }, [isAdmin, load, activeTab]);
+  }, [blocked, load, activeTab]);
 
   function handleTabChange(variant: ReferenceAdVariant) {
     if (variant === activeTab) return;
@@ -87,7 +89,7 @@ export default function ReferenceAdsAdmin() {
     setAdState((prev) => { const next = { ...prev }; delete next[id]; return next; });
   }
 
-  if (!isAdmin) {
+  if (blocked) {
     return (
       <div className="empty">
         <p className="lead" style={{ margin: 0 }}>Not authorized</p>
