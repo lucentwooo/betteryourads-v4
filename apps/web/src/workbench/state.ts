@@ -1,6 +1,13 @@
-import type { MeasuredSiteData, BrandExtraction, AdPrompt } from "@bya/shared";
+import type { MeasuredSiteData, BrandExtraction, ConceptSet } from "@bya/shared";
+import type { BatchItemView } from "../api/client";
 
-export type Stage = "idle" | "analyzing" | "pick-ref" | "generating" | "ready" | "error";
+export type Stage =
+  | "idle" | "analyzing"
+  | "concepts-loading" | "pick-concepts" | "pick-assets" | "batch-running" | "batch-done"
+  | "error";
+
+export type AssetSlot = "ref" | "logo" | "product";
+export type ConceptAssets = { ref?: string; logo?: string; product?: string };
 
 export type WorkbenchState = {
   stage: Stage;
@@ -8,12 +15,11 @@ export type WorkbenchState = {
   measuredSiteData: MeasuredSiteData | null;
   brandExtraction: BrandExtraction | null;
   brandExtractionId: string | null;
-  refImage: string | null;
-  logoImage: string | null;
-  productAsset: string | null;
-  adPrompt: AdPrompt | null;
-  adPromptId: string | null;
-  imageUrl: string | null;
+  conceptSet: ConceptSet | null;
+  selectedIdeaNumbers: number[];
+  assets: Record<number, ConceptAssets>;
+  batchId: string | null;
+  batchItems: BatchItemView[];
   error: string | null;
   errorCode: string | null;
 };
@@ -24,12 +30,11 @@ export const initialState: WorkbenchState = {
   measuredSiteData: null,
   brandExtraction: null,
   brandExtractionId: null,
-  refImage: null,
-  logoImage: null,
-  productAsset: null,
-  adPrompt: null,
-  adPromptId: null,
-  imageUrl: null,
+  conceptSet: null,
+  selectedIdeaNumbers: [],
+  assets: {},
+  batchId: null,
+  batchItems: [],
   error: null,
   errorCode: null,
 };
@@ -37,13 +42,17 @@ export const initialState: WorkbenchState = {
 export type Action =
   | { type: "START"; url: string }
   | { type: "ANALYZED"; measuredSiteData: MeasuredSiteData; brandExtraction: BrandExtraction; brandExtractionId: string }
-  | { type: "SET_REF"; dataUrl: string | null }
-  | { type: "SET_LOGO"; dataUrl: string | null }
-  | { type: "SET_PRODUCT"; dataUrl: string | null }
-  | { type: "GENERATE" }
-  | { type: "GENERATED"; adPrompt: AdPrompt; adPromptId: string; imageUrl: string }
-  | { type: "FAILED"; message: string; code?: string }
   | { type: "PRESET_BRAND"; brandExtraction: BrandExtraction; brandExtractionId: string; measuredSiteData: MeasuredSiteData | null; url?: string }
+  | { type: "CONCEPTS_READY"; conceptSet: ConceptSet }
+  | { type: "TOGGLE_CONCEPT"; ideaNumber: number }
+  | { type: "PROCEED_ASSETS" }
+  | { type: "BACK_TO_CONCEPTS" }
+  | { type: "SET_ASSET"; ideaNumber: number; slot: AssetSlot; dataUrl: string | null }
+  | { type: "COPY_ASSETS_TO_ALL"; ideaNumber: number }
+  | { type: "BATCH_STARTED"; batchId: string }
+  | { type: "BATCH_UPDATED"; items: BatchItemView[] }
+  | { type: "BATCH_DONE"; items: BatchItemView[] }
+  | { type: "FAILED"; message: string; code?: string }
   | { type: "RETRY" }
   | { type: "RESET" };
 
@@ -52,26 +61,47 @@ export function reducer(state: WorkbenchState, action: Action): WorkbenchState {
     case "START":
       return { ...initialState, stage: "analyzing", url: action.url };
     case "ANALYZED":
-      return { ...state, stage: "pick-ref", measuredSiteData: action.measuredSiteData, brandExtraction: action.brandExtraction, brandExtractionId: action.brandExtractionId };
-    case "SET_REF":
-      return { ...state, refImage: action.dataUrl };
-    case "SET_LOGO":
-      return { ...state, logoImage: action.dataUrl };
-    case "SET_PRODUCT":
-      return { ...state, productAsset: action.dataUrl };
-    case "GENERATE":
-      return { ...state, stage: "generating", error: null, errorCode: null };
-    case "GENERATED":
-      return { ...state, stage: "ready", adPrompt: action.adPrompt, adPromptId: action.adPromptId, imageUrl: action.imageUrl };
+      return { ...state, stage: "concepts-loading", measuredSiteData: action.measuredSiteData, brandExtraction: action.brandExtraction, brandExtractionId: action.brandExtractionId };
+    case "PRESET_BRAND":
+      return { ...initialState, stage: "concepts-loading", brandExtraction: action.brandExtraction, brandExtractionId: action.brandExtractionId, measuredSiteData: action.measuredSiteData, url: action.url ?? "" };
+    case "CONCEPTS_READY":
+      return { ...state, stage: "pick-concepts", conceptSet: action.conceptSet };
+    case "TOGGLE_CONCEPT": {
+      const has = state.selectedIdeaNumbers.includes(action.ideaNumber);
+      return {
+        ...state,
+        selectedIdeaNumbers: has
+          ? state.selectedIdeaNumbers.filter((n) => n !== action.ideaNumber)
+          : [...state.selectedIdeaNumbers, action.ideaNumber],
+      };
+    }
+    case "PROCEED_ASSETS":
+      return { ...state, stage: "pick-assets" };
+    case "BACK_TO_CONCEPTS":
+      return { ...state, stage: "pick-concepts" };
+    case "SET_ASSET":
+      return {
+        ...state,
+        assets: { ...state.assets, [action.ideaNumber]: { ...state.assets[action.ideaNumber], [action.slot]: action.dataUrl ?? undefined } },
+      };
+    case "COPY_ASSETS_TO_ALL": {
+      const src = state.assets[action.ideaNumber];
+      if (!src) return state;
+      const next: Record<number, ConceptAssets> = {};
+      for (const n of state.selectedIdeaNumbers) next[n] = { ...src };
+      return { ...state, assets: { ...state.assets, ...next } };
+    }
+    case "BATCH_STARTED":
+      return { ...state, stage: "batch-running", batchId: action.batchId, error: null, errorCode: null };
+    case "BATCH_UPDATED":
+      return { ...state, batchItems: action.items };
+    case "BATCH_DONE":
+      return { ...state, stage: "batch-done", batchItems: action.items };
     case "FAILED":
       return { ...state, stage: "error", error: action.message, errorCode: action.code ?? null };
-    case "PRESET_BRAND":
-      return { ...initialState, stage: "pick-ref", brandExtraction: action.brandExtraction, brandExtractionId: action.brandExtractionId, measuredSiteData: action.measuredSiteData, url: action.url ?? "" };
     case "RETRY":
-      // Analysis succeeded (we have brandExtraction) → keep inputs, return to pick-ref.
-      // Otherwise the failure was during analysis → full reset.
-      return state.brandExtraction
-        ? { ...state, stage: "pick-ref", error: null, errorCode: null }
+      return state.conceptSet
+        ? { ...state, stage: "pick-concepts", error: null, errorCode: null }
         : initialState;
     case "RESET":
       return initialState;
