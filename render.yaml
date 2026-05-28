@@ -15,6 +15,8 @@ services:
         value: deepseek/deepseek-v4-flash
       - key: STAGE2_MODEL
         value: google/gemini-2.5-flash
+      - key: STAGE3_MODEL
+        value: deepseek/deepseek-v4-flash
       - key: KIE_IMAGE_MODEL
         value: gpt-image-2-image-to-image
       - key: KIE_IMAGE_RESOLUTION
