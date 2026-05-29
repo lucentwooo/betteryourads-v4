@@ -1,4 +1,8 @@
-import { NavLink, Link, Outlet, useLocation } from "react-router-dom";
+"use client";
+
+import type { ReactNode } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useAuth } from "../auth/useAuth";
 import { IconHome, IconSparkle, IconGrid, IconUsers } from "../ui/icons";
 
@@ -23,16 +27,21 @@ function initial(email: string | null): string {
   return email?.trim()?.[0]?.toUpperCase() ?? "?";
 }
 
-export function AppShell() {
+function isActive(pathname: string, to: string, end: boolean): boolean {
+  if (end) return pathname === to;
+  return pathname === to || pathname.startsWith(`${to}/`);
+}
+
+export function AppShell({ children }: { children: ReactNode }) {
   const { email, signOut } = useAuth();
-  const { pathname } = useLocation();
+  const pathname = usePathname() ?? "/";
   const current = CRUMBS[pathname] ?? "Make an ad";
   const isAdmin = email?.toLowerCase() === ADMIN_EMAIL;
 
   return (
     <div className="app">
       <nav className="rail" aria-label="Primary">
-        <Link className="brand" to="/">
+        <Link className="brand" href="/">
           <svg className="mark" viewBox="0 0 28 28" aria-hidden="true">
             <rect x="1" y="1" width="26" height="26" rx="6" fill="var(--fg)" />
             <path d="M8 19 14 8l6 11" stroke="var(--bg)" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
@@ -44,29 +53,24 @@ export function AppShell() {
         <div className="nav-section">
           <h6>Workspace</h6>
           {NAV.map(({ to, label, Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
-            >
+            <Link key={to} href={to} className={`nav-item${isActive(pathname, to, end) ? " active" : ""}`}>
               <Icon />
               <span>{label}</span>
-            </NavLink>
+            </Link>
           ))}
         </div>
 
         {isAdmin && (
           <div className="nav-section">
             <h6>Admin</h6>
-            <NavLink to="/admin" end className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
+            <Link href="/admin" className={`nav-item${isActive(pathname, "/admin", true) ? " active" : ""}`}>
               <IconUsers />
               <span>Accounts</span>
-            </NavLink>
-            <NavLink to="/admin/reference-ads" className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
+            </Link>
+            <Link href="/admin/reference-ads" className={`nav-item${isActive(pathname, "/admin/reference-ads", false) ? " active" : ""}`}>
               <IconGrid />
               <span>Reference ads</span>
-            </NavLink>
+            </Link>
           </div>
         )}
 
@@ -94,9 +98,7 @@ export function AppShell() {
             <span className="meta">{email ?? ""}</span>
           </div>
         </header>
-        <div className="canvas">
-          <Outlet />
-        </div>
+        <div className="canvas">{children}</div>
       </div>
     </div>
   );
