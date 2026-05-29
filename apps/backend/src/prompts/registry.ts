@@ -1,9 +1,11 @@
-import type { MeasuredSiteData, BrandExtraction } from "@bya/shared";
+import type { MeasuredSiteData, BrandExtraction, Goal } from "@bya/shared";
+import { GOAL_LABEL, GOAL_FOCUS } from "@bya/shared";
 import { EXTRACT_BRAND_DNA_V3 } from "./extract-brand-dna.v3.js";
 import { IMAGE_GENERATOR_V4_NO_ASSET } from "./image-generator.v4-no-asset.js";
 import { IMAGE_GENERATOR_V4_W_ASSET } from "./image-generator.v4-w-asset.js";
 import type { ContentPart } from "../services/openrouter.js";
 import { AD_CONCEPTS_V1 } from "./ad-concepts.v1.js";
+import { buildConceptBoardPrompt } from "./concept-board.v1.js";
 
 /** Ground the v3 system prompt with the authoritative measured site data (ported from legacy buildGroundedPrompt). */
 export function buildStage1Prompt(url: string, measured: MeasuredSiteData): string {
@@ -122,4 +124,40 @@ export function buildConceptContent(brandExtraction: BrandExtraction): string {
     "\n\n=== BRAND_DNA_JSON (source of truth) ===\n" +
     JSON.stringify(brandExtraction, null, 2)
   );
+}
+
+/** Stage-3 (concept board) user message: legacy-prompt approach, grounded in analysis facts. */
+export function buildConceptBoardContent(analysis: BrandExtraction, goal: Goal): string {
+  // BrandExtraction uses .passthrough() so legacy fields exist at runtime; access via the index signature.
+  const raw = analysis as Record<string, unknown>;
+  const proof = isObj(raw.proof_library) ? raw.proof_library : {};
+  const claims = isObj(raw.claim_constraints) ? raw.claim_constraints : {};
+  const sac = isObj(raw.static_ad_creative_recommendations) ? raw.static_ad_creative_recommendations : {};
+  const facts = {
+    customer_voice: raw.external_voc || "none collected",
+    customer_dna: raw.customer_dna_from_website || {},
+    messaging: raw.messaging_foundation || {},
+    proof: {
+      safe_ad_proof_points: toArr(proof.safe_ad_proof_points),
+      testimonials: toArr(proof.testimonials),
+      roi_claims: toArr(proof.roi_claims),
+      case_study_metrics: toArr(proof.case_study_metrics),
+    },
+    competitors: raw.competitor_intelligence || {},
+    claim_constraints: {
+      allowed: toArr(claims.allowed_claims),
+      forbidden: toArr(claims.forbidden_claims),
+      requires_proof: toArr(claims.claims_requiring_proof),
+    },
+    existing_seeds: toArr(sac.ad_concepts),
+  };
+  return buildConceptBoardPrompt({ goalLabel: GOAL_LABEL[goal], focus: GOAL_FOCUS[goal], facts });
+}
+
+function isObj(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+function toArr(v: unknown): unknown[] {
+  return Array.isArray(v) ? v : [];
 }
