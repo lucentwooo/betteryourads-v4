@@ -1,55 +1,44 @@
-import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+"use client";
+
+import Link from "next/link";
 import type { AdSummary } from "@bya/shared";
-import { api, ApiError } from "../api/client";
+import { useResource } from "../data/cache";
 
 export default function Library() {
-  const [ads, setAds] = useState<AdSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(() => {
-    let active = true;
-    setLoading(true);
-    setError(null);
-    api.getAds()
-      .then((a) => { if (active) setAds(a); })
-      .catch((e) => { if (active) setError(e instanceof ApiError ? e.message : "Could not load your ads."); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, []);
-
-  useEffect(() => load(), [load]);
+  const { data, status, error, refresh } = useResource<AdSummary[]>("ads");
+  const ads = data ?? [];
+  const loading = data === null && (status === "loading" || status === "idle");
+  const showError = data === null && status === "error";
 
   return (
     <div className="stack">
       <div className="section-head" style={{ marginBottom: 0 }}>
         <h1>Ad library</h1>
-        <Link to="/create" className="btn primary">Make an ad</Link>
+        <Link href="/create" className="btn primary">Make an ad</Link>
       </div>
 
       {loading && (
         <div className="status-row"><span className="spinner" /> Loading your ads…</div>
       )}
 
-      {!loading && error && (
+      {showError && (
         <div className="stage">
           <div className="stage-body">
-            <p style={{ color: "var(--bya-oxblood)", margin: "0 0 var(--space-4)" }}>{error}</p>
-            <button className="btn" onClick={() => load()}>Try again</button>
+            <p style={{ color: "var(--bya-oxblood)", margin: "0 0 var(--space-4)" }}>{error ?? "Could not load your ads."}</p>
+            <button className="btn" onClick={() => refresh()}>Try again</button>
           </div>
         </div>
       )}
 
-      {!loading && !error && ads.length === 0 && (
+      {!loading && !showError && ads.length === 0 && (
         <div className="empty">
           <p className="lead" style={{ margin: 0 }}>No ads yet</p>
           <p className="small" style={{ margin: 0 }}>Generate one and it'll show up here.</p>
-          <Link to="/create" className="btn primary" style={{ marginTop: "var(--space-2)" }}>Make an ad</Link>
+          <Link href="/create" className="btn primary" style={{ marginTop: "var(--space-2)" }}>Make an ad</Link>
         </div>
       )}
 
-      {!loading && !error && ads.length > 0 && (
+      {!loading && !showError && ads.length > 0 && (
         <div className="lib-grid">
           {ads.map((ad) => (
             <div className="lib-card" key={ad.id}>
