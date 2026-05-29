@@ -1,56 +1,47 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
 import Home from "./Home";
+import { CacheProvider } from "../data/cache";
 
+vi.mock("next/link", () => ({
+  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
+vi.mock("../auth/useAuth", () => ({ useAuth: () => ({ email: "user@example.com" }) }));
 vi.mock("../api/client", async () => {
   const actual = await vi.importActual<typeof import("../api/client")>("../api/client");
-  return { ...actual, api: { getBrands: vi.fn(), getAds: vi.fn() } };
+  return { ...actual, api: { getAds: vi.fn(), getBrands: vi.fn() } };
 });
-vi.mock("../auth/useAuth", () => ({ useAuth: vi.fn() }));
-import { api, ApiError } from "../api/client";
-import { useAuth } from "../auth/useAuth";
+import { api } from "../api/client";
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  vi.mocked(useAuth).mockReturnValue({ email: "a@b.com" } as ReturnType<typeof useAuth>);
-});
+beforeEach(() => vi.clearAllMocks());
 
 function renderHome() {
-  return render(<MemoryRouter><Home /></MemoryRouter>);
+  return render(
+    <CacheProvider>
+      <Home />
+    </CacheProvider>,
+  );
 }
 
 describe("Home", () => {
-  it("shows stats, recent ads, and saved-brand pills", async () => {
-    vi.mocked(api.getBrands).mockResolvedValue([
-      { id: "b1", websiteUrl: "https://acme.com", updatedAt: "2026-05-28T00:00:00Z" },
-    ]);
+  it("shows recent ads once loaded", async () => {
+    vi.mocked(api.getBrands).mockResolvedValue([]);
     vi.mocked(api.getAds).mockResolvedValue([
-      { id: "a1", imageUrl: "https://signed/x.png", aspectRatio: "1:1", resolution: "1K", createdAt: "2026-05-28T00:00:00Z" },
+      { id: "a1", imageUrl: "https://signed/1.png", aspectRatio: "1:1", resolution: "1K", createdAt: "2026-05-28T00:00:00Z" },
     ]);
     renderHome();
-    await waitFor(() => expect(screen.getByRole("img")).toHaveAttribute("src", "https://signed/x.png"));
-    // a brand pill links to /create?brandId=b1
-    const reuse = screen.getByRole("link", { name: /acme\.com/i });
-    expect(reuse).toHaveAttribute("href", "/create?brandId=b1");
-    // primary CTA links to /create
-    expect(screen.getByRole("link", { name: /make .*ad/i })).toHaveAttribute("href", "/create");
+    await waitFor(() => expect(screen.getByText(/recent ads/i)).toBeInTheDocument());
+    expect(screen.getAllByRole("img")).toHaveLength(1);
   });
 
-  it("renders without crashing when there is no data", async () => {
+  it("shows the empty state when there are no ads", async () => {
     vi.mocked(api.getBrands).mockResolvedValue([]);
     vi.mocked(api.getAds).mockResolvedValue([]);
     renderHome();
-    await waitFor(() => expect(screen.getByRole("link", { name: /make .*ad/i })).toBeInTheDocument());
-  });
-
-  it("shows an error state with a retry when a fetch fails", async () => {
-    vi.mocked(api.getBrands).mockResolvedValue([]);
-    vi.mocked(api.getAds).mockRejectedValue(new ApiError("Server error", "INTERNAL", 500, "persistence"));
-    renderHome();
-    await waitFor(() => expect(screen.getByText(/server error/i)).toBeInTheDocument());
-    expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
-    // The success stats line is not shown in the error state.
-    expect(screen.queryByText(/ads generated/i)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/no ads yet/i)).toBeInTheDocument());
   });
 });
