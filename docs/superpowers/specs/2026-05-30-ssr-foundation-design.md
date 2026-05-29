@@ -1,19 +1,20 @@
-# Spec #1 — SSR Foundation
+# Spec #1 — SSR Foundation (Next.js)
 
 **Date:** 2026-05-30
 **Branch:** `worktree/refactor/massive-refactor`
 **Part of:** [SSR Refactor Program Roadmap](./2026-05-30-ssr-refactor-roadmap.md)
-**Status:** Design approved; ready for implementation plan.
+**Status:** Design approved (framework switched to Next.js); ready for implementation plan.
 
 ## Goal
 
-Convert `apps/web` from a client-only Vite SPA into a **server-side-rendered app shell** that
+Rebuild `apps/web` as a **Next.js (App Router)** app that server-renders the app shell and
 hydrates on the client, and introduce a **client-side stale-while-revalidate data cache** so
 pages render instantly from cache (the legacy "instant my ads" feel) instead of showing a
 spinner on every mount.
 
-This spec is the foundation the rest of the program builds on. It deliberately changes as
-little product behavior as possible — it is plumbing, plus Home + Library as the proof.
+This spec is the foundation the rest of the program builds on. It changes as little product
+behavior as possible — it is the Next.js scaffold + the data cache, with Home + Library as the
+proof.
 
 ## Non-goals (handled by later specs)
 
@@ -22,148 +23,150 @@ little product behavior as possible — it is plumbing, plus Home + Library as t
 - No auth/signup/admin changes (Spec #4).
 - No quotas / per-brand filtering / per-brand logo (Spec #5).
 - No reference-ads or file cleanup (Spec #6).
-- **No backend changes at all.** Auth stays Bearer-token; the SSR server never calls `/api`.
+- **No backend changes at all.** Auth stays Bearer-token; Next never reads the Supabase session
+  on the server.
 
 ## Architecture
 
 ### Topology
 
 ```
-                 ┌─────────────────────────────────────────┐
-  browser  ─────▶│ apps/web  server.ts (Express)            │
-                 │   • GET *  → SSR: renderToString(<Document/>)
-                 │   • /api/* → proxy ──────────────┐       │
-                 │   • /assets, client bundle (prod) │       │
-                 └───────────────────────────────────┼───────┘
-                                                      ▼
-                                          apps/backend (unchanged API)
-  browser  ─── /api/* (Bearer token, client-side) ──▶ apps/backend
+                 ┌──────────────────────────────────────────────┐
+  browser  ─────▶│ apps/web  (Next.js, App Router)               │
+                 │   • RootLayout + page chrome → SSR shell       │
+                 │   • client components → auth + cached data     │
+                 │   • /api/* → next.config rewrite ────────┐     │
+                 └──────────────────────────────────────────┼─────┘
+                                                             ▼
+                                              apps/backend (unchanged Express API)
+  browser  ─── /api/* (Bearer token, from client) ────────▶ apps/backend
 ```
 
-- The SSR server renders **only the shell** — it has no session, so it renders the
-  logged-out/loading chrome. The browser hydrates, Supabase auth resolves client-side, and
-  the client cache loads data.
-- `/api/*` is proxied through `apps/web`'s server so the browser uses a single origin; the
-  request still carries the Supabase Bearer token exactly as today. Backend untouched.
+- Next renders **only the shell** server-side (it has no session), so it renders the
+  logged-out/loading chrome. The browser hydrates, Supabase auth resolves client-side, and the
+  client cache loads data.
+- `/api/*` is proxied to the backend via a **`next.config` rewrite** so the browser uses a
+  single origin; the request still carries the Supabase Bearer token exactly as today. Backend
+  untouched.
 
-### Rendering pipeline
+### App Router structure
 
-**Document is rendered from React** — there is no static `index.html`.
+Because auth is client-side, the interactive app is a **client subtree** under a server
+RootLayout:
 
-- `src/Document.tsx` — owns `<html><head>…</head><body><div id="root">{children}</div>…</body></html>`,
-  including `<title>`, meta, font links, and the client entry `<script type="module">`.
-- `src/App.tsx` — router-agnostic app body (current routes/shell). Receives no router itself;
-  the entry points wrap it:
-  - server: `<StaticRouter location={url}>` (from `react-router-dom/server`)
-  - client: `<BrowserRouter>`
-- `src/entry-server.tsx` — exports `render(url): string` →
-  `renderToString(<Document><StaticRouter location={url}><App/></StaticRouter></Document>)`.
-- `src/entry-client.tsx` — replaces `main.tsx`:
-  `hydrateRoot(document, <Document><BrowserRouter><App/></BrowserRouter></Document>)`. It
-  must render the **same `Document` tree** the server produced (whole-document hydration),
-  swapping only `StaticRouter`→`BrowserRouter`; the DOM output is identical so hydration
-  matches.
-- `src/main.tsx` — **removed** (replaced by `entry-client.tsx`).
-- `index.html` — **removed** (document comes from React).
+- `app/layout.tsx` — **RootLayout (server)**: owns `<html><head>…</head><body>`, fonts, global
+  CSS import, renders `<Providers>{children}</Providers>`.
+- `app/providers.tsx` — **`"use client"`**: wraps children in `AuthProvider` + `CacheProvider`
+  + the existing `AppShell` (rail/topbar). This is where today's `App.tsx`/`AuthGate`/
+  `AppShell` responsibilities land.
+- `app/page.tsx` — Home (client component for now; reads the cache).
+- `app/library/page.tsx` — Library (client; reads the cache).
+- Routes for `/create`, `/admin`, `/admin/reference-ads` are **stubbed** in this spec (a
+  minimal page that renders the existing component shell) and fully rebuilt in later specs.
+  Spec #1 only needs Home + Library functional as the cache smoke test.
 
-### `server.ts` (new, in `apps/web`)
+### Routing migration (this spec's slice)
 
-One small Express server, two modes:
-
-- **Dev:** create a Vite server in `middlewareMode`. For each request:
-  `ssrLoadModule('/src/entry-server.tsx')` → `render(url)`; inject Vite's HMR client +
-  React-refresh preamble into the rendered `<head>` (the few `<script>`s `transformIndexHtml`
-  used to add). Proxy `/api` to the backend (reuse the existing dev proxy target).
-- **Prod:** serve `dist/client` statically (immutable assets); for document routes import
-  `dist/server/entry-server.js` and stream/`send` the rendered HTML. Proxy `/api`.
-
-`vite.config.ts` updates: add SSR build config (client build + `ssr` build of
-`entry-server`), keep the `/api` proxy for dev, keep vitest config.
-
-`package.json` (`@bya/web`) scripts:
-- `dev` → run `server.ts` (tsx/node) with Vite middleware (replaces `vite`).
-- `build` → `vite build` (client) + `vite build --ssr src/entry-server.tsx` (server).
-- `start` → `NODE_ENV=production node server.ts` (or built server entry).
-- `test` / `build` typecheck unchanged otherwise.
+`react-router-dom` is removed. For the files touched in Spec #1 (AppShell nav, Home, Library):
+- `<Link to>` / `<NavLink>` → `next/link` (`<Link href>`), active state via
+  `usePathname()` from `next/navigation`.
+- `useNavigate()` / `useSearchParams()` → `next/navigation` equivalents.
+- Remaining pages still reference react-router until rebuilt in Spec #3; to keep the build green
+  in the interim, those routes are the stubs above (which don't import react-router). The
+  dependency is fully dropped once no file imports it (verified at the end of Spec #3; if any
+  remains at end of Spec #1 it's only in not-yet-migrated components rendered by stubs — none
+  should be on the Home/Library/shell path).
 
 ### Client data cache (stale-while-revalidate)
 
-A small hand-rolled module — **no new dependency**. Mirrors how legacy boots data once and
-serves from memory while refreshing.
+A small hand-rolled module — **no new dependency** — exposed as a client context. Mirrors how
+legacy boots data once and serves from memory while refreshing.
 
-- `src/data/cache.ts` (new): an in-memory store keyed by resource (`brands`, `ads`, `usage`),
-  each holding `{ data, status: 'idle'|'loading'|'ready'|'error', error }` plus subscribers.
-- Public surface (kept intentionally small — only what Home/Library need this spec):
-  - `useResource<T>(key)` — React hook returning `{ data, status, error, refresh }`. On first
-    use, if `idle`, kicks off a fetch; returns cached `data` immediately on subsequent mounts
-    and triggers a background `refresh` (stale-while-revalidate). Subscribes the component to
-    updates.
-  - `primeAfterAuth()` — called once when auth becomes `approved`, eagerly fetches `brands`
-    and `ads` so the first navigation is instant (the legacy boot-load).
-  - `invalidate(key)` — mark stale / drop, used after mutations in later specs.
-- The cache calls the existing `api.*` functions in `src/api/client.ts` (unchanged). It lives
-  only on the client; on the server `useResource` returns `idle`/empty so SSR renders the
-  loading/empty shell deterministically (no hydration mismatch).
+- `src/data/cache.tsx` (new, `"use client"`): a `CacheProvider` holding an in-memory store
+  keyed by resource (`brands`, `ads`, `usage`), each `{ data, status, error }` with subscribers.
+- Public surface (kept small — only what Home/Library need this spec):
+  - `useResource<T>(key)` → `{ data, status, error, refresh }`. First use (status `idle`) kicks
+    off a fetch; subsequent mounts return cached `data` immediately and trigger a background
+    `refresh` (stale-while-revalidate).
+  - `primeAfterAuth()` — called once when auth becomes `approved`; eagerly fetches `brands` +
+    `ads` so first navigation is instant (the legacy boot-load).
+  - `invalidate(key)` — mark stale / drop; used after mutations in later specs.
+- Calls the existing `api.*` in `src/api/client.ts` (unchanged). Client-only: during SSR the
+  provider renders with empty/`idle` state so the server shell is deterministic (no hydration
+  mismatch).
 
 ### Home & Library (smoke test for the cache)
 
-Rewire `Home.tsx` and `Library.tsx` to read via `useResource('ads')` / `useResource('brands')`
-instead of their local `useState`+`useEffect`+spinner. Behavior change: on a *revisit* (cache
-warm) they render instantly and refresh in the background; first-ever load still shows the
-existing loading state. **No markup/style changes** beyond swapping the data source — visual
-restyle is Spec #3.
+Rewire Home and Library to read via `useResource('ads')` / `useResource('brands')` instead of
+local `useState`+`useEffect`+spinner. Behavior change: a warm revisit renders instantly and
+refreshes in the background; first-ever load still shows the existing loading state. **No
+markup/style changes** beyond swapping the data source and the router imports — visual restyle
+is Spec #3.
 
 ## Files
 
 **Added**
-- `apps/web/server.ts`
-- `apps/web/src/Document.tsx`
-- `apps/web/src/entry-server.tsx`
-- `apps/web/src/entry-client.tsx`
-- `apps/web/src/data/cache.ts` (+ `cache.test.ts`)
+- `apps/web/next.config.js` (or `.mjs`) — App Router config + `/api` rewrite to the backend.
+- `apps/web/app/layout.tsx`, `apps/web/app/providers.tsx`
+- `apps/web/app/page.tsx`, `apps/web/app/library/page.tsx`
+- Stub pages for `app/create/page.tsx`, `app/admin/page.tsx`,
+  `app/admin/reference-ads/page.tsx`
+- `apps/web/src/data/cache.tsx` (+ `cache.test.tsx`)
+- `apps/web/next-env.d.ts` (generated)
 
 **Changed**
-- `apps/web/src/App.tsx` (router-agnostic)
-- `apps/web/vite.config.ts` (SSR build)
-- `apps/web/package.json` (scripts; add `tsx`/server deps if needed — flag before installing)
-- `apps/web/src/home/Home.tsx`, `apps/web/src/library/Library.tsx` (use cache)
+- `apps/web/package.json` — scripts → `next dev` / `next build` / `next start`; deps add
+  `next` (pre-authorized); remove Vite + `react-router-dom` from the dependency set once unused.
+- `apps/web/tsconfig.json` — Next's TS settings (plugin, `moduleResolution`, JSX).
+- `apps/web/src/shell/AppShell.tsx` — migrate nav to `next/link` + `usePathname`.
+- `apps/web/src/home/Home.tsx`, `apps/web/src/library/Library.tsx` — use cache + Next routing.
+- `apps/web/src/auth/*` — `AuthProvider` mounts inside `providers.tsx`; minimal changes to
+  drop react-router coupling if any (no auth-flow change — that's Spec #4).
 
 **Removed**
-- `apps/web/src/main.tsx`
 - `apps/web/index.html`
+- `apps/web/src/main.tsx`, `apps/web/src/App.tsx` (responsibilities move to
+  `app/layout.tsx` + `app/providers.tsx`)
+- `apps/web/vite.config.ts`
+- (react-router-dom dependency — removed when no file imports it)
 
 ## Testing
 
-- Keep all existing vitest suites green.
-- `cache.test.ts`: idle→loading→ready transitions, stale-while-revalidate (returns cached
-  data while refetching), error path, subscriber notifications.
-- SSR smoke test: a test (or script) that imports `entry-server` `render('/')` and asserts the
-  output contains the shell markup and a `<div id="root">`, and that it does **not** throw
-  (no `window`/`document` access during server render).
-- Manual: `npm run dev -w @bya/web` renders + hydrates without console hydration warnings;
-  `/api` proxy reaches the backend; `npm run build -w @bya/web` produces `dist/client` and
-  `dist/server`.
+- Keep existing vitest suites green where components are unchanged; update tests for AppShell/
+  Home/Library to the new routing + cache (mock `next/navigation`).
+- `cache.test.tsx`: idle→loading→ready transitions, stale-while-revalidate (cached data while
+  refetching), error path, subscriber notifications.
+- SSR smoke: `next build` succeeds; a check that the rendered Home HTML contains the shell
+  markup (not an empty root) and that the server render does not touch `window`/`document`.
+- Manual (recorded for the final MANUAL-CHECKS.md): `npm run dev -w @bya/web` renders +
+  hydrates with no hydration warnings; `/api` rewrite reaches the backend with the Bearer
+  token; `npm run build -w @bya/web` succeeds.
 
 ## Acceptance criteria
 
-1. `apps/web` renders its shell via SSR (HTML arrives with shell markup, not an empty `<div>`),
-   then hydrates with no hydration mismatch warnings.
-2. No static `index.html`; the document is produced by `Document.tsx`.
-3. `/api/*` still works end-to-end through the `apps/web` server proxy with the existing Bearer
-   token; **`apps/backend` has zero changes**.
+1. `apps/web` runs as a Next.js App Router app; the shell is server-rendered (HTML arrives with
+   shell markup) and hydrates with no hydration-mismatch warnings.
+2. No static `index.html`; the document is produced by `app/layout.tsx`.
+3. `/api/*` works end-to-end through the Next rewrite with the existing Bearer token;
+   **`apps/backend` has zero changes**.
 4. Home and Library read from the client cache: a warm revisit shows data immediately and
    refreshes in the background; no spinner-on-every-mount.
-5. `npm run build -w @bya/web` and `npm test -w @bya/web` pass; existing tests unchanged in
-   intent.
+5. `npm run build -w @bya/web` and `npm test -w @bya/web` pass.
 
 ## Risks / notes
 
-- **Hydration parity:** server must render the same initial state the client hydrates into.
-  Because the cache is client-only and returns empty on the server, both render the
-  loading/empty shell first — parity holds. Keep any `Date`/random/`window` usage out of the
-  server render path (note: `Home.tsx` currently calls `new Date()` for the greeting — guard
-  or compute post-hydration to avoid mismatch).
-- **New dev dependency:** running `server.ts` in dev/prod likely needs `tsx` (or equivalent).
-  That is a dependency decision — flag and confirm before `npm install`.
-- This spec intentionally leaves the app visually as-is; reviewers should expect plumbing, not
-  a new look.
+- **Bigger migration than Vite SSR.** Adopting Next means new build tooling, the `app/`
+  structure, and migrating off `react-router-dom`. Spec #1 contains the blast radius to the
+  shell + Home + Library by stubbing the other routes; full route migration completes in Spec #3.
+- **Monorepo integration.** Next runs inside the npm workspace `@bya/web`; confirm it resolves
+  the `@bya/shared` workspace package (transpile/`transpilePackages` if needed).
+- **Client-only auth in Next.** We deliberately keep auth/data on the client; we are not using
+  server components for data or cookie sessions (a future option, out of scope, noted in the
+  roadmap).
+- **Hydration parity.** Cache returns empty on the server, so server and client both render the
+  loading/empty shell first. Keep `Date`/random/`window` out of the server render path
+  (`Home.tsx`'s `new Date()` greeting must be computed after hydration or guarded).
+- **Dependency cleanup.** Removing Vite/react-router from `package.json` happens only once
+  nothing imports them; until then the build may carry both. Final removal verified in Spec #3.
+- This spec leaves the app visually as-is; reviewers should expect scaffold + plumbing, not a
+  new look.

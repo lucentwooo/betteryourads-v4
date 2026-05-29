@@ -17,23 +17,29 @@ replicates the legacy UI/UX verbatim, and folds in a set of targeted improvement
 
 ## Cross-cutting decisions (apply to every spec)
 
-1. **SSR approach: Vite SSR + Express (manual).** No Next.js / React Router framework mode.
-   We use Vite's SSR build with a hand-written render server.
-2. **SSR depth: shell + cached client data.** The server renders the app *shell/chrome*
-   only. Auth stays client-side (Supabase localStorage, Bearer token). Per-page data is
-   fetched on the **client** through a stale-while-revalidate cache — which is exactly how
-   legacy achieves its "instant my ads" feel. **Backend auth is unchanged.**
-3. **Backend kept.** `apps/backend` stays a pure API service. Pipelines, Playwright, KIE,
-   OpenRouter, Supabase service-role logic, and the brand/ad-prompt prompts are preserved.
-   The one backend area that changes is the **concepts** feature (Spec #2) and admin
-   reference-ads upload shape (Spec #6).
-4. **Document rendered from React.** No static `index.html`; a `Document` component owns
-   `<html><head><body>`. Vite dev HMR scripts are injected by `server.ts` in dev only.
-5. **Client cache is hand-rolled.** No TanStack Query / SWR dependency (consistent with
+1. **SSR framework: Next.js (App Router).** `apps/web` is rebuilt as a Next.js app. This
+   replaces the current Vite SPA tooling and `react-router-dom`.
+2. **SSR depth: shell + cached client data.** Next renders the app *shell/chrome* (root
+   layout + page chrome). Auth stays **client-side** (Supabase localStorage, Bearer token),
+   so the interactive app lives in client components; per-page data is fetched on the
+   **client** through a stale-while-revalidate cache — which is exactly how legacy achieves
+   its "instant my ads" feel. We intentionally do **not** use Next server-component data
+   fetching or cookie sessions. **Backend auth is unchanged.**
+3. **Backend kept.** `apps/backend` stays a pure, separate Express API service. Pipelines,
+   Playwright, KIE, OpenRouter, Supabase service-role logic, and the brand/ad-prompt prompts
+   are preserved. The browser uses one origin: Next proxies `/api/*` to `apps/backend` via
+   `next.config` rewrites. The one backend area that changes is the **concepts** feature
+   (Spec #2) and admin reference-ads upload shape (Spec #6).
+4. **Layout/document owned by Next.** No static `index.html`; Next's `app/layout.tsx`
+   (RootLayout) owns `<html><head><body>`, `<head>`/meta live there.
+5. **Routing via Next.** `react-router-dom` is removed; navigation uses `next/link` and
+   `next/navigation`. Routes migrate to the `app/` directory.
+6. **Client cache is hand-rolled.** No TanStack Query / SWR dependency (consistent with
    CLAUDE.md anti-dependency / anti-over-engineering rules; legacy proves a small store
-   suffices).
-6. **SSR server lives in `apps/web`** (`apps/web/server.ts`), separate from the API backend,
-   and proxies `/api/*` to `apps/backend` so the browser sees one origin.
+   suffices). Implemented as a client-side context provider.
+7. **Next.js is an accepted large dependency.** Chosen explicitly by the owner; it (and its
+   required peers) is the one pre-authorized big add. Any *other* new dependency is still
+   flagged before install per CLAUDE.md.
 
 ## Project constraints (from CLAUDE.md)
 
@@ -51,10 +57,12 @@ Each spec gets its own design doc, implementation plan, and `/code-review` befor
 considered done. Later specs depend on earlier ones as noted.
 
 ### Spec #1 — SSR Foundation *(detailed; companion doc)*
-Stand up Vite SSR: `Document` + `entry-server` + `entry-client`, `server.ts` (dev Vite
-middleware / prod static+SSR), `vite.config` SSR build, package scripts, and the hand-rolled
-client data cache (stale-while-revalidate). Home + Library wired to the cache as the smoke
-test. No restyle, no auth change, no concept work. **Everything else depends on this.**
+Stand up the Next.js (App Router) app in `apps/web`: `app/layout.tsx` (RootLayout owns the
+document), a client `providers` wrapper (auth + cache), `next.config` with the `/api` proxy
+rewrite, package scripts, and the hand-rolled client data cache (stale-while-revalidate).
+Migrate the app shell + Home + Library off `react-router-dom` to Next routing and wire them to
+the cache as the smoke test. No restyle, no auth-flow change, no concept work.
+**Everything else depends on this.**
 
 ### Spec #2 — Concept board (legacy approach)
 Scrap the current `/api/concepts` + `ad-concepts.v1` prompt + concept-driven batch flow.
@@ -84,6 +92,27 @@ brand**, so it isn't re-uploaded on the make-ad page. Depends on #1, #2, #3.
 Admin reference-ads upload becomes **bulk drag-drop, no per-file label** (drop N files → all
 upload). Then **remove all now-unused files** across the project (old concept code, dead SPA
 files, legacy artifacts no longer referenced). Depends on all prior specs.
+
+## Final deliverable — consolidated manual-checks doc
+
+After the **entire program is complete** (all six specs done), produce one markdown file —
+`docs/superpowers/MANUAL-CHECKS.md` — listing every manual step the owner should perform/verify
+that cannot be (or wasn't) automated. **Not per spec — a single doc at the very end.** To make
+it complete, each spec's plan records the manual checks it introduces (in a "Manual checks"
+note); those are aggregated into this one file as the last task of Spec #6.
+
+Expected contents (grows as specs land):
+- **Supabase migrations** to paste into the dashboard SQL Editor, in filename order, with the
+  verifying `information_schema` query for each.
+- **Environment variables** to set/confirm (e.g. `GENERATION_TZ=Australia/Sydney`,
+  `DAILY_GENERATION_LIMIT`, any Next.js env).
+- **Click-through smoke tests**: signup with re-enter password → pending → admin approve;
+  onboarding with the new back button; cog → sign-out popup; concept board → workbench →
+  ship; library instant-load on revisit.
+- **Behavior checks**: 10/day quota enforced and the remaining-count UI; quota reset at AEST
+  midnight; "your brands" shows only that brand's ads vs "my ads" shows all; per-brand logo
+  saved on the board and not re-asked in make-ad; admin bulk drag-drop reference-ads upload.
+- **Cleanup confirmation**: list of removed files; confirm nothing referenced them.
 
 ## Open items deferred to their specs
 
