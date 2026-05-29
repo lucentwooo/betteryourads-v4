@@ -141,6 +141,18 @@ Rules for the unattended run:
   rather than stopping the run.
 - Stay on `worktree/refactor/massive-refactor`; never merge other branches in.
 
+## Implementation note (discovered during execution, 2026-05-30)
+
+Spec #2 and Spec #3 are entangled: the current `Workbench` (rebuilt in #3) consumes the OLD
+concept types (`AdIdea`/`ConceptSet`) and drives `batch` with them, so #2 cannot delete the old
+concept path without breaking the not-yet-rebuilt workbench. **Resolution: Spec #2 is ADDITIVE** —
+it adds the new concept-board backend + board page alongside the old code (new route path
+`/api/concept-board`, board persisted to `ad_concept_sets` with the `ConceptBoard` shape; reads
+`safeParse` so an old-shaped row is treated as a miss → regenerate). **Spec #3 then rewires the
+workbench to the board and DELETES the old concept path** (`routes/concepts.ts`,
+`pipelines/concepts.ts`, `ad-concepts.v1.ts`, `buildConceptContent`, old `ConceptSet`/`AdIdea`).
+The "scrap old concept code" items from Spec #2 move into Spec #3. End state is unchanged.
+
 ## Open items deferred to their specs
 
 - Exact client cache module API surface — finalized in Spec #1.
