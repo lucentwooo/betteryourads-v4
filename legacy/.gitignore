@@ -1,0 +1,6 @@
+node_modules/
+.env
+.superpowers/
+.next/
+apps/
+packages/
