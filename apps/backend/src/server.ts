@@ -10,6 +10,7 @@ import { renderRouter } from "./routes/render.js";
 import { libraryRouter } from "./routes/library.js";
 import { adminRouter } from "./routes/admin.js";
 import { conceptsRouter } from "./routes/concepts.js";
+import { conceptBoardRouter } from "./routes/concept-board.js";
 import { batchRouter } from "./routes/batch.js";
 import { referenceAdsRouter } from "./routes/reference-ads.js";
 
@@ -25,6 +26,7 @@ export function createServer(): Express {
   app.use("/api", libraryRouter);
   app.use("/api", adminRouter);
   app.use("/api", conceptsRouter);
+  app.use("/api", conceptBoardRouter);
   app.use("/api", batchRouter);
   app.use("/api", referenceAdsRouter);
 

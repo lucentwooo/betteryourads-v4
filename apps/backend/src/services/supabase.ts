@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { BrandExtraction, AdPrompt, ConceptSet, type BrandSummary, type AdSummary, type BrandDetail, type AdminUser, type ReferenceAd, type ReferenceAdVariant } from "@bya/shared";
+import { BrandExtraction, AdPrompt, ConceptSet, ConceptBoard, type Goal, type BrandSummary, type AdSummary, type BrandDetail, type AdminUser, type ReferenceAd, type ReferenceAdVariant } from "@bya/shared";
 import { PersistenceError, ValidationError } from "../lib/errors.js";
 
 // Service-role Supabase client + typed persistence. Server-only: this key bypasses RLS,
@@ -372,6 +372,53 @@ export async function getConceptSet(brandExtractionId: string, userId: string): 
   if (error || !data) return null;
   const parsed = ConceptSet.safeParse((data as { concept_set: unknown }).concept_set);
   return parsed.success ? parsed.data : null;
+}
+
+export async function saveConceptBoard(args: {
+  userId: string;
+  brandExtractionId: string;
+  board: ConceptBoard;
+  model: string;
+}): Promise<{ id: string }> {
+  const { data, error } = await admin()
+    .from("ad_concept_sets")
+    .upsert(
+      {
+        user_id: args.userId,
+        brand_extraction_id: args.brandExtractionId,
+        concept_set: args.board,
+        model: args.model,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,brand_extraction_id" },
+    )
+    .select("id")
+    .single();
+  if (error || !data) throw new PersistenceError(`Saving the concept board failed: ${error?.message ?? "no row"}`);
+  return { id: rowId(data) };
+}
+
+export async function getConceptBoard(brandExtractionId: string, userId: string): Promise<ConceptBoard | null> {
+  const { data, error } = await admin()
+    .from("ad_concept_sets")
+    .select("concept_set")
+    .eq("brand_extraction_id", brandExtractionId)
+    .eq("user_id", userId)
+    .single();
+  if (error || !data) return null;
+  const parsed = ConceptBoard.safeParse((data as { concept_set: unknown }).concept_set);
+  return parsed.success ? parsed.data : null;
+}
+
+export async function setBrandGoal(userId: string, brandExtractionId: string, goal: Goal): Promise<void> {
+  const { data, error } = await admin()
+    .from("brand_extractions")
+    .update({ goal })
+    .eq("id", brandExtractionId)
+    .eq("user_id", userId)
+    .select("id");
+  if (error) throw new PersistenceError(`Updating brand goal failed: ${error.message}`);
+  if (!data || data.length === 0) throw new PersistenceError("No brand extraction found for that user.");
 }
 
 export type BatchItemStatus = "queued" | "running" | "done" | "error";

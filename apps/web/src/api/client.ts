@@ -10,6 +10,9 @@ import type {
   BrandDetail,
   AdminUser,
   ConceptSet,
+  Concept,
+  ConceptBoard,
+  Goal,
   AdIdea,
   ReferenceAd,
   ReferenceAdVariant,
@@ -120,6 +123,12 @@ export const api = {
   render: (req: RenderRequest) => request<{ id: string; imageUrl: string }>("/api/render", req),
   concepts: (req: { brandExtraction: BrandExtraction; brandExtractionId: string }) =>
     request<{ id: string; conceptSet: ConceptSet }>("/api/concepts", req),
+  generateConceptBoard: (brandExtractionId: string, goal: Goal) =>
+    request<{ board: ConceptBoard }>("/api/concept-board", { brandExtractionId, goal }),
+  getConceptBoard: (brandId: string) =>
+    request<{ board: ConceptBoard }>(`/api/concept-board/${brandId}`),
+  setBrandGoal: (brandId: string, goal: Goal) =>
+    request<{ ok: true }>(`/api/brand/${brandId}/goal`, { goal }, "PATCH"),
   startBatch: (req: { brandExtractionId: string; brandExtraction: BrandExtraction; items: BatchItemInput[] }) =>
     request<{ batchId: string }>("/api/batch", req),
   getBatch: (batchId: string) => request<BatchView>(`/api/batch/${batchId}`),
