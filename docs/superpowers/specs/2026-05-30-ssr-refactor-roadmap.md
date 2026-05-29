@@ -114,6 +114,33 @@ Expected contents (grows as specs land):
   saved on the board and not re-asked in make-ad; admin bulk drag-drop reference-ads upload.
 - **Cleanup confirmation**: list of removed files; confirm nothing referenced them.
 
+## Execution protocol (overnight, autonomous)
+
+Run the program unattended in spec order, **plan-then-execute per spec** (plans #2–6 are generated
+from their committed specs against the real code the previous spec produced — not pre-written, to
+avoid speculating against files that don't exist yet):
+
+```
+execute Plan #1
+for spec in [2,3,4,5,6]:
+    generate Plan #<spec> from Spec #<spec>   (writing-plans skill)
+    execute it subagent-driven                (subagent-driven-development: fresh subagent/task, two-stage review)
+    run /code-review on the spec's diff        (code-review skill) → fix findings → commit
+finally: write docs/superpowers/MANUAL-CHECKS.md (aggregate per-spec manual-checks)
+```
+
+Rules for the unattended run:
+- **Subagent-driven execution**, committing per task; tests must pass before moving on
+  (verification-before-completion — evidence, not assertions).
+- **`/code-review` after every spec's coding is complete**; address findings before the next spec.
+- **Do NOT apply Supabase migrations** (owner applies by hand) and **do NOT run browser
+  click-through smoke tests** — queue both into `MANUAL-CHECKS.md` instead. A spec whose feature
+  needs an unapplied migration still gets its code + tests written; the live behavior is verified
+  by the owner after applying the SQL.
+- Proceed through tasks **without pausing for approval**; surface blockers in the morning summary
+  rather than stopping the run.
+- Stay on `worktree/refactor/massive-refactor`; never merge other branches in.
+
 ## Open items deferred to their specs
 
 - Exact client cache module API surface — finalized in Spec #1.
