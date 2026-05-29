@@ -46,6 +46,7 @@ What BetterYourAds can do, as of the `dev` branch. Grouped by area; one line per
 
 ## Web frontend (`apps/web`)
 
+- **SSR app shell** — the web app is server-rendered (Next.js App Router) and hydrates on the client; a hand-rolled stale-while-revalidate client cache makes Home/Library render instantly on revisit instead of a spinner per navigation.
 - **Home `/`** — dashboard: user email, saved-brand and ad counts, recent ad thumbnails, quick link to create.
 - **Create `/create`** — 4-step workbench: paste URL (extract + brand) → pick from 5 generated concepts (multi-select, capped at the daily limit) → add a reference ad (upload or pick from a curated library that auto-switches on product-asset presence) / logo / optional product per concept → batch-generate with a live results gallery and per-ad downloads.
 - **Library `/library`** — grid of generated ads with date, aspect ratio, and resolution.
