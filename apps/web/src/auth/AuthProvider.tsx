@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createClient, type SupabaseClient, type Session } from "@supabase/supabase-js";
 import { api, setTokenProvider, ApiError } from "../api/client";

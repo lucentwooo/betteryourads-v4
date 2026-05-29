@@ -1,3 +1,5 @@
+"use client";
+
 import type { ReactNode } from "react";
 import { useAuth } from "../auth/useAuth";
 import { LoginView } from "../auth/LoginView";

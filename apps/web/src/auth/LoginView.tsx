@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, type FormEvent } from "react";
 import { useAuth } from "./useAuth";
 import { AuthLayout } from "./AuthLayout";
