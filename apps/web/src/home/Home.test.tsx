@@ -10,10 +10,12 @@ vi.mock("next/link", () => ({
     </a>
   ),
 }));
-vi.mock("../auth/useAuth", () => ({ useAuth: () => ({ email: "user@example.com" }) }));
+vi.mock("../board/Board", () => ({
+  default: ({ brandId }: { brandId: string }) => <div>board:{brandId}</div>,
+}));
 vi.mock("../api/client", async () => {
   const actual = await vi.importActual<typeof import("../api/client")>("../api/client");
-  return { ...actual, api: { getAds: vi.fn(), getBrands: vi.fn() } };
+  return { ...actual, api: { getBrands: vi.fn(), getAds: vi.fn() } };
 });
 import { api } from "../api/client";
 
@@ -28,20 +30,18 @@ function renderHome() {
 }
 
 describe("Home", () => {
-  it("shows recent ads once loaded", async () => {
-    vi.mocked(api.getBrands).mockResolvedValue([]);
-    vi.mocked(api.getAds).mockResolvedValue([
-      { id: "a1", imageUrl: "https://signed/1.png", aspectRatio: "1:1", resolution: "1K", createdAt: "2026-05-28T00:00:00Z" },
+  it("renders the concept board for the most-recent brand", async () => {
+    vi.mocked(api.getBrands).mockResolvedValue([
+      { id: "b9", websiteUrl: "https://x.com", updatedAt: "2026-05-30" },
+      { id: "b1", websiteUrl: "https://old.com", updatedAt: "2026-01-01" },
     ]);
     renderHome();
-    await waitFor(() => expect(screen.getByText(/recent ads/i)).toBeInTheDocument());
-    expect(screen.getAllByRole("img")).toHaveLength(1);
+    await waitFor(() => expect(screen.getByText("board:b9")).toBeInTheDocument());
   });
 
-  it("shows the empty state when there are no ads", async () => {
+  it("shows the onboarding CTA when there are no brands", async () => {
     vi.mocked(api.getBrands).mockResolvedValue([]);
-    vi.mocked(api.getAds).mockResolvedValue([]);
     renderHome();
-    await waitFor(() => expect(screen.getByText(/no ads yet/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/let's learn your brand/i)).toBeInTheDocument());
   });
 });
