@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { GOAL_LABEL } from "@bya/shared";
 import type { Goal } from "@bya/shared";
 import { api } from "../api/client";
+import { deriveLogoFromUrls } from "../lib/deriveLogo";
 
 type Step = "url" | "analyzing" | "goal";
 
@@ -32,6 +33,11 @@ export default function Onboarding() {
       if (runId !== runIdRef.current) return;
       setBrandId(result.id);
       setStep("goal");
+      // Best-effort: auto-capture the brand logo from the extracted site (legacy parity).
+      const logos = Array.isArray(measuredSiteData.logos) ? measuredSiteData.logos : [];
+      deriveLogoFromUrls(logos)
+        .then((dataUrl) => (dataUrl ? api.saveBrandLogo(result.id, dataUrl) : undefined))
+        .catch(() => {});
     } catch (err) {
       if (runId !== runIdRef.current) return;
       setError(err instanceof Error ? err.message : "Something went wrong.");
