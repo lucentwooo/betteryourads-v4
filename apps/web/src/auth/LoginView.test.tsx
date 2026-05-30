@@ -60,7 +60,8 @@ describe("LoginView", () => {
     // Switch into sign-up mode via the toggle (the submit button still reads "Sign in" here).
     fireEvent.click(screen.getByRole("button", { name: /create account/i }));
     type(/email/i, "a@b.com");
-    type(/password/i, "secret1");
+    type(/^password$/i, "secret1");
+    type(/re-enter password/i, "secret1");
     submitForm(container);
     await waitFor(() =>
       expect(auth.signUp).toHaveBeenCalledWith({
@@ -70,5 +71,41 @@ describe("LoginView", () => {
       })
     );
     await waitFor(() => expect(screen.getByText(/check your email/i)).toBeInTheDocument());
+  });
+
+  it("blocks sign-up and shows mismatch error when passwords differ", async () => {
+    const { container } = render(<LoginView />);
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+    type(/email/i, "a@b.com");
+    type(/^password$/i, "secret1");
+    type(/re-enter password/i, "different");
+    submitForm(container);
+    await waitFor(() => expect(screen.getByText(/passwords don't match/i)).toBeInTheDocument());
+    expect(auth.signUp).not.toHaveBeenCalled();
+  });
+
+  it("sign-in mode does not show the re-enter password field", () => {
+    render(<LoginView />);
+    // Default mode is sign-in
+    expect(screen.queryByLabelText(/re-enter password/i)).not.toBeInTheDocument();
+  });
+
+  it("forgot mode does not show the re-enter password field", () => {
+    render(<LoginView />);
+    fireEvent.click(screen.getByRole("button", { name: /forgot password/i }));
+    expect(screen.queryByLabelText(/re-enter password/i)).not.toBeInTheDocument();
+  });
+
+  it("switching away from sign-up clears the mismatch error", async () => {
+    const { container } = render(<LoginView />);
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+    type(/email/i, "a@b.com");
+    type(/^password$/i, "secret1");
+    type(/re-enter password/i, "different");
+    submitForm(container);
+    await waitFor(() => expect(screen.getByText(/passwords don't match/i)).toBeInTheDocument());
+    // Switch back to sign-in — error should be gone
+    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
+    expect(screen.queryByText(/passwords don't match/i)).not.toBeInTheDocument();
   });
 });

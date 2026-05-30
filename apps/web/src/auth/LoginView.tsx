@@ -18,6 +18,7 @@ export function LoginView() {
   const [mode, setMode] = useState<Mode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<Msg | null>(null);
 
@@ -27,6 +28,7 @@ export function LoginView() {
   function switchMode(next: Mode) {
     setMode(next);
     setMsg(null);
+    setConfirmPassword("");
   }
 
   async function submit(e: FormEvent) {
@@ -40,6 +42,11 @@ export function LoginView() {
         if (error) setMsg({ type: "error", text: error.message });
         // success: onAuthStateChange re-renders the gate
       } else if (mode === "sign-up") {
+        if (password !== confirmPassword) {
+          setMsg({ type: "error", text: "Passwords don't match." });
+          setBusy(false);
+          return;
+        }
         const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: origin } });
         setMsg(error ? { type: "error", text: error.message } : { type: "info", text: "Check your email to verify your account." });
       } else {
@@ -88,7 +95,27 @@ export function LoginView() {
         {showPassword && (
           <label className="field">
             <span>Password</span>
-            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <input
+              id="password"
+              className="input"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </label>
+        )}
+        {mode === "sign-up" && (
+          <label className="field" htmlFor="confirm-password">
+            <span>Re-enter password</span>
+            <input
+              id="confirm-password"
+              className="input"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
           </label>
         )}
         {msg && (
