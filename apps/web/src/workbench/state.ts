@@ -1,22 +1,17 @@
-import type { MeasuredSiteData, BrandExtraction, ConceptSet } from "@bya/shared";
+import type { MeasuredSiteData, BrandExtraction, Concept } from "@bya/shared";
 import type { BatchItemView } from "../api/client";
 
-export type Stage =
-  | "idle" | "analyzing"
-  | "concepts-loading" | "pick-concepts" | "pick-assets" | "batch-running" | "batch-done"
-  | "error";
+export type Stage = "empty" | "pick-assets" | "batch-running" | "batch-done" | "error";
 
 export type AssetSlot = "ref" | "logo" | "product";
 export type ConceptAssets = { ref?: string; logo?: string; product?: string };
 
 export type WorkbenchState = {
   stage: Stage;
-  url: string;
   measuredSiteData: MeasuredSiteData | null;
   brandExtraction: BrandExtraction | null;
   brandExtractionId: string | null;
-  conceptSet: ConceptSet | null;
-  selectedIdeaNumbers: number[];
+  selectedConcepts: Concept[];
   assets: Record<number, ConceptAssets>;
   batchId: string | null;
   batchItems: BatchItemView[];
@@ -25,13 +20,11 @@ export type WorkbenchState = {
 };
 
 export const initialState: WorkbenchState = {
-  stage: "idle",
-  url: "",
+  stage: "empty",
   measuredSiteData: null,
   brandExtraction: null,
   brandExtractionId: null,
-  conceptSet: null,
-  selectedIdeaNumbers: [],
+  selectedConcepts: [],
   assets: {},
   batchId: null,
   batchItems: [],
@@ -40,15 +33,9 @@ export const initialState: WorkbenchState = {
 };
 
 export type Action =
-  | { type: "START"; url: string }
-  | { type: "ANALYZED"; measuredSiteData: MeasuredSiteData; brandExtraction: BrandExtraction; brandExtractionId: string }
-  | { type: "PRESET_BRAND"; brandExtraction: BrandExtraction; brandExtractionId: string; measuredSiteData: MeasuredSiteData | null; url?: string }
-  | { type: "CONCEPTS_READY"; conceptSet: ConceptSet }
-  | { type: "TOGGLE_CONCEPT"; ideaNumber: number }
-  | { type: "PROCEED_ASSETS" }
-  | { type: "BACK_TO_CONCEPTS" }
-  | { type: "SET_ASSET"; ideaNumber: number; slot: AssetSlot; dataUrl: string | null }
-  | { type: "COPY_ASSETS_TO_ALL"; ideaNumber: number }
+  | { type: "PRESET"; brandExtraction: BrandExtraction; brandExtractionId: string; measuredSiteData: MeasuredSiteData | null; concepts: Concept[] }
+  | { type: "SET_ASSET"; index: number; slot: AssetSlot; dataUrl: string | null }
+  | { type: "COPY_ASSETS_TO_ALL"; index: number }
   | { type: "BATCH_STARTED"; batchId: string }
   | { type: "BATCH_UPDATED"; items: BatchItemView[] }
   | { type: "BATCH_DONE"; items: BatchItemView[] }
@@ -58,37 +45,25 @@ export type Action =
 
 export function reducer(state: WorkbenchState, action: Action): WorkbenchState {
   switch (action.type) {
-    case "START":
-      return { ...initialState, stage: "analyzing", url: action.url };
-    case "ANALYZED":
-      return { ...state, stage: "concepts-loading", measuredSiteData: action.measuredSiteData, brandExtraction: action.brandExtraction, brandExtractionId: action.brandExtractionId };
-    case "PRESET_BRAND":
-      return { ...initialState, stage: "concepts-loading", brandExtraction: action.brandExtraction, brandExtractionId: action.brandExtractionId, measuredSiteData: action.measuredSiteData, url: action.url ?? "" };
-    case "CONCEPTS_READY":
-      return { ...state, stage: "pick-concepts", conceptSet: action.conceptSet };
-    case "TOGGLE_CONCEPT": {
-      const has = state.selectedIdeaNumbers.includes(action.ideaNumber);
+    case "PRESET":
       return {
-        ...state,
-        selectedIdeaNumbers: has
-          ? state.selectedIdeaNumbers.filter((n) => n !== action.ideaNumber)
-          : [...state.selectedIdeaNumbers, action.ideaNumber],
+        ...initialState,
+        stage: "pick-assets",
+        brandExtraction: action.brandExtraction,
+        brandExtractionId: action.brandExtractionId,
+        measuredSiteData: action.measuredSiteData,
+        selectedConcepts: action.concepts,
       };
-    }
-    case "PROCEED_ASSETS":
-      return { ...state, stage: "pick-assets" };
-    case "BACK_TO_CONCEPTS":
-      return { ...state, stage: "pick-concepts" };
     case "SET_ASSET":
       return {
         ...state,
-        assets: { ...state.assets, [action.ideaNumber]: { ...state.assets[action.ideaNumber], [action.slot]: action.dataUrl ?? undefined } },
+        assets: { ...state.assets, [action.index]: { ...state.assets[action.index], [action.slot]: action.dataUrl ?? undefined } },
       };
     case "COPY_ASSETS_TO_ALL": {
-      const src = state.assets[action.ideaNumber];
+      const src = state.assets[action.index];
       if (!src) return state;
       const next: Record<number, ConceptAssets> = {};
-      for (const n of state.selectedIdeaNumbers) next[n] = { ...src };
+      for (let i = 0; i < state.selectedConcepts.length; i++) next[i] = { ...src };
       return { ...state, assets: { ...state.assets, ...next } };
     }
     case "BATCH_STARTED":
@@ -100,8 +75,8 @@ export function reducer(state: WorkbenchState, action: Action): WorkbenchState {
     case "FAILED":
       return { ...state, stage: "error", error: action.message, errorCode: action.code ?? null };
     case "RETRY":
-      return state.conceptSet
-        ? { ...state, stage: "pick-concepts", error: null, errorCode: null }
+      return state.selectedConcepts.length > 0
+        ? { ...state, stage: "pick-assets", error: null, errorCode: null }
         : initialState;
     case "RESET":
       return initialState;

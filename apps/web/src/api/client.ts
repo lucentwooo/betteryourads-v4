@@ -13,7 +13,6 @@ import type {
   Concept,
   ConceptBoard,
   Goal,
-  AdIdea,
   ReferenceAd,
   ReferenceAdVariant,
 } from "@bya/shared";
@@ -109,7 +108,7 @@ export type BatchItemView = {
   status: BatchItemStatus; imageUrl: string | null; error: string | null;
 };
 export type BatchView = { id: string; status: BatchItemStatus; items: BatchItemView[] };
-export type BatchItemInput = { concept: AdIdea; referenceAdImage: string; logoImage: string; productAsset?: string };
+export type BatchItemInput = { concept: Concept; referenceAdImage: string; logoImage: string; productAsset?: string };
 
 export const api = {
   getConfig: () => request<AppConfig>("/api/config"),

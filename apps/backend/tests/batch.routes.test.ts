@@ -25,7 +25,7 @@ function approve(email = "user@y.z") {
   vi.mocked(isApproved).mockResolvedValue(true);
 }
 
-const item = { concept: { idea_number: 1, idea_name: "A", main_hook: "h", cta: "c" }, referenceAdImage: "data:r", logoImage: "data:l" };
+const item = { concept: { angle: "ROI", stage: "product", headline: "Save 10 hours", rationale: "" }, referenceAdImage: "data:r", logoImage: "data:l" };
 
 describe("POST /api/batch", () => {
   it("401s without a token", async () => {
@@ -54,7 +54,7 @@ describe("POST /api/batch", () => {
   it("422s when an item is missing required assets", async () => {
     approve();
     vi.mocked(countAdsToday).mockResolvedValue(0);
-    const res = await request(app).post("/api/batch").set("Authorization", "Bearer ok").send({ brandExtractionId: "be1", brandExtraction: {}, items: [{ concept: { idea_name: "A", main_hook: "h", cta: "c" }, logoImage: "data:l" }] });
+    const res = await request(app).post("/api/batch").set("Authorization", "Bearer ok").send({ brandExtractionId: "be1", brandExtraction: {}, items: [{ concept: { angle: "ROI", stage: "product", headline: "Save 10 hours", rationale: "" }, logoImage: "data:l" }] });
     expect(res.status).toBe(422);
   });
 });

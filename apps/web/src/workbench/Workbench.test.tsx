@@ -1,19 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import type { Concept } from "@bya/shared";
 import Workbench from "./Workbench";
+
+vi.mock("next/link", () => ({
+  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
+    <a href={href} {...rest}>{children}</a>
+  ),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
 
 vi.mock("../api/client", async () => {
   const actual = await vi.importActual<typeof import("../api/client")>("../api/client");
   return {
     ...actual,
     api: {
-      extract: vi.fn(),
-      brand: vi.fn(),
-      concepts: vi.fn(),
       startBatch: vi.fn(),
       getBatch: vi.fn(),
-      getConfig: vi.fn(),
       getBrand: vi.fn(),
       getUsage: vi.fn(),
       getReferenceAds: vi.fn(),
@@ -22,40 +28,54 @@ vi.mock("../api/client", async () => {
 });
 import { api } from "../api/client";
 
-const idea = (n: number) => ({
-  idea_number: n, idea_name: `Idea${n}`, main_hook: "hook text", cta: "Sign up",
-  awareness_level: "Pain aware", core_angle: "", customer_context: "", customer_pain_or_desire: "",
-  customer_insight: "", belief_to_shift: "", supporting_message: "", why_this_could_work: "",
-  proof_or_reason_to_believe: "", safe_claims_used: [], claims_to_avoid: [],
-  visual_direction_for_later: "", brand_dna_fields_used: [],
+const concept = (n: number): Concept => ({
+  angle: `Angle${n}`, stage: "solution", headline: `Headline ${n}`, rationale: "why it works",
 });
 
-describe("Workbench concept→batch flow", () => {
+function stash(concepts: Concept[], brandId = "be1") {
+  sessionStorage.setItem("bya_selected_brand", brandId);
+  sessionStorage.setItem("bya_selected_concepts", JSON.stringify(concepts));
+}
+
+describe("Workbench (board-fed)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
     vi.mocked(api.getUsage).mockResolvedValue({ unlimited: false, used: 0, limit: 10, remaining: 10 });
     vi.mocked(api.getReferenceAds).mockResolvedValue([]);
   });
 
-  it("drives URL → concepts → pick → assets → batch done", async () => {
-    vi.mocked(api.extract).mockResolvedValue({ title: "Acme" } as never);
-    vi.mocked(api.brand).mockResolvedValue({ id: "be1", brandExtraction: { brand_identity: { brand_name: "Acme" } } } as never);
-    vi.mocked(api.concepts).mockResolvedValue({ id: "cs1", conceptSet: { ad_ideas: [idea(1), idea(2)], recommended_top_3: [] } } as never);
+  it("shows the empty state when there is no stashed selection", async () => {
+    render(<Workbench />);
+    expect(await screen.findByText(/start from your concept board/i)).toBeInTheDocument();
+    expect(api.getBrand).not.toHaveBeenCalled();
+  });
+
+  it("loads the brand and renders one asset card per stashed concept", async () => {
+    stash([concept(1), concept(2)]);
+    vi.mocked(api.getBrand).mockResolvedValue({ id: "be1", brandExtraction: { brand_identity: {} }, measuredSiteData: null } as never);
+
+    render(<Workbench />);
+
+    await waitFor(() => expect(screen.getByText(/add assets per concept/i)).toBeInTheDocument());
+    expect(api.getBrand).toHaveBeenCalledWith("be1");
+    expect(screen.getByText("Headline 1")).toBeInTheDocument();
+    expect(screen.getByText("Headline 2")).toBeInTheDocument();
+    expect(screen.getByText("Angle1")).toBeInTheDocument();
+    // stash is cleared after reading
+    expect(sessionStorage.getItem("bya_selected_concepts")).toBeNull();
+  });
+
+  it("Make my ads calls startBatch with the concept items, then renders results", async () => {
+    stash([concept(1)]);
+    vi.mocked(api.getBrand).mockResolvedValue({ id: "be1", brandExtraction: { brand_identity: {} }, measuredSiteData: null } as never);
     vi.mocked(api.startBatch).mockResolvedValue({ batchId: "b1" } as never);
     vi.mocked(api.getBatch).mockResolvedValue({
       id: "b1", status: "done",
-      items: [{ id: "i1", ideaNumber: 1, ideaName: "Idea1", status: "done", imageUrl: "https://img/out.png", error: null }],
+      items: [{ id: "i1", ideaNumber: 1, ideaName: "Headline 1", status: "done", imageUrl: "https://img/out.png", error: null }],
     } as never);
 
-    const { container } = render(<MemoryRouter><Workbench /></MemoryRouter>);
-
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "https://acme.com" } });
-    fireEvent.click(screen.getByRole("button", { name: /analyze brand/i }));
-
-    await waitFor(() => expect(screen.getByText(/pick your concepts/i)).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: /Idea1/ }));
-    fireEvent.click(screen.getByRole("button", { name: /add assets/i }));
+    const { container } = render(<Workbench />);
 
     await waitFor(() => expect(screen.getByText(/add assets per concept/i)).toBeInTheDocument());
 
@@ -67,24 +87,21 @@ describe("Workbench concept→batch flow", () => {
     fireEvent.click(screen.getByRole("button", { name: /make my ads/i }));
 
     await waitFor(() => expect(screen.getByRole("img")).toHaveAttribute("src", "https://img/out.png"));
-    expect(vi.mocked(api.startBatch).mock.calls[0][0].items).toHaveLength(1);
+
+    const call = vi.mocked(api.startBatch).mock.calls[0][0];
+    expect(call.items).toHaveLength(1);
+    expect(call.items[0].concept.headline).toBe("Headline 1");
+    expect(call.brandExtractionId).toBe("be1");
   });
 
   it("shows the curated reference library in the per-concept asset step", async () => {
-    vi.mocked(api.extract).mockResolvedValue({ title: "Acme" } as never);
-    vi.mocked(api.brand).mockResolvedValue({ id: "be1", brandExtraction: { brand_identity: { brand_name: "Acme" } } } as never);
-    vi.mocked(api.concepts).mockResolvedValue({ id: "cs1", conceptSet: { ad_ideas: [idea(1)], recommended_top_3: [] } } as never);
+    stash([concept(1)]);
+    vi.mocked(api.getBrand).mockResolvedValue({ id: "be1", brandExtraction: { brand_identity: {} }, measuredSiteData: null } as never);
     vi.mocked(api.getReferenceAds).mockResolvedValue([
       { id: "r1", variant: "no_asset", label: "Sample", url: "https://img/ref.png", createdAt: "2026-01-01" },
     ]);
 
-    render(<MemoryRouter><Workbench /></MemoryRouter>);
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "https://acme.com" } });
-    fireEvent.click(screen.getByRole("button", { name: /analyze brand/i }));
-
-    await waitFor(() => expect(screen.getByText(/pick your concepts/i)).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: /Idea1/ }));
-    fireEvent.click(screen.getByRole("button", { name: /add assets/i }));
+    render(<Workbench />);
 
     await waitFor(() => expect(screen.getByText(/add assets per concept/i)).toBeInTheDocument());
     await waitFor(() => expect(api.getReferenceAds).toHaveBeenCalledWith("no_asset"));
@@ -92,21 +109,11 @@ describe("Workbench concept→batch flow", () => {
     expect(await screen.findByRole("button", { name: /Sample/ })).toBeInTheDocument();
   });
 
-  it("shows an error when analysis fails", async () => {
-    vi.mocked(api.extract).mockRejectedValue(new Error("nope"));
-    render(<MemoryRouter><Workbench /></MemoryRouter>);
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "https://acme.com" } });
-    fireEvent.click(screen.getByRole("button", { name: /analyze brand/i }));
-    await waitFor(() => expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument());
-  });
+  it("shows an error when the brand fails to load", async () => {
+    stash([concept(1)]);
+    vi.mocked(api.getBrand).mockRejectedValue(new Error("nope"));
 
-  it("shows an error when concept generation fails", async () => {
-    vi.mocked(api.extract).mockResolvedValue({ title: "Acme" } as never);
-    vi.mocked(api.brand).mockResolvedValue({ id: "be1", brandExtraction: { brand_identity: {} } } as never);
-    vi.mocked(api.concepts).mockRejectedValue(new Error("concept boom"));
-    render(<MemoryRouter><Workbench /></MemoryRouter>);
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "https://acme.com" } });
-    fireEvent.click(screen.getByRole("button", { name: /analyze brand/i }));
+    render(<Workbench />);
     await waitFor(() => expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument());
   });
 });

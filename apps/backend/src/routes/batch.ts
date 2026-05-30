@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { AdIdea } from "@bya/shared";
+import { Concept } from "@bya/shared";
 import { toHttpError, ValidationError, RateLimitError, AppError } from "../lib/errors.js";
 import { requireApprovedUser } from "../middleware/require-approved-user.js";
 import { ADMIN_EMAIL } from "../middleware/require-admin.js";
@@ -21,7 +21,7 @@ batchRouter.post("/batch", requireApprovedUser, async (req, res) => {
 
     const items: BatchWorkItem[] = rawItems.map((raw, i) => {
       const r = raw as Record<string, unknown>;
-      const concept = AdIdea.safeParse(r.concept);
+      const concept = Concept.safeParse(r.concept);
       if (!concept.success) throw new ValidationError(`Concept ${i + 1} is malformed.`);
       if (typeof r.referenceAdImage !== "string" || typeof r.logoImage !== "string") {
         throw new ValidationError(`Concept ${i + 1} is missing its reference ad or logo.`);
@@ -48,7 +48,7 @@ batchRouter.post("/batch", requireApprovedUser, async (req, res) => {
     const { batchId, itemIds } = await createBatch({
       userId,
       brandExtractionId,
-      items: items.map((it) => ({ ideaNumber: it.concept.idea_number ?? null, ideaName: it.concept.idea_name ?? null })),
+      items: items.map((it, i) => ({ ideaNumber: i + 1, ideaName: it.concept.headline })),
     });
     items.forEach((it, i) => (it.itemId = itemIds[i]));
 

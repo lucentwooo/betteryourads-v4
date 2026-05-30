@@ -107,7 +107,7 @@ export default function Home() {
               <div className="section-head"><h4>Saved brands</h4></div>
               <div className="actions-row">
                 {brands.map((b) => (
-                  <Link key={b.id} href={`/create?brandId=${b.id}`} className="badge">
+                  <Link key={b.id} href={`/board/${b.id}`} className="badge">
                     {hostname(b.websiteUrl)}
                   </Link>
                 ))}

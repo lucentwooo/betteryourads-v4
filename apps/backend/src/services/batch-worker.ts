@@ -1,4 +1,4 @@
-import type { AdIdea } from "@bya/shared";
+import type { Concept } from "@bya/shared";
 import { runAdPrompt } from "../pipelines/ad-prompt.js";
 import { runRender } from "../pipelines/render.js";
 import { saveAdPrompt, persistRenderedAd, updateBatchItem, finalizeBatchIfDone } from "./supabase.js";
@@ -8,7 +8,7 @@ const MAX_CONCURRENCY = 3;
 
 export type BatchWorkItem = {
   itemId: string;
-  concept: AdIdea;
+  concept: Concept;
   brandExtraction: unknown;
   referenceAdImage: string;
   logoImage: string;
