@@ -223,41 +223,41 @@ export default function Board({ brandId }: { brandId: string }) {
 
   return (
     <div className="canvas stack" style={{ paddingBottom: 80 }}>
-      {/* Header */}
-      <div style={{ marginBottom: 36, maxWidth: 640 }}>
-        <h1 style={{ fontSize: 42, fontWeight: 500, letterSpacing: "-0.02em", lineHeight: 1.05, margin: "0 0 10px" }}>
-          What should we make this week?
-        </h1>
-        <p style={{ fontSize: 17, color: "var(--fg-2)", margin: 0, lineHeight: 1.5 }}>
-          {goalIntro[board.goal]}
-        </p>
+      {/* Header — legacy concept-board topbar: eyebrow + actions */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 24, flexWrap: "wrap", marginBottom: 28 }}>
+        <div style={{ maxWidth: 640 }}>
+          <div className="eyebrow-acc" style={{ marginBottom: 6 }}>your strategist · {GOAL_LABEL[board.goal]}</div>
+          <h1 style={{ fontSize: 42, fontWeight: 500, letterSpacing: "-0.02em", lineHeight: 1.05, margin: "0 0 10px" }}>
+            What should we make this week?
+          </h1>
+          <p style={{ fontSize: 17, color: "var(--fg-2)", margin: 0, lineHeight: 1.5 }}>
+            {goalIntro[board.goal]}
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+          <button className="btn" onClick={() => router.push("/library")}>my ads</button>
+          <button className="btn" onClick={() => regenerate(board)}>↻ regenerate</button>
+        </div>
       </div>
 
       {/* Usage */}
-      {usage !== null && (
+      {usage !== null && !usage.unlimited && (
         <div style={{ marginBottom: 16, fontSize: 13, color: capped ? "var(--bya-oxblood)" : "var(--fg-3)" }}>
-          {capped && !usage.unlimited
-            ? <span className="badge">Daily limit reached</span>
-            : !usage.unlimited
-              ? <span>{usage.remaining} of {usage.limit} creatives left today</span>
-              : null}
+          {capped ? <span className="badge">Daily limit reached</span> : <span>{usage.remaining} of {usage.limit} creatives left today</span>}
         </div>
       )}
 
-      {/* Brand logo */}
-      <div style={{ marginBottom: 32, maxWidth: 300 }}>
-        <Dropzone
-          label="Brand logo"
-          value={logoUrl}
-          onPick={handleLogoPick}
-          height={96}
-        />
-        {logoSaving && <p style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 4 }}>Saving…</p>}
-        {logoError && <p style={{ fontSize: 12, color: "var(--bya-oxblood)", marginTop: 4 }}>{logoError}</p>}
-      </div>
-
       {/* Brand-DNA strip (legacy parity) */}
       <BrandDnaStrip extraction={extraction} />
+
+      {/* Brand logo (per-brand, Spec #5) — compact, not the page's focus */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 36 }}>
+        <div style={{ width: 140 }}>
+          <Dropzone label="Brand logo" value={logoUrl} onPick={handleLogoPick} height={64} />
+        </div>
+        {logoSaving && <span style={{ fontSize: 12, color: "var(--fg-3)" }}>Saving…</span>}
+        {logoError && <span style={{ fontSize: 12, color: "var(--bya-oxblood)" }}>{logoError}</span>}
+      </div>
 
       {/* Focus strip */}
       <div style={{ marginBottom: 40, fontSize: 14, color: "var(--fg-3)", display: "flex", flexWrap: "wrap", gap: "6px 18px", alignItems: "center" }}>
@@ -427,23 +427,31 @@ function BrandDnaStrip({ extraction }: { extraction: BrandExtraction | null }) {
   if (!swatches.length && !brandName) return null;
 
   return (
-    <div style={{ marginBottom: 28, padding: 16, border: "1px solid var(--border-hairline)", borderRadius: 8, maxWidth: 640 }}>
-      {brandName && <div style={{ fontSize: 15, fontWeight: 600, marginBottom: swatches.length ? 12 : 0 }}>{brandName}</div>}
+    <div style={{ marginBottom: 28, border: "1px solid var(--border-hairline)", borderRadius: 8, overflow: "hidden" }}>
+      {/* Header row: brand · fonts · vibe — legacy compact strip */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 16px", borderBottom: swatches.length ? "1px solid var(--border-hairline)" : "none" }}>
+        {brandName && <span style={{ fontSize: 15, fontWeight: 600 }}>{brandName}</span>}
+        {fonts.length > 0 && <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--fg-3)" }}>{fonts.join(" / ")}</span>}
+        {mood && <span style={{ fontSize: 13, color: "var(--fg-2)" }}>{mood}</span>}
+      </div>
+      {/* Swatch row */}
       {swatches.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginBottom: fonts.length || mood ? 12 : 0 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 18, padding: "14px 16px" }}>
           {swatches.map((s) => (
             <div key={s.role} style={{ textAlign: "center" }}>
-              <div style={{ width: 40, height: 40, borderRadius: 6, background: s.val, border: "1px solid var(--border-hairline)" }} />
+              <div style={{ width: 36, height: 36, borderRadius: 6, background: s.val, border: "1px solid var(--border-hairline)" }} />
               <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 4 }}>{s.role}</div>
-              <div style={{ fontSize: 11, color: "var(--fg-2)" }}>{s.val}</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-2)" }}>{s.val}</div>
             </div>
           ))}
         </div>
       )}
+      {/* Typography + VIBE line */}
       {(fonts.length > 0 || mood) && (
-        <div style={{ fontSize: 13, color: "var(--fg-2)" }}>
-          {fonts.length > 0 && <span><strong>fonts</strong> {fonts.join(" / ")}</span>}
-          {mood && <span style={{ marginLeft: fonts.length ? 14 : 0 }}><strong>vibe</strong> {mood}</span>}
+        <div style={{ padding: "0 16px 14px", fontSize: 13, color: "var(--fg-2)", display: "flex", flexWrap: "wrap", gap: "4px 18px" }}>
+          {fonts[0] && <span><strong>heading</strong> {fonts[0]}</span>}
+          {fonts[1] && <span><strong>body</strong> {fonts[1]}</span>}
+          {mood && <span><strong>vibe</strong> {mood}</span>}
         </div>
       )}
     </div>

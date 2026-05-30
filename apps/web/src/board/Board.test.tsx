@@ -105,7 +105,7 @@ describe("Board — board rendering", () => {
     render(<Board brandId={BRAND_ID} />);
     await waitFor(() => expect(screen.getByText("Chirp")).toBeInTheDocument());
     expect(screen.getByText("#00434f")).toBeInTheDocument();
-    expect(screen.getByText(/playful/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/playful/i).length).toBeGreaterThan(0);
   });
 
   it("collapses off-focus stages behind 'Show N more' and expands on click", async () => {
