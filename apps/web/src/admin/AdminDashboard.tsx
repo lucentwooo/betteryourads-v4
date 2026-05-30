@@ -87,7 +87,7 @@ export default function AdminDashboard() {
     }
   }
 
-  if (email && email.toLowerCase() !== ADMIN_EMAIL) {
+  if (!email || email.toLowerCase() !== ADMIN_EMAIL) {
     return (
       <div className="empty">
         <p className="lead" style={{ margin: 0 }}>Not authorized</p>

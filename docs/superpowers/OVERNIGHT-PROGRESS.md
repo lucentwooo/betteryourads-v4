@@ -23,7 +23,11 @@ Full per-spec manual steps live in `docs/superpowers/manual-checks/`; they get a
   handling) + toast timer fix. **Deferred:** library grouping→#5, react-router-dom dep removal→#6,
   full pixel-perfect legacy restyle (structurally faithful via the legacy class system; flag if
   you want a dedicated visual pass).
-- **Spec #4 — Auth & accounts: ⏳ pending.**
+- **Spec #4 — Auth & accounts: ✅ DONE, reviewed, pushed.** Sign-up requires a matching re-enter
+  password; the real admin accounts dashboard (approve/revoke/type-to-confirm delete/refresh) is
+  wired into `/admin` (it was already react-router-free). 128 web tests pass, build green. Review:
+  no critical; fixed the admin guard to not render while auth is unresolved. Auth-screen pixel
+  restyle left as later polish.
 - **Spec #5 — Quotas & per-brand: ⏳ pending.**
 - **Spec #6 — Reference-ads bulk + cleanup + final MANUAL-CHECKS.md: ⏳ pending.**
 
