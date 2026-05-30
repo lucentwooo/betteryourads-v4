@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { BrandExtraction, AdPrompt, ConceptBoard, type Goal, type BrandSummary, type AdSummary, type BrandDetail, type AdminUser, type ReferenceAd, type ReferenceAdVariant } from "@bya/shared";
 import { PersistenceError, ValidationError } from "../lib/errors.js";
+import { startOfDayInTz, generationTz } from "../lib/usage.js";
 
 // Service-role Supabase client + typed persistence. Server-only: this key bypasses RLS,
 // so every write sets user_id explicitly (never relies on auth.uid()). Reads/writes throw
@@ -248,11 +249,10 @@ export async function persistRenderedAd(args: {
   return { id: rowId(data), imageUrl: signed.data.signedUrl };
 }
 
-/** Number of generated_ads rows the user created since the start of the current UTC day.
- *  Used to enforce the per-day creative cap. */
+/** Number of generated_ads rows the user created since the start of the current day in
+ *  the configured timezone (GENERATION_TZ, defaults to Australia/Sydney). */
 export async function countAdsToday(userId: string): Promise<number> {
-  const startOfDay = new Date();
-  startOfDay.setUTCHours(0, 0, 0, 0);
+  const startOfDay = startOfDayInTz(generationTz());
   const { count, error } = await admin()
     .from("generated_ads")
     .select("id", { count: "exact", head: true })

@@ -5,8 +5,7 @@ import { requireApprovedUser } from "../middleware/require-approved-user.js";
 import { ADMIN_EMAIL } from "../middleware/require-admin.js";
 import { countAdsToday, createBatch, getBatch } from "../services/supabase.js";
 import { runBatch, type BatchWorkItem } from "../services/batch-worker.js";
-
-const DAILY_CREATIVE_LIMIT = 10;
+import { dailyLimit } from "../lib/usage.js";
 
 export const batchRouter = Router();
 
@@ -37,10 +36,11 @@ batchRouter.post("/batch", requireApprovedUser, async (req, res) => {
     });
 
     if (req.user!.email?.toLowerCase() !== ADMIN_EMAIL) {
+      const limit = dailyLimit();
       const used = await countAdsToday(userId);
-      if (used + items.length > DAILY_CREATIVE_LIMIT) {
+      if (used + items.length > limit) {
         throw new RateLimitError(
-          `This batch needs ${items.length} creatives but only ${Math.max(0, DAILY_CREATIVE_LIMIT - used)} remain today.`,
+          `This batch needs ${items.length} creatives but only ${Math.max(0, limit - used)} remain today.`,
         );
       }
     }
