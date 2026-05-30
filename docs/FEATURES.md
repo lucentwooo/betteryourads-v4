@@ -48,11 +48,13 @@ What BetterYourAds can do, as of the `dev` branch. Grouped by area; one line per
 
 - **SSR app shell** — the web app is server-rendered (Next.js App Router) and hydrates on the client; a hand-rolled stale-while-revalidate client cache makes Home/Library render instantly on revisit instead of a spinner per navigation.
 - **Home `/`** — dashboard: user email, saved-brand and ad counts, recent ad thumbnails, quick link to create.
-- **Create `/create`** — 4-step workbench: paste URL (extract + brand) → pick from 5 generated concepts (multi-select, capped at the daily limit) → add a reference ad (upload or pick from a curated library that auto-switches on product-asset presence) / logo / optional product per concept → batch-generate with a live results gallery and per-ad downloads.
+- **Onboarding `/onboarding`** — first-run flow: paste URL → analyze (extract + brand) → pick a goal, with a Back button at each step; lands on the brand's concept board.
+- **Concept board `/board/[brandId]`** — awareness-stage board of the generated concepts (goal picker, focus strip, grouping, multi-select, regenerate); selecting concepts hands off to the workbench.
+- **Create `/create`** — workbench fed by the board: per selected concept, add a reference ad (upload or pick from a curated library that auto-switches on product-asset presence) / logo / optional product → batch-generate with a live results gallery, per-ad downloads, and a success toast.
 - **Library `/library`** — grid of generated ads with date, aspect ratio, and resolution.
+- **Start modal + rail** — "Make an ad" opens a brand picker (pick a saved brand → board, or add a new client → onboarding); the rail lists saved brands; the cog opens a sign-out popover.
 - **Admin `/admin`** — account table with one-click approve/revoke and type-to-confirm delete.
-- **Admin `/admin/reference-ads`** — manage the two curated reference libraries (with-asset / no-asset): upload, label, and delete thumbnails.
-- **Brand preset** — workbench can preload a saved brand via `?brandId=<id>`, skipping the extract/brand steps.
+- **Admin `/admin/reference-ads`** — manage the two curated reference libraries (with-asset / no-asset).
 
 ## Shared package (`@bya/shared`)
 

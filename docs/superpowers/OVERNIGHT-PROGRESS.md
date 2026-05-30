@@ -15,9 +15,14 @@ Full per-spec manual steps live in `docs/superpowers/manual-checks/`; they get a
   the `/board/[brandId]` page (legacy UX: goal picker, focus strip, grouping, selection,
   regenerate). 87 web + 183 backend tests pass; build green. Review: ship, no critical/high.
   Implemented ADDITIVELY (see roadmap "Implementation note") — old concept path stays until #3.
-- **Spec #3 — Core UX: ⏳ pending.** Workbench rebuild + board→workbench handoff, onboarding
-  (+back), rail/start-modal/toast, cog→sign-out popup, library grouping, finish react-router
-  removal, AND delete the old concept path (moved here from #2).
+- **Spec #3 — Core UX: ✅ DONE, reviewed, pushed.** Cog→sign-out popover, onboarding (+Back),
+  workbench rewired to be fed by the board (new `Concept` type; batch repointed), **old concept
+  path deleted** (route/pipeline/prompt/`ConceptSet`/`AdIdea` gone, grep-clean), start modal +
+  rail saved-brands + success toast. 116 web + 176 backend tests pass, build green. Review: no
+  critical bugs; 2 medium onboarding fixes applied (in-flight race on Back, goal-save error
+  handling) + toast timer fix. **Deferred:** library grouping→#5, react-router-dom dep removal→#6,
+  full pixel-perfect legacy restyle (structurally faithful via the legacy class system; flag if
+  you want a dedicated visual pass).
 - **Spec #4 — Auth & accounts: ⏳ pending.**
 - **Spec #5 — Quotas & per-brand: ⏳ pending.**
 - **Spec #6 — Reference-ads bulk + cleanup + final MANUAL-CHECKS.md: ⏳ pending.**
