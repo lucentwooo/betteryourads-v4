@@ -8,9 +8,25 @@ import Board from "../board/Board";
 /** Home is the concept board for the current brand (legacy parity: renderHome === the board).
  *  Brands come back most-recent first, so brands[0] is the active brand. No brand → onboarding. */
 export default function Home() {
-  const { data: brands, status } = useResource<BrandSummary[]>("brands");
+  const { data: brands, status, error, refresh } = useResource<BrandSummary[]>("brands");
 
-  if (status === "loading" || status === "idle") {
+  // No data yet: distinguish a transient fetch failure (offer retry) from still-loading —
+  // otherwise an existing user briefly sees the first-run onboarding screen on a blip.
+  if (!brands) {
+    if (status === "error") {
+      return (
+        <div className="canvas stack">
+          <div className="stage">
+            <div className="stage-body">
+              <p style={{ color: "var(--bya-oxblood)", margin: "0 0 var(--space-4)" }}>
+                {error ?? "Couldn't load your brands."}
+              </p>
+              <button className="btn" onClick={() => refresh()}>Try again</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="canvas stack">
         <div className="status-row"><span className="spinner" /> Loading…</div>
@@ -18,7 +34,7 @@ export default function Home() {
     );
   }
 
-  const current = brands && brands.length > 0 ? brands[0] : null;
+  const current = brands.length > 0 ? brands[0] : null;
   if (!current) {
     return (
       <div className="canvas stack">

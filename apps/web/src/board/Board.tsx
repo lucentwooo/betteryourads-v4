@@ -421,7 +421,8 @@ function BrandDnaStrip({ extraction }: { extraction: BrandExtraction | null }) {
   ].filter((s): s is { role: string; val: string } => Boolean(s.val));
   const typography = obj(vbs.typography);
   const fonts = Array.isArray(typography.font_families) ? (typography.font_families as unknown[]).filter((f): f is string => typeof f === "string") : [];
-  const mood = typeof obj(vbs.ui_style).overall_mood === "string" ? (obj(vbs.ui_style).overall_mood as string) : "";
+  const uiStyle = obj(vbs.ui_style);
+  const mood = typeof uiStyle.overall_mood === "string" ? uiStyle.overall_mood : "";
 
   if (!swatches.length && !brandName) return null;
 

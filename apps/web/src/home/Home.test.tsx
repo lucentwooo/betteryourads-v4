@@ -44,4 +44,10 @@ describe("Home", () => {
     renderHome();
     await waitFor(() => expect(screen.getByText(/let's learn your brand/i)).toBeInTheDocument());
   });
+
+  it("shows an error with retry when the brands fetch fails", async () => {
+    vi.mocked(api.getBrands).mockRejectedValue(new Error("boom"));
+    renderHome();
+    await waitFor(() => expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument());
+  });
 });
