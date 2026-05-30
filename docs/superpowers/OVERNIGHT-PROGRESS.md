@@ -35,7 +35,12 @@ Full per-spec manual steps live in `docs/superpowers/manual-checks/`; they get a
   + 192 backend tests pass. Review: quota TZ correct, ad-scoping auth solid; fixed a logo
   brand-ownership check (IDOR hygiene). New env: `GENERATION_TZ`, `DAILY_GENERATION_LIMIT`; ops:
   `brand-assets` bucket CORS for logo pre-fill.
-- **Spec #6 — Reference-ads bulk + cleanup + final MANUAL-CHECKS.md: ⏳ pending.**
+- **Spec #6 — Reference-ads bulk + cleanup + MANUAL-CHECKS: ✅ DONE, pushed.** Bulk drag-drop
+  reference-ads upload (no label); `react-router-dom` fully removed; orphaned files cleaned
+  (`brandChip`, `vite-env.d.ts`); consolidated `docs/superpowers/MANUAL-CHECKS.md` written. 143 web
+  tests pass, build green.
+
+## ✅ ALL SIX SPECS COMPLETE — see docs/superpowers/MANUAL-CHECKS.md for the owner checklist.
 
 ## Manual items accumulated so far (for the owner)
 - **Migration to hand-apply:** `supabase/migrations/20260530120000_brand_goal.sql` (goal column).

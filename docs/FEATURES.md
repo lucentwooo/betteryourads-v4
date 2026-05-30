@@ -22,7 +22,7 @@ What BetterYourAds can do, as of the `dev` branch. Grouped by area; one line per
 - `POST /api/render` — render an ad image and save it to storage.
 - `POST /api/batch` — start a background batch render of selected concepts (one creative per concept, capped by the daily limit).
 - `GET /api/batch/:id` — poll a batch's per-item status and signed image URLs.
-- `GET /api/usage` — daily creative usage (admin unlimited; users capped per day, resets at UTC midnight).
+- `GET /api/usage` — daily creative usage (admin unlimited; users capped per day, resets at `GENERATION_TZ` — default Australia/Sydney — midnight).
 - `GET /api/config` — backend config: model names, API readiness, Supabase URLs.
 - `GET /api/health` — health check.
 - `GET /api/brands` / `GET /api/brand/:id` — list saved brand extractions; fetch one with its measured data + generated ads.
@@ -41,7 +41,7 @@ What BetterYourAds can do, as of the `dev` branch. Grouped by area; one line per
 - **Email + password auth** — sign-in, sign-up, and password reset via Supabase Auth (magic link removed).
 - **Approval workflow** — anyone can sign up, but API routes stay locked until an admin approves the account.
 - **Admin gate** — admin-only routes restricted to the designated admin account.
-- **Daily creative limit** — non-admin users capped at N renders per UTC day; admin uncapped.
+- **Daily creative limit** — non-admin users capped at `DAILY_GENERATION_LIMIT` renders per `GENERATION_TZ` day (default Australia/Sydney); admin uncapped.
 - **`AUTH_BYPASS`** — env-gated bypass for local development (temporary scaffolding).
 
 ## Web frontend (`apps/web`)
@@ -54,7 +54,8 @@ What BetterYourAds can do, as of the `dev` branch. Grouped by area; one line per
 - **Library `/library`** — grid of generated ads with date, aspect ratio, and resolution.
 - **Start modal + rail** — "Make an ad" opens a brand picker (pick a saved brand → board, or add a new client → onboarding); the rail lists saved brands; the cog opens a sign-out popover.
 - **Admin `/admin`** — account table with one-click approve/revoke and type-to-confirm delete.
-- **Admin `/admin/reference-ads`** — manage the two curated reference libraries (with-asset / no-asset).
+- **Admin `/admin/reference-ads`** — manage the two curated reference libraries (with-asset / no-asset) via bulk drag-drop upload (no per-file label) + delete.
+- **Per-brand logo & quota** — save a logo per brand on the board (reused in the workbench); a remaining-creatives counter reflects the daily cap.
 
 ## Shared package (`@bya/shared`)
 
