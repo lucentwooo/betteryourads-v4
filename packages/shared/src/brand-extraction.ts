@@ -210,10 +210,26 @@ const SourceMapEntry = z
   })
   .passthrough();
 
+/** Voice-of-customer research output (legacy researchCustomers). Each list accepts a single
+ *  string too, mirroring strList, since the model occasionally returns a narrative string. */
+export const ExternalVoc = z
+  .object({
+    top_complaints: strList.optional(),
+    recurring_phrases: strList.optional(),
+    desired_outcomes: strList.optional(),
+    objections: strList.optional(),
+    switching_triggers: strList.optional(),
+    competitor_gripes: strList.optional(),
+    sources: strList.optional(),
+  })
+  .passthrough();
+export type ExternalVoc = z.infer<typeof ExternalVoc>;
+
 export const BrandExtraction = z
   .object({
     schema_version: z.number().optional(),
     brand_identity: BrandIdentity.optional(),
+    external_voc: ExternalVoc.optional(),
     visual_brand_system: VisualBrandSystem.optional(),
     product_representation: ProductRepresentation.optional(),
     offer_dna: OfferDna.optional(),
