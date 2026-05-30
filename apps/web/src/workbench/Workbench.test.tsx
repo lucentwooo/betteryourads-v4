@@ -57,7 +57,7 @@ describe("Workbench (board-fed)", () => {
 
     render(<Workbench />);
 
-    await waitFor(() => expect(screen.getByText(/add assets per concept/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/drop your reference/i)).toBeInTheDocument());
     expect(api.getBrand).toHaveBeenCalledWith("be1");
     expect(screen.getByText("Headline 1")).toBeInTheDocument();
     expect(screen.getByText("Headline 2")).toBeInTheDocument();
@@ -77,14 +77,14 @@ describe("Workbench (board-fed)", () => {
 
     const { container } = render(<Workbench />);
 
-    await waitFor(() => expect(screen.getByText(/add assets per concept/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/drop your reference/i)).toBeInTheDocument());
 
     const fileInputs = container.querySelectorAll('input[type="file"]');
     fireEvent.change(fileInputs[0], { target: { files: [new File(["r"], "ref.png", { type: "image/png" })] } });
     fireEvent.change(fileInputs[1], { target: { files: [new File(["l"], "logo.png", { type: "image/png" })] } });
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /make my ads/i })).not.toBeDisabled());
-    fireEvent.click(screen.getByRole("button", { name: /make my ads/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /make my ad/i })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: /make my ad/i }));
 
     await waitFor(() => expect(screen.getByRole("img")).toHaveAttribute("src", "https://img/out.png"));
 
@@ -103,7 +103,7 @@ describe("Workbench (board-fed)", () => {
 
     render(<Workbench />);
 
-    await waitFor(() => expect(screen.getByText(/add assets per concept/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/drop your reference/i)).toBeInTheDocument());
     await waitFor(() => expect(api.getReferenceAds).toHaveBeenCalledWith("no_asset"));
     expect(screen.getByText(/Add a product asset/i)).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /Sample/ })).toBeInTheDocument();
@@ -142,7 +142,7 @@ describe("Workbench (board-fed)", () => {
 
     render(<Workbench />);
 
-    await waitFor(() => expect(screen.getByText(/add assets per concept/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/drop your reference/i)).toBeInTheDocument());
     // After prefill the logo dropzone renders an img (Dropzone shows img when value != null)
     await waitFor(() => expect(screen.getByRole("img", { name: /logo/i })).toBeInTheDocument());
 
@@ -156,7 +156,7 @@ describe("Workbench (board-fed)", () => {
     vi.mocked(api.getUsage).mockResolvedValue({ unlimited: false, used: 3, limit: 10, remaining: 7 });
 
     render(<Workbench />);
-    await waitFor(() => expect(screen.getByText(/add assets per concept/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/drop your reference/i)).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText(/7 of 10 creatives left/i)).toBeInTheDocument());
   });
 
@@ -166,7 +166,7 @@ describe("Workbench (board-fed)", () => {
     vi.mocked(api.getUsage).mockResolvedValue({ unlimited: false, used: 10, limit: 10, remaining: 0 });
 
     render(<Workbench />);
-    await waitFor(() => expect(screen.getByText(/add assets per concept/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/drop your reference/i)).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText(/daily limit reached/i)).toBeInTheDocument());
   });
 });

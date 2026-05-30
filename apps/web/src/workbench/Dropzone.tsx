@@ -8,9 +8,10 @@ type DropzoneProps = {
   onPick: (dataUrl: string) => void;
   height?: number;
   required?: boolean;
+  hint?: string;
 };
 
-export function Dropzone({ label, value, onPick, height = 160, required = false }: DropzoneProps) {
+export function Dropzone({ label, value, onPick, height = 160, required = false, hint }: DropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const id = `dz-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
@@ -56,6 +57,7 @@ export function Dropzone({ label, value, onPick, height = 160, required = false 
         )}
       </button>
       <input ref={inputRef} type="file" accept="image/*" onChange={onChange} style={{ display: "none" }} />
+      {hint && <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--fg-3)" }}>{hint}</p>}
     </div>
   );
 }

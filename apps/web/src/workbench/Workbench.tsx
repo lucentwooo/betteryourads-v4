@@ -263,7 +263,7 @@ function ConceptAssetCard({ index, concept, assets, showCopyToAll, dispatch }: {
           </button>
         )}
       </div>
-      <Dropzone label="Reference ad" required value={assets.ref ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", index, slot: "ref", dataUrl: d })} />
+      <Dropzone label="Reference ad" required hint="Any static ad you like — we read its shape, never its colors or copy. PNG or JPG." value={assets.ref ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", index, slot: "ref", dataUrl: d })} />
       <div className="ref-lib">
         <div className="ref-lib-header">
           <span className="ref-lib-eyebrow">Or browse our references</span>
@@ -287,8 +287,8 @@ function ConceptAssetCard({ index, concept, assets, showCopyToAll, dispatch }: {
           </div>
         )}
       </div>
-      <Dropzone label="Logo" required height={96} value={assets.logo ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", index, slot: "logo", dataUrl: d })} />
-      <Dropzone label="Product image (optional)" value={assets.product ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", index, slot: "product", dataUrl: d })} />
+      <Dropzone label="Brand logo" required height={96} hint="PNG with a transparent background works best." value={assets.logo ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", index, slot: "logo", dataUrl: d })} />
+      <Dropzone label="Product screenshot (optional)" hint="Your real UI/product, so the ad shows it exactly — not an invented screen." value={assets.product ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", index, slot: "product", dataUrl: d })} />
     </div>
   );
 }
@@ -308,8 +308,8 @@ function PickAssets({ state, dispatch, onGenerate, usage }: { state: WorkbenchSt
           <div className="left">
             <span className="num">1</span>
             <div>
-              <div className="title">Add assets per concept</div>
-              <div className="sub">Each concept needs a reference ad and a logo. Product image is optional.</div>
+              <div className="title">Drop your reference</div>
+              <div className="sub">Pick a reference ad for each concept below — we read its shape, never its colors or copy. Those come from your brand.</div>
             </div>
           </div>
         </div>
@@ -331,7 +331,7 @@ function PickAssets({ state, dispatch, onGenerate, usage }: { state: WorkbenchSt
                 : <span style={{ fontSize: 13, color: "var(--fg-3)" }}>{usage.remaining} of {usage.limit} creatives left today</span>
             )}
             <button className="btn primary" disabled={!ready || capped} onClick={onGenerate}>
-              Make my ads ({concepts.length})
+              {concepts.length === 1 ? "Make my ad" : `Make my ${concepts.length} ads`}
             </button>
           </div>
         </div>
