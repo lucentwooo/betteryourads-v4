@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback, useEffect, useState } from "react";
 import type { AdminUser } from "@bya/shared";
 import { api, ApiError } from "../api/client";
