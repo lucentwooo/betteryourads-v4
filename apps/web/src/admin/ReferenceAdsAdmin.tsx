@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, DragEvent } from "react";
 import type { ReferenceAd, ReferenceAdVariant } from "@bya/shared";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../auth/useAuth";
@@ -23,6 +23,7 @@ export default function ReferenceAdsAdmin() {
   const [uploading, setUploading] = useState(false);
   const [uploadCount, setUploadCount] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
   // per-ad state: "deleting" | "confirming" | null
   const [adState, setAdState] = useState<Record<string, "deleting" | "confirming">>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,17 +54,16 @@ export default function ReferenceAdsAdmin() {
     setActiveTab(variant);
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const fileList = e.target.files;
-    if (!fileList || fileList.length === 0) return;
+  async function uploadFiles(files: FileList | File[]) {
+    const fileArr = Array.from(files);
+    if (fileArr.length === 0) return;
 
-    const files = Array.from(fileList);
     setUploading(true);
-    setUploadCount(files.length);
+    setUploadCount(fileArr.length);
     setUploadError(null);
 
     const results = await Promise.allSettled(
-      files.map(async (file) => {
+      fileArr.map(async (file) => {
         const dataUrl = await fileToDataUrl(file);
         return api.adminCreateReferenceAd(activeTab, dataUrl, null);
       }),
@@ -80,6 +80,26 @@ export default function ReferenceAdsAdmin() {
     setUploadCount(0);
     // Refresh the grid to show newly uploaded ads
     load(activeTab);
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.files || e.target.files.length === 0) return;
+    void uploadFiles(e.target.files);
+  }
+
+  function handleDragOver(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragging(true);
+  }
+
+  function handleDragLeave() {
+    setDragging(false);
+  }
+
+  function handleDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragging(false);
+    void uploadFiles(e.dataTransfer.files);
   }
 
   async function handleDelete(id: string) {
@@ -138,7 +158,13 @@ export default function ReferenceAdsAdmin() {
       </div>
 
       {/* Upload control */}
-      <div className="ref-ads-upload-row">
+      <div
+        className={`ref-ads-upload-row${dragging ? " is-dragging" : ""}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        aria-label="Upload zone — drag images here or click to pick"
+      >
         <label
           htmlFor="ref-upload"
           className={`btn${uploading ? " ghost" : ""}`}
@@ -158,8 +184,13 @@ export default function ReferenceAdsAdmin() {
           multiple
           disabled={uploading}
           style={{ position: "absolute", opacity: 0, pointerEvents: "none", width: 1, height: 1 }}
-          onChange={(e) => void handleFileChange(e)}
+          onChange={handleFileChange}
         />
+        {dragging && (
+          <span className="small" style={{ marginLeft: "var(--space-3)", color: "var(--accent)" }}>
+            Drop to upload
+          </span>
+        )}
       </div>
 
       {uploadError && (

@@ -617,6 +617,14 @@ body { background: var(--bg); color: var(--fg); overflow: hidden; }
   align-items: flex-end;
   gap: var(--space-3);
   flex-wrap: wrap;
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  border: 2px dashed transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+.ref-ads-upload-row.is-dragging {
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 /* Grid override: larger min for admin context */

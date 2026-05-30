@@ -191,6 +191,35 @@ describe("ReferenceAdsAdmin", () => {
     await waitFor(() => expect(screen.getAllByRole("img")).toHaveLength(2));
   });
 
+  it("dropping 2 files onto the upload zone calls adminCreateReferenceAd twice with null label", async () => {
+    const newAds = [sampleAd("d1"), sampleAd("d2")];
+    vi.mocked(api.adminCreateReferenceAd)
+      .mockResolvedValueOnce(newAds[0])
+      .mockResolvedValueOnce(newAds[1]);
+    vi.mocked(api.getReferenceAds)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(newAds);
+
+    renderPage();
+    await screen.findByText(/No reference ads/i);
+
+    const file1 = new File(["img1"], "drag1.png", { type: "image/png" });
+    const file2 = new File(["img2"], "drag2.png", { type: "image/png" });
+
+    const zone = screen.getByLabelText(/Upload zone/i);
+    fireEvent.drop(zone, {
+      dataTransfer: { files: [file1, file2] },
+    });
+
+    await waitFor(() => {
+      expect(api.adminCreateReferenceAd).toHaveBeenCalledTimes(2);
+    });
+    expect(api.adminCreateReferenceAd).toHaveBeenCalledWith("with_asset", "data:image/png;base64,FAKE", null);
+    expect(fileToDataUrl).toHaveBeenCalledTimes(2);
+    // Grid refreshes and shows 2 dropped images
+    await waitFor(() => expect(screen.getAllByRole("img")).toHaveLength(2));
+  });
+
   it("removes an ad after inline delete is confirmed", async () => {
     vi.mocked(api.getReferenceAds).mockResolvedValue([sampleAd("a1"), sampleAd("a2")]);
     vi.mocked(api.adminDeleteReferenceAd).mockResolvedValue(undefined as never);
