@@ -117,10 +117,10 @@ export default function Workbench() {
 
   async function runBatch() {
     if (!state.brandExtraction || !state.brandExtractionId) return;
-    const items = state.selectedConcepts.map((concept, i) => {
-      const a = state.assets[i] ?? {};
-      return { concept, referenceAdImage: a.ref!, logoImage: a.logo!, productAsset: a.product };
-    });
+    const shared = state.assets[0] ?? {};
+    const items = state.selectedConcepts.map((concept) => ({
+      concept, referenceAdImage: shared.ref!, logoImage: shared.logo!, productAsset: shared.product,
+    }));
     try {
       const { batchId } = await api.startBatch({ brandExtractionId: state.brandExtractionId, brandExtraction: state.brandExtraction, items });
       dispatch({ type: "BATCH_STARTED", batchId });
@@ -213,11 +213,11 @@ export default function Workbench() {
   );
 }
 
-function ConceptAssetCard({ index, concept, assets, showCopyToAll, dispatch }: {
-  index: number;
-  concept: Concept;
+/** One shared reference + logo (+ optional product), legacy single-reference flow. The shared
+ *  set is stored at assets[0] and applied to every selected concept when the batch runs. */
+function SharedAssetCard({ assets, concepts, dispatch }: {
   assets: ConceptAssets;
-  showCopyToAll: boolean;
+  concepts: Concept[];
   dispatch: Dispatch<Action>;
 }) {
   const variant = assets.product ? "with_asset" : "no_asset";
@@ -238,7 +238,7 @@ function ConceptAssetCard({ index, concept, assets, showCopyToAll, dispatch }: {
     setLoadingId(ad.id);
     try {
       const dataUrl = await urlToDataUrl(ad.url);
-      dispatch({ type: "SET_ASSET", index, slot: "ref", dataUrl });
+      dispatch({ type: "SET_ASSET", index: 0, slot: "ref", dataUrl });
       setLibError(null);
     } catch {
       setLibError("Couldn't use that reference — try another or upload your own above.");
@@ -251,19 +251,15 @@ function ConceptAssetCard({ index, concept, assets, showCopyToAll, dispatch }: {
     ? "These don't use a product image. Add a product asset below and a different library, built around your product, will appear here."
     : "Showing references designed to feature your product asset.";
 
-
   return (
     <div className="concept-assets">
-      <div className="concept-assets-head">
-        <span className="badge">{concept.angle}</span>
-        <span className="concept-name">{concept.headline}</span>
-        {showCopyToAll && (assets.ref || assets.logo) && (
-          <button className="btn ghost sm" onClick={() => dispatch({ type: "COPY_ASSETS_TO_ALL", index })}>
-            Copy to all
-          </button>
-        )}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: "var(--space-2)" }}>
+        <span style={{ fontSize: 13, color: "var(--fg-3)" }}>
+          Making {concepts.length === 1 ? "1 ad" : `${concepts.length} ads`}:
+        </span>
+        {concepts.map((c, i) => <span key={i} className="badge">{c.headline}</span>)}
       </div>
-      <Dropzone label="Reference ad" required hint="Any static ad you like — we read its shape, never its colors or copy. PNG or JPG." value={assets.ref ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", index, slot: "ref", dataUrl: d })} />
+      <Dropzone label="Reference ad" required hint="Any static ad you like — we read its shape, never its colors or copy. PNG or JPG." value={assets.ref ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", index: 0, slot: "ref", dataUrl: d })} />
       <div className="ref-lib">
         <div className="ref-lib-header">
           <span className="ref-lib-eyebrow">Or browse our references</span>
@@ -287,18 +283,16 @@ function ConceptAssetCard({ index, concept, assets, showCopyToAll, dispatch }: {
           </div>
         )}
       </div>
-      <Dropzone label="Brand logo" required height={96} hint="PNG with a transparent background works best." value={assets.logo ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", index, slot: "logo", dataUrl: d })} />
-      <Dropzone label="Product screenshot (optional)" hint="Your real UI/product, so the ad shows it exactly — not an invented screen." value={assets.product ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", index, slot: "product", dataUrl: d })} />
+      <Dropzone label="Brand logo" required height={96} hint="PNG with a transparent background works best." value={assets.logo ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", index: 0, slot: "logo", dataUrl: d })} />
+      <Dropzone label="Product screenshot (optional)" hint="Your real UI/product, so the ad shows it exactly — not an invented screen." value={assets.product ?? null} onPick={(d) => dispatch({ type: "SET_ASSET", index: 0, slot: "product", dataUrl: d })} />
     </div>
   );
 }
 
 function PickAssets({ state, dispatch, onGenerate, usage }: { state: WorkbenchState; dispatch: Dispatch<Action>; onGenerate: () => void; usage: UsageInfo | null }) {
   const concepts = state.selectedConcepts;
-  const ready = concepts.every((_, i) => {
-    const a = state.assets[i];
-    return Boolean(a?.ref && a?.logo);
-  });
+  const shared = state.assets[0] ?? {};
+  const ready = Boolean(shared.ref && shared.logo);
   const capped = usage !== null && !usage.unlimited && usage.remaining <= 0;
 
   return (
@@ -309,21 +303,12 @@ function PickAssets({ state, dispatch, onGenerate, usage }: { state: WorkbenchSt
             <span className="num">1</span>
             <div>
               <div className="title">Drop your reference</div>
-              <div className="sub">Pick a reference ad for each concept below — we read its shape, never its colors or copy. Those come from your brand.</div>
+              <div className="sub">Any static ad you like — we read its shape, never its colors or copy. Those come from your brand.</div>
             </div>
           </div>
         </div>
         <div className="stage-body stack">
-          {concepts.map((concept, i) => (
-            <ConceptAssetCard
-              key={i}
-              index={i}
-              concept={concept}
-              assets={state.assets[i] ?? {}}
-              showCopyToAll={concepts.length > 1}
-              dispatch={dispatch}
-            />
-          ))}
+          <SharedAssetCard assets={shared} concepts={concepts} dispatch={dispatch} />
           <div className="actions-row" style={{ flexDirection: "column", alignItems: "flex-start", gap: "var(--space-2)" }}>
             {usage !== null && !usage.unlimited && (
               capped

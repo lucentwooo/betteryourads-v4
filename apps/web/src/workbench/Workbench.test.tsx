@@ -51,7 +51,7 @@ describe("Workbench (board-fed)", () => {
     expect(api.getBrand).not.toHaveBeenCalled();
   });
 
-  it("loads the brand and renders one asset card per stashed concept", async () => {
+  it("loads the brand and lists the stashed concepts above one shared reference", async () => {
     stash([concept(1), concept(2)]);
     vi.mocked(api.getBrand).mockResolvedValue({ id: "be1", brandExtraction: { brand_identity: {} }, measuredSiteData: null } as never);
 
@@ -59,9 +59,9 @@ describe("Workbench (board-fed)", () => {
 
     await waitFor(() => expect(screen.getByText(/drop your reference/i)).toBeInTheDocument());
     expect(api.getBrand).toHaveBeenCalledWith("be1");
+    // both selected concepts are listed as chips above the single shared reference
     expect(screen.getByText("Headline 1")).toBeInTheDocument();
     expect(screen.getByText("Headline 2")).toBeInTheDocument();
-    expect(screen.getByText("Angle1")).toBeInTheDocument();
     // stash is cleared after reading
     expect(sessionStorage.getItem("bya_selected_concepts")).toBeNull();
   });
