@@ -50,10 +50,11 @@ describe("StartModal", () => {
     expect(mockPush).toHaveBeenCalledWith("/board/b1");
   });
 
-  it('"Add a new client" navigates to /onboarding', () => {
+  it("entering a URL navigates to onboarding with the url prefilled", () => {
     render(<StartModal open={true} onClose={onClose} />);
-    fireEvent.click(screen.getByText("Add a new client"));
-    expect(mockPush).toHaveBeenCalledWith("/onboarding");
+    fireEvent.change(screen.getByLabelText(/website url/i), { target: { value: "https://acme.com" } });
+    fireEvent.click(screen.getByRole("button", { name: /^go$/i }));
+    expect(mockPush).toHaveBeenCalledWith("/onboarding?url=https%3A%2F%2Facme.com");
   });
 
   it("Escape key calls onClose", () => {

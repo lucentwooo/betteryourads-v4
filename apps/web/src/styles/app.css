@@ -894,13 +894,20 @@ body { background: var(--bg); color: var(--fg); overflow: hidden; }
   font-family: var(--font-sans);
   font-size: var(--size-14);
   font-weight: 500;
-  padding: 12px 20px;
+  padding: 14px 18px;
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   animation: modal-pop var(--dur-base) var(--ease);
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 520px;
   pointer-events: none;
 }
+.toast-check { width: 32px; height: 32px; border-radius: 6px; background: var(--accent); display: grid; place-items: center; flex-shrink: 0; }
+.toast-text { display: flex; flex-direction: column; min-width: 0; }
+.toast-headline { font-weight: 600; }
+.toast-sub { font-family: var(--font-mono); font-size: 11px; opacity: 0.75; margin-top: 2px; }
 
 /* ----- Batch error text ------------------------------------------ */
 .batch-error {

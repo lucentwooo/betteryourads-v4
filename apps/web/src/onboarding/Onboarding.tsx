@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { GOAL_LABEL } from "@bya/shared";
 import type { Goal } from "@bya/shared";
 import { api } from "../api/client";
@@ -22,8 +22,15 @@ function hostname(url: string): string {
 
 export default function Onboarding() {
   const router = useRouter();
+  const params = useSearchParams();
   const [step, setStep] = useState<Step>("url");
   const [url, setUrl] = useState("");
+
+  // Prefill the URL when handed off from the start modal (/onboarding?url=...).
+  useEffect(() => {
+    const u = params?.get("url");
+    if (u) setUrl(u);
+  }, [params]);
   const [brandId, setBrandId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submittingGoal, setSubmittingGoal] = useState(false);

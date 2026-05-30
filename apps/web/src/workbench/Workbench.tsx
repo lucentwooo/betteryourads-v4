@@ -162,7 +162,7 @@ export default function Workbench() {
 
   return (
     <div style={{ maxWidth: 760 }}>
-      <Toast message="Your ads are ready" open={toastOpen} onDone={closeToast} />
+      <Toast message="Your ads are ready" subtext="Download them, then paste into Ads Manager." open={toastOpen} onDone={closeToast} />
       <Stepper stage={stage} />
 
       {stage === "empty" && (

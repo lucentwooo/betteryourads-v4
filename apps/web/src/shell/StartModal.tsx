@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { BrandSummary } from "@bya/shared";
 import { useResource } from "../data/cache";
@@ -18,6 +18,14 @@ function hostname(url: string): string {
 export function StartModal({ open, onClose }: Props) {
   const router = useRouter();
   const { data: brands } = useResource<BrandSummary[]>("brands");
+  const [url, setUrl] = useState("");
+
+  function go() {
+    const u = url.trim();
+    if (!u) return;
+    router.push(`/onboarding?url=${encodeURIComponent(u)}`);
+    onClose();
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -60,13 +68,21 @@ export function StartModal({ open, onClose }: Props) {
           </button>
         </div>
 
-        <button
-          className="btn primary"
-          style={{ width: "100%", marginBottom: "var(--space-3)" }}
-          onClick={() => { router.push("/onboarding"); onClose(); }}
+        <form
+          onSubmit={(e) => { e.preventDefault(); go(); }}
+          style={{ display: "flex", gap: 8, marginBottom: "var(--space-3)" }}
         >
-          Add a new client
-        </button>
+          <input
+            className="input"
+            type="url"
+            placeholder="https://yourcompany.com"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            style={{ flex: 1 }}
+            aria-label="Website URL"
+          />
+          <button className="btn primary" type="submit">go</button>
+        </form>
 
         {brands && brands.length > 0 && (
           <>

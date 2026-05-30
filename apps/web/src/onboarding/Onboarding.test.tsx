@@ -6,6 +6,7 @@ import Onboarding from "./Onboarding";
 const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 // Mock api/client
