@@ -9,7 +9,6 @@ import type {
   AdSummary,
   BrandDetail,
   AdminUser,
-  ConceptSet,
   Concept,
   ConceptBoard,
   Goal,
@@ -120,8 +119,6 @@ export const api = {
   getAds: () => request<AdSummary[]>("/api/ads"),
   adPrompt: (req: AdPromptRequest) => request<{ id: string; adPrompt: AdPrompt }>("/api/ad-prompt", req),
   render: (req: RenderRequest) => request<{ id: string; imageUrl: string }>("/api/render", req),
-  concepts: (req: { brandExtraction: BrandExtraction; brandExtractionId: string }) =>
-    request<{ id: string; conceptSet: ConceptSet }>("/api/concepts", req),
   generateConceptBoard: (brandExtractionId: string, goal: Goal) =>
     request<{ board: ConceptBoard }>("/api/concept-board", { brandExtractionId, goal }),
   getConceptBoard: (brandId: string) =>

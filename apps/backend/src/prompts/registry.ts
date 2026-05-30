@@ -4,7 +4,6 @@ import { EXTRACT_BRAND_DNA_V3 } from "./extract-brand-dna.v3.js";
 import { IMAGE_GENERATOR_V4_NO_ASSET } from "./image-generator.v4-no-asset.js";
 import { IMAGE_GENERATOR_V4_W_ASSET } from "./image-generator.v4-w-asset.js";
 import type { ContentPart } from "../services/openrouter.js";
-import { AD_CONCEPTS_V1 } from "./ad-concepts.v1.js";
 import { buildConceptBoardPrompt } from "./concept-board.v1.js";
 
 /** Ground the v3 system prompt with the authoritative measured site data (ported from legacy buildGroundedPrompt). */
@@ -115,15 +114,6 @@ export function buildStage2Content(inputs: Stage2Inputs): ContentPart[] {
   ];
   if (inputs.productAsset) parts.push({ type: "image_url", image_url: { url: inputs.productAsset } });
   return parts;
-}
-
-/** Stage-3 (concepts) user message: strategist prompt + the brand DNA JSON. Text-only. */
-export function buildConceptContent(brandExtraction: BrandExtraction): string {
-  return (
-    AD_CONCEPTS_V1 +
-    "\n\n=== BRAND_DNA_JSON (source of truth) ===\n" +
-    JSON.stringify(brandExtraction, null, 2)
-  );
 }
 
 /** Stage-3 (concept board) user message: legacy-prompt approach, grounded in analysis facts. */

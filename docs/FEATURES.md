@@ -8,7 +8,7 @@ What BetterYourAds can do, as of the `dev` branch. Grouped by area; one line per
 
 - **Extract (Stage 1)** — Playwright headless Chromium reads exact colors, fonts, logos, and text off a live website.
 - **Brand (Stage 1)** — OpenRouter LLM turns measured site data into structured brand DNA (identity, value prop, positioning, tone, visual guidelines).
-- **Concepts** — text model (`STAGE3_MODEL`) turns brand DNA into 5 strategic ad concepts, one per customer awareness level, with hooks, CTAs, and visual direction.
+- **Concept board** — text model (`STAGE3_MODEL`) turns brand DNA into a board of 10–16 distinct ad concepts grouped by customer awareness stage, weighted by the brand's goal.
 - **Ad prompt (Stage 2)** — vision model synthesizes brand DNA + optional reference ad / logo / product image / user direction into a structured image-generation prompt.
 - **Render (Stage 3)** — KIE GPT-Image backend generates the ad image and persists it to Supabase Storage.
 - **Batch generation** — pick multiple concepts, attach per-concept assets, and render them all as a background job with per-item live status.
@@ -17,7 +17,7 @@ What BetterYourAds can do, as of the `dev` branch. Grouped by area; one line per
 
 - `POST /api/extract` — run the extract stage on a website URL.
 - `POST /api/brand` — turn measured site data into brand DNA.
-- `POST /api/concepts` — generate 5 strategic ad concepts from brand DNA and persist them per brand.
+- `POST /api/concept-board` — generate the awareness-stage concept board; `GET /api/concept-board/:brandId`; `PATCH /api/brand/:id/goal` — set a brand's goal.
 - `POST /api/ad-prompt` — build an image-generation prompt from brand DNA + optional assets.
 - `POST /api/render` — render an ad image and save it to storage.
 - `POST /api/batch` — start a background batch render of selected concepts (one creative per concept, capped by the daily limit).
@@ -56,7 +56,7 @@ What BetterYourAds can do, as of the `dev` branch. Grouped by area; one line per
 
 ## Shared package (`@bya/shared`)
 
-- Zod schemas shared by backend and web: `MeasuredSiteData`, `BrandExtraction`, `AdPrompt`, `RenderOutput`, `ConceptSet` / `AdIdea`, plus library/admin DTOs (`BrandSummary`, `BrandDetail`, `AdSummary`, `AdminUser`, `ReferenceAd`).
+- Zod schemas shared by backend and web: `MeasuredSiteData`, `BrandExtraction`, `AdPrompt`, `RenderOutput`, `Concept` / `ConceptBoard` / `Goal`, plus library/admin DTOs (`BrandSummary`, `BrandDetail`, `AdSummary`, `AdminUser`, `ReferenceAd`).
 
 ## CLI scripts (`apps/backend`, run with `-w @bya/backend`)
 

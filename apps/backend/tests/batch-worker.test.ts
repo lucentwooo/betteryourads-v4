@@ -14,11 +14,11 @@ import { runRender } from "../src/pipelines/render.js";
 import { saveAdPrompt, persistRenderedAd, updateBatchItem, finalizeBatchIfDone } from "../src/services/supabase.js";
 import { runBatch } from "../src/services/batch-worker.js";
 
-import type { AdIdea } from "@bya/shared";
+import type { Concept } from "@bya/shared";
 
 const baseItem = (id: string) => ({
   itemId: id,
-  concept: { idea_name: "A", main_hook: "h", cta: "c" } as unknown as AdIdea,
+  concept: { idea_name: "A", main_hook: "h", cta: "c" } as unknown as Concept,
   brandExtraction: {},
   referenceAdImage: "data:ref",
   logoImage: "data:logo",
