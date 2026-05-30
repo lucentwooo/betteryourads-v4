@@ -10,6 +10,7 @@ import {
   type ConceptBoard,
   type Goal,
   type AwarenessStage,
+  type BrandExtraction,
 } from "@bya/shared";
 import { api, ApiError, type UsageInfo } from "../api/client";
 import { Dropzone } from "../workbench/Dropzone";
@@ -26,6 +27,7 @@ export default function Board({ brandId }: { brandId: string }) {
   const [view, setView] = useState<ViewState>({ phase: "loading" });
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [expanded, setExpanded] = useState<Set<AwarenessStage>>(new Set());
+  const [extraction, setExtraction] = useState<BrandExtraction | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoSaving, setLogoSaving] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
@@ -46,6 +48,7 @@ export default function Board({ brandId }: { brandId: string }) {
     );
     api.getBrand(brandId).then((detail) => {
       setLogoUrl(detail.logoUrl ?? null);
+      setExtraction(detail.brandExtraction ?? null);
     }).catch(() => {});
     api.getUsage().then(setUsage).catch(() => {});
   }, [brandId]);
@@ -253,6 +256,9 @@ export default function Board({ brandId }: { brandId: string }) {
         {logoError && <p style={{ fontSize: 12, color: "var(--bya-oxblood)", marginTop: 4 }}>{logoError}</p>}
       </div>
 
+      {/* Brand-DNA strip (legacy parity) */}
+      <BrandDnaStrip extraction={extraction} />
+
       {/* Focus strip */}
       <div style={{ marginBottom: 40, fontSize: 14, color: "var(--fg-3)", display: "flex", flexWrap: "wrap", gap: "6px 18px", alignItems: "center" }}>
         {STAGE_ORDER.map((s, idx) => {
@@ -371,6 +377,74 @@ export default function Board({ brandId }: { brandId: string }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Pick the first valid hex from a value that may be a string, array, or nested. */
+function pickHex(v: unknown): string | null {
+  if (!v) return null;
+  if (Array.isArray(v)) {
+    for (const item of v) {
+      const r = pickHex(item);
+      if (r) return r;
+    }
+    return null;
+  }
+  if (typeof v === "string") {
+    const cleaned = v.replace(/^#+/, "");
+    if (/^[0-9a-f]{3,8}$/i.test(cleaned)) return "#" + cleaned;
+  }
+  return null;
+}
+
+function obj(v: unknown): Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+}
+
+/** Brand-DNA strip: brand name, color-role swatches, fonts, vibe — ported from legacy brandDnaHTML.
+ *  Renders nothing when there's no usable brand data. */
+function BrandDnaStrip({ extraction }: { extraction: BrandExtraction | null }) {
+  if (!extraction) return null;
+  const raw = extraction as Record<string, unknown>;
+  const id = obj(raw.brand_identity);
+  const vbs = obj(raw.visual_brand_system);
+  const brandName = typeof id.brand_name === "string" ? id.brand_name : typeof id.name === "string" ? id.name : "";
+  const pal = Object.keys(obj(vbs.color_palette)).length ? obj(vbs.color_palette) : obj(vbs.colors);
+  const swatches = [
+    { role: "background", val: pickHex(pal.background) },
+    { role: "text", val: pickHex(pal.text) ?? pickHex(pal.foreground) },
+    { role: "primary", val: pickHex(pal.primary) },
+    { role: "accent", val: pickHex(pal.accent) },
+    { role: "cta", val: pickHex(pal.cta) },
+    { role: "secondary", val: pickHex(pal.secondary) },
+  ].filter((s): s is { role: string; val: string } => Boolean(s.val));
+  const typography = obj(vbs.typography);
+  const fonts = Array.isArray(typography.font_families) ? (typography.font_families as unknown[]).filter((f): f is string => typeof f === "string") : [];
+  const mood = typeof obj(vbs.ui_style).overall_mood === "string" ? (obj(vbs.ui_style).overall_mood as string) : "";
+
+  if (!swatches.length && !brandName) return null;
+
+  return (
+    <div style={{ marginBottom: 28, padding: 16, border: "1px solid var(--border-hairline)", borderRadius: 8, maxWidth: 640 }}>
+      {brandName && <div style={{ fontSize: 15, fontWeight: 600, marginBottom: swatches.length ? 12 : 0 }}>{brandName}</div>}
+      {swatches.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginBottom: fonts.length || mood ? 12 : 0 }}>
+          {swatches.map((s) => (
+            <div key={s.role} style={{ textAlign: "center" }}>
+              <div style={{ width: 40, height: 40, borderRadius: 6, background: s.val, border: "1px solid var(--border-hairline)" }} />
+              <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 4 }}>{s.role}</div>
+              <div style={{ fontSize: 11, color: "var(--fg-2)" }}>{s.val}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {(fonts.length > 0 || mood) && (
+        <div style={{ fontSize: 13, color: "var(--fg-2)" }}>
+          {fonts.length > 0 && <span><strong>fonts</strong> {fonts.join(" / ")}</span>}
+          {mood && <span style={{ marginLeft: fonts.length ? 14 : 0 }}><strong>vibe</strong> {mood}</span>}
+        </div>
+      )}
     </div>
   );
 }

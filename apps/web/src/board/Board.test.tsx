@@ -93,6 +93,21 @@ describe("Board — board rendering", () => {
     expect(screen.getByText("Try the product now")).toBeInTheDocument();
   });
 
+  it("renders the brand-DNA strip from the extraction (name + color hex)", async () => {
+    vi.mocked(api.getBrand).mockResolvedValue({
+      id: BRAND_ID,
+      logoUrl: null,
+      brandExtraction: {
+        brand_identity: { brand_name: "Chirp" },
+        visual_brand_system: { colors: { primary: ["#00434f"] }, ui_style: { overall_mood: "Playful" } },
+      },
+    } as never);
+    render(<Board brandId={BRAND_ID} />);
+    await waitFor(() => expect(screen.getByText("Chirp")).toBeInTheDocument());
+    expect(screen.getByText("#00434f")).toBeInTheDocument();
+    expect(screen.getByText(/playful/i)).toBeInTheDocument();
+  });
+
   it("collapses off-focus stages behind 'Show N more' and expands on click", async () => {
     render(<Board brandId={BRAND_ID} />);
     await waitFor(() => expect(screen.getByText("We beat the rest")).toBeInTheDocument());
