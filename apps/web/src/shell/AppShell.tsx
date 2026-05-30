@@ -9,11 +9,6 @@ import { useResource } from "../data/cache";
 import type { BrandSummary } from "@bya/shared";
 import { StartModal } from "./StartModal";
 
-const NAV = [
-  { to: "/", label: "Home", Icon: IconHome, end: true },
-  { to: "/library", label: "Library", Icon: IconGrid, end: false },
-] as const;
-
 const CRUMBS: Record<string, string> = {
   "/": "Home",
   "/create": "Make an ad",
@@ -79,16 +74,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="app">
       <nav className="rail" aria-label="Primary">
         <Link className="brand" href="/">
-          <svg className="mark" viewBox="0 0 28 28" aria-hidden="true">
-            <rect x="1" y="1" width="26" height="26" rx="6" fill="var(--fg)" />
-            <path d="M8 19 14 8l6 11" stroke="var(--bg)" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M10.5 15h7" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" />
-          </svg>
+          <img className="mark" src="/logo-mark.png" alt="" width={28} height={28} />
           <span className="wordmark">BetterYour<span className="ads">Ads</span></span>
         </Link>
 
         <div className="nav-section">
-          <h6>Workspace</h6>
+          <Link href="/" className={`nav-item${isActive(pathname, "/", true) ? " active" : ""}`}>
+            <IconHome />
+            <span>Home</span>
+          </Link>
           <button
             className={`nav-item${isActive(pathname, "/create", false) ? " active" : ""}`}
             onClick={() => setModalOpen(true)}
@@ -96,12 +90,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             <IconSparkle />
             <span>Make an ad</span>
           </button>
-          {NAV.map(({ to, label, Icon, end }) => (
-            <Link key={to} href={to} className={`nav-item${isActive(pathname, to, end) ? " active" : ""}`}>
-              <Icon />
-              <span>{label}</span>
-            </Link>
-          ))}
+          <Link href="/library" className={`nav-item${isActive(pathname, "/library", false) ? " active" : ""}`}>
+            <IconGrid />
+            <span>My ads</span>
+          </Link>
+          <Link href="/library" className="nav-item">
+            <IconUsers />
+            <span>Brands</span>
+          </Link>
+          <Link href="/onboarding" className="nav-item">
+            <span>+ Add client</span>
+          </Link>
         </div>
 
         {savedBrands.length > 0 && (
@@ -116,9 +115,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span>{hostname(brand.websiteUrl)}</span>
               </Link>
             ))}
-            <Link href="/onboarding" className="nav-item">
-              <span>+ Add client</span>
-            </Link>
           </div>
         )}
 

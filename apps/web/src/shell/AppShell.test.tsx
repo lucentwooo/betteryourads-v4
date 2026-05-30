@@ -43,6 +43,16 @@ describe("AppShell", () => {
     expect(screen.getByText("hello")).toBeInTheDocument();
   });
 
+  it("matches legacy rail: no Workspace header, image logo, legacy nav items", () => {
+    const { container } = render(<AppShell><div /></AppShell>);
+    expect(screen.queryByText(/workspace/i)).toBeNull();
+    const logo = container.querySelector("img.mark");
+    expect(logo).toBeTruthy();
+    expect(logo?.getAttribute("src")).toBe("/logo-mark.png");
+    expect(screen.getByRole("link", { name: "Home" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "My ads" })).toBeInTheDocument();
+  });
+
   it("renders brand hostnames in the rail", () => {
     render(<AppShell><div /></AppShell>);
     expect(screen.getByText("acme.com")).toBeInTheDocument();
