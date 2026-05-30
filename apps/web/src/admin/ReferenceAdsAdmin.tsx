@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReferenceAd, ReferenceAdVariant } from "@bya/shared";
 import { api, ApiError } from "../api/client";
@@ -19,8 +21,8 @@ export default function ReferenceAdsAdmin() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadCount, setUploadCount] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [label, setLabel] = useState("");
   // per-ad state: "deleting" | "confirming" | null
   const [adState, setAdState] = useState<Record<string, "deleting" | "confirming">>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -48,26 +50,36 @@ export default function ReferenceAdsAdmin() {
     if (variant === activeTab) return;
     setAdState({});
     setUploadError(null);
-    setLabel("");
     setActiveTab(variant);
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+
+    const files = Array.from(fileList);
     setUploading(true);
+    setUploadCount(files.length);
     setUploadError(null);
-    try {
-      const dataUrl = await fileToDataUrl(file);
-      const created = await api.adminCreateReferenceAd(activeTab, dataUrl, label.trim() || null);
-      setAds((prev) => [created, ...prev]);
-      setLabel("");
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    } catch (e) {
-      setUploadError(e instanceof ApiError ? e.message : "Upload failed. Please try again.");
-    } finally {
-      setUploading(false);
+
+    const results = await Promise.allSettled(
+      files.map(async (file) => {
+        const dataUrl = await fileToDataUrl(file);
+        return api.adminCreateReferenceAd(activeTab, dataUrl, null);
+      }),
+    );
+
+    const errors = results.filter((r) => r.status === "rejected");
+    if (errors.length > 0) {
+      const first = (errors[0] as PromiseRejectedResult).reason;
+      setUploadError(first instanceof ApiError ? first.message : "Some uploads failed. Please try again.");
     }
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setUploading(false);
+    setUploadCount(0);
+    // Refresh the grid to show newly uploaded ads
+    load(activeTab);
   }
 
   async function handleDelete(id: string) {
@@ -127,41 +139,27 @@ export default function ReferenceAdsAdmin() {
 
       {/* Upload control */}
       <div className="ref-ads-upload-row">
-        <div className="field" style={{ margin: 0, flex: "1 1 200px", minWidth: 0 }}>
-          <label htmlFor="ref-label" className="small" style={{ color: "var(--fg-2)" }}>
-            Label (optional)
-          </label>
-          <input
-            id="ref-label"
-            className="input"
-            placeholder="e.g. Nike shoes with clean background"
-            value={label}
-            disabled={uploading}
-            onChange={(e) => setLabel(e.target.value)}
-          />
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)", flexShrink: 0 }}>
-          <label
-            htmlFor="ref-upload"
-            className={`btn${uploading ? " ghost" : ""}`}
-            style={{ cursor: uploading ? "wait" : "pointer", display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}
-            aria-label="Upload reference ad image"
-          >
-            {uploading
-              ? <span className="spinner" style={{ width: 14, height: 14 }} />
-              : <IconUpload width={14} height={14} />}
-            {uploading ? "Uploading…" : "Upload image"}
-          </label>
-          <input
-            id="ref-upload"
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            disabled={uploading}
-            style={{ position: "absolute", opacity: 0, pointerEvents: "none", width: 1, height: 1 }}
-            onChange={(e) => void handleFileChange(e)}
-          />
-        </div>
+        <label
+          htmlFor="ref-upload"
+          className={`btn${uploading ? " ghost" : ""}`}
+          style={{ cursor: uploading ? "wait" : "pointer", display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}
+          aria-label="Upload reference ad images"
+        >
+          {uploading
+            ? <span className="spinner" style={{ width: 14, height: 14 }} />
+            : <IconUpload width={14} height={14} />}
+          {uploading ? `Uploading ${uploadCount}…` : "Upload images"}
+        </label>
+        <input
+          id="ref-upload"
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          disabled={uploading}
+          style={{ position: "absolute", opacity: 0, pointerEvents: "none", width: 1, height: 1 }}
+          onChange={(e) => void handleFileChange(e)}
+        />
       </div>
 
       {uploadError && (
@@ -189,7 +187,7 @@ export default function ReferenceAdsAdmin() {
       {!loading && !error && ads.length === 0 && (
         <div className="empty">
           <p className="lead" style={{ margin: 0 }}>No reference ads in this library yet.</p>
-          <p className="small" style={{ margin: 0 }}>Upload an image above to add the first one.</p>
+          <p className="small" style={{ margin: 0 }}>Upload images above to add the first ones.</p>
         </div>
       )}
 
