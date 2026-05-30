@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import request from "supertest";
 
 vi.mock("../src/pipelines/brand.js", () => ({ runBrand: vi.fn() }));
+vi.mock("../src/pipelines/customer-research.js", () => ({ runCustomerResearch: vi.fn() }));
 vi.mock("../src/services/supabase.js", () => ({
   getUserFromToken: vi.fn(),
   isApproved: vi.fn(),
@@ -9,6 +10,7 @@ vi.mock("../src/services/supabase.js", () => ({
 }));
 
 import { runBrand } from "../src/pipelines/brand.js";
+import { runCustomerResearch } from "../src/pipelines/customer-research.js";
 import { getUserFromToken, isApproved, saveBrandExtraction } from "../src/services/supabase.js";
 import { ValidationError, OpenRouterError, PersistenceError } from "../src/lib/errors.js";
 import { createServer } from "../src/server.js";
@@ -90,6 +92,35 @@ describe("POST /api/brand", () => {
       .send({ url: "https://acme.com", measuredSiteData: { title: "Acme" } });
     expect(res.status).toBe(200);
     expect(res.body.partialAnalysis).toBeNull();
+  });
+
+  it("attaches external_voc from the VOC pass onto the persisted analysis", async () => {
+    approve();
+    vi.mocked(runBrand).mockResolvedValue({ brand_identity: { brand_name: "Acme" }, schema_version: 1 });
+    vi.mocked(runCustomerResearch).mockResolvedValue({ top_complaints: ["slow"] });
+    vi.mocked(saveBrandExtraction).mockResolvedValue({ id: "b1" });
+    const res = await request(app)
+      .post("/api/brand")
+      .set("Authorization", "Bearer ok")
+      .send({ url: "https://acme.com", measuredSiteData: { title: "Acme" } });
+    expect(res.status).toBe(200);
+    const saved = vi.mocked(saveBrandExtraction).mock.calls[0][0];
+    expect(saved.brandExtraction.external_voc).toEqual({ top_complaints: ["slow"] });
+  });
+
+  it("still persists when the VOC pass returns null (best-effort)", async () => {
+    approve();
+    vi.mocked(runBrand).mockResolvedValue({ brand_identity: { brand_name: "Acme" }, schema_version: 1 });
+    vi.mocked(runCustomerResearch).mockResolvedValue(null);
+    vi.mocked(saveBrandExtraction).mockResolvedValue({ id: "b1" });
+    const res = await request(app)
+      .post("/api/brand")
+      .set("Authorization", "Bearer ok")
+      .send({ url: "https://acme.com", measuredSiteData: { title: "Acme" } });
+    expect(res.status).toBe(200);
+    const saved = vi.mocked(saveBrandExtraction).mock.calls[0][0];
+    expect(saved.brandExtraction.external_voc).toBeUndefined();
+    expect(saveBrandExtraction).toHaveBeenCalledTimes(1);
   });
 
   it("maps ValidationError to 422", async () => {
