@@ -11,7 +11,8 @@ import {
   type Goal,
   type AwarenessStage,
 } from "@bya/shared";
-import { api, ApiError } from "../api/client";
+import { api, ApiError, type UsageInfo } from "../api/client";
+import { Dropzone } from "../workbench/Dropzone";
 
 type ViewState =
   | { phase: "loading" }
@@ -25,6 +26,10 @@ export default function Board({ brandId }: { brandId: string }) {
   const [view, setView] = useState<ViewState>({ phase: "loading" });
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [expanded, setExpanded] = useState<Set<AwarenessStage>>(new Set());
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoSaving, setLogoSaving] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [usage, setUsage] = useState<UsageInfo | null>(null);
 
   useEffect(() => {
     api.getConceptBoard(brandId).then(
@@ -39,7 +44,24 @@ export default function Board({ brandId }: { brandId: string }) {
         }
       },
     );
+    api.getBrand(brandId).then((detail) => {
+      setLogoUrl(detail.logoUrl ?? null);
+    }).catch(() => {});
+    api.getUsage().then(setUsage).catch(() => {});
   }, [brandId]);
+
+  async function handleLogoPick(dataUrl: string) {
+    setLogoSaving(true);
+    setLogoError(null);
+    try {
+      const { url } = await api.saveBrandLogo(brandId, dataUrl);
+      setLogoUrl(url);
+    } catch (e) {
+      setLogoError(e instanceof Error ? e.message : "Failed to save logo.");
+    } finally {
+      setLogoSaving(false);
+    }
+  }
 
   function pickGoal(goal: Goal) {
     setView({ phase: "generating", goal });
@@ -194,6 +216,8 @@ export default function Board({ brandId }: { brandId: string }) {
     paid: "They already know you. Remove the last reason not to buy.",
   };
 
+  const capped = usage !== null && !usage.unlimited && usage.remaining <= 0;
+
   return (
     <div className="canvas stack" style={{ paddingBottom: 80 }}>
       {/* Header */}
@@ -204,6 +228,29 @@ export default function Board({ brandId }: { brandId: string }) {
         <p style={{ fontSize: 17, color: "var(--fg-2)", margin: 0, lineHeight: 1.5 }}>
           {goalIntro[board.goal]}
         </p>
+      </div>
+
+      {/* Usage */}
+      {usage !== null && (
+        <div style={{ marginBottom: 16, fontSize: 13, color: capped ? "var(--bya-oxblood)" : "var(--fg-3)" }}>
+          {capped && !usage.unlimited
+            ? <span className="badge">Daily limit reached</span>
+            : !usage.unlimited
+              ? <span>{usage.remaining} of {usage.limit} creatives left today</span>
+              : null}
+        </div>
+      )}
+
+      {/* Brand logo */}
+      <div style={{ marginBottom: 32, maxWidth: 300 }}>
+        <Dropzone
+          label="Brand logo"
+          value={logoUrl}
+          onPick={handleLogoPick}
+          height={96}
+        />
+        {logoSaving && <p style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 4 }}>Saving…</p>}
+        {logoError && <p style={{ fontSize: 12, color: "var(--bya-oxblood)", marginTop: 4 }}>{logoError}</p>}
       </div>
 
       {/* Focus strip */}

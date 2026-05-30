@@ -94,10 +94,22 @@ export default function Workbench() {
     if (!stash) return;
     let active = true;
     api.getBrand(stash.brandId)
-      .then((detail) => {
+      .then(async (detail) => {
         if (!active) return;
         const msd = MeasuredSiteData.safeParse(detail.measuredSiteData);
         dispatch({ type: "PRESET", brandExtraction: detail.brandExtraction, brandExtractionId: detail.id, measuredSiteData: msd.success ? msd.data : null, concepts: stash.concepts });
+        // Pre-fill logo for each concept if the brand has a saved logo
+        if (detail.logoUrl) {
+          try {
+            const dataUrl = await urlToDataUrl(detail.logoUrl);
+            if (!active) return;
+            for (let i = 0; i < stash.concepts.length; i++) {
+              dispatch({ type: "SET_ASSET", index: i, slot: "logo", dataUrl });
+            }
+          } catch {
+            // logo prefill is best-effort; don't fail the whole load
+          }
+        }
       })
       .catch((e) => { if (active) dispatch({ type: "FAILED", message: e instanceof ApiError ? e.message : "Could not load that brand." }); });
     return () => { active = false; };
@@ -312,7 +324,12 @@ function PickAssets({ state, dispatch, onGenerate, usage }: { state: WorkbenchSt
               dispatch={dispatch}
             />
           ))}
-          <div className="actions-row">
+          <div className="actions-row" style={{ flexDirection: "column", alignItems: "flex-start", gap: "var(--space-2)" }}>
+            {usage !== null && !usage.unlimited && (
+              capped
+                ? <span className="badge">Daily limit reached</span>
+                : <span style={{ fontSize: 13, color: "var(--fg-3)" }}>{usage.remaining} of {usage.limit} creatives left today</span>
+            )}
             <button className="btn primary" disabled={!ready || capped} onClick={onGenerate}>
               Make my ads ({concepts.length})
             </button>

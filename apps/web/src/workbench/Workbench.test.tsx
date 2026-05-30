@@ -116,4 +116,57 @@ describe("Workbench (board-fed)", () => {
     render(<Workbench />);
     await waitFor(() => expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument());
   });
+
+  it("pre-fills the logo dropzone from brand logoUrl when the brand has one", async () => {
+    stash([concept(1)]);
+    vi.mocked(api.getBrand).mockResolvedValue({
+      id: "be1",
+      brandExtraction: { brand_identity: {} },
+      measuredSiteData: null,
+      logoUrl: "https://cdn.example.com/logo.png",
+    } as never);
+
+    // urlToDataUrl uses fetch + FileReader; stub both so the data URL resolves
+    const FAKE_DATA_URL = "data:image/png;base64,FAKE";
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(new Blob(["logo"], { type: "image/png" })),
+    );
+    const OrigFileReader = globalThis.FileReader;
+    // @ts-expect-error -- jsdom FileReader stub
+    globalThis.FileReader = class {
+      result = FAKE_DATA_URL;
+      onloadend: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      readAsDataURL() { Promise.resolve().then(() => this.onloadend?.()); }
+    };
+
+    render(<Workbench />);
+
+    await waitFor(() => expect(screen.getByText(/add assets per concept/i)).toBeInTheDocument());
+    // After prefill the logo dropzone renders an img (Dropzone shows img when value != null)
+    await waitFor(() => expect(screen.getByRole("img", { name: /logo/i })).toBeInTheDocument());
+
+    globalThis.FileReader = OrigFileReader;
+    fetchSpy.mockRestore();
+  });
+
+  it("shows remaining creatives count in the pick-assets step", async () => {
+    stash([concept(1)]);
+    vi.mocked(api.getBrand).mockResolvedValue({ id: "be1", brandExtraction: { brand_identity: {} }, measuredSiteData: null } as never);
+    vi.mocked(api.getUsage).mockResolvedValue({ unlimited: false, used: 3, limit: 10, remaining: 7 });
+
+    render(<Workbench />);
+    await waitFor(() => expect(screen.getByText(/add assets per concept/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/7 of 10 creatives left/i)).toBeInTheDocument());
+  });
+
+  it("shows 'Daily limit reached' in pick-assets when remaining is 0 and not unlimited", async () => {
+    stash([concept(1)]);
+    vi.mocked(api.getBrand).mockResolvedValue({ id: "be1", brandExtraction: { brand_identity: {} }, measuredSiteData: null } as never);
+    vi.mocked(api.getUsage).mockResolvedValue({ unlimited: false, used: 10, limit: 10, remaining: 0 });
+
+    render(<Workbench />);
+    await waitFor(() => expect(screen.getByText(/add assets per concept/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/daily limit reached/i)).toBeInTheDocument());
+  });
 });

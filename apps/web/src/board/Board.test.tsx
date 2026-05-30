@@ -23,6 +23,9 @@ vi.mock("../api/client", async () => {
       getConceptBoard: vi.fn(),
       generateConceptBoard: vi.fn(),
       setBrandGoal: vi.fn(),
+      getBrand: vi.fn(),
+      saveBrandLogo: vi.fn(),
+      getUsage: vi.fn(),
     },
   };
 });
@@ -31,6 +34,9 @@ import { api } from "../api/client";
 beforeEach(() => {
   vi.clearAllMocks();
   mockPush.mockClear();
+  // Default: no logo, no usage cap
+  vi.mocked(api.getBrand).mockResolvedValue({ id: BRAND_ID, logoUrl: null } as never);
+  vi.mocked(api.getUsage).mockResolvedValue({ unlimited: false, used: 2, limit: 10, remaining: 8 });
 });
 
 const BRAND_ID = "brand-123";
@@ -140,5 +146,68 @@ describe("Board — error states", () => {
     render(<Board brandId={BRAND_ID} />);
     await waitFor(() => expect(screen.getByText(/server error/i)).toBeInTheDocument());
     expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
+  });
+});
+
+describe("Board — logo upload", () => {
+  beforeEach(() => {
+    vi.mocked(api.getConceptBoard).mockResolvedValue({ board: mockBoard });
+  });
+
+  it("shows the brand logo section with a dropzone when the board loads", async () => {
+    render(<Board brandId={BRAND_ID} />);
+    await waitFor(() => expect(screen.getByText("We beat the rest")).toBeInTheDocument());
+    expect(screen.getByText(/brand logo/i)).toBeInTheDocument();
+  });
+
+  it("displays the existing logo when getBrand returns a logoUrl", async () => {
+    vi.mocked(api.getBrand).mockResolvedValue({ id: BRAND_ID, logoUrl: "https://cdn.example.com/logo.png" } as never);
+    render(<Board brandId={BRAND_ID} />);
+    await waitFor(() => expect(screen.getByText("We beat the rest")).toBeInTheDocument());
+    // The Dropzone renders an <img> when value is set
+    const logo = await screen.findByRole("img", { name: /brand logo/i });
+    expect(logo).toHaveAttribute("src", "https://cdn.example.com/logo.png");
+  });
+
+  it("calls saveBrandLogo when a new logo is picked and updates the displayed logo", async () => {
+    vi.mocked(api.saveBrandLogo).mockResolvedValue({ url: "https://cdn.example.com/new-logo.png" });
+    render(<Board brandId={BRAND_ID} />);
+    await waitFor(() => expect(screen.getByText("We beat the rest")).toBeInTheDocument());
+
+    // The logo dropzone has a hidden file input — fire change on it
+    const { container } = render(<Board brandId={BRAND_ID} />);
+    await waitFor(() => expect(screen.getAllByText(/brand logo/i).length).toBeGreaterThan(0));
+
+    const fileInputs = container.querySelectorAll('input[type="file"]');
+    // The first file input belongs to the logo dropzone
+    fireEvent.change(fileInputs[0], {
+      target: { files: [new File(["logo"], "logo.png", { type: "image/png" })] },
+    });
+
+    await waitFor(() => expect(api.saveBrandLogo).toHaveBeenCalledWith(BRAND_ID, expect.stringContaining("data:")));
+  });
+});
+
+describe("Board — remaining creatives display", () => {
+  beforeEach(() => {
+    vi.mocked(api.getConceptBoard).mockResolvedValue({ board: mockBoard });
+  });
+
+  it("shows remaining creatives count when usage data is available", async () => {
+    render(<Board brandId={BRAND_ID} />);
+    await waitFor(() => expect(screen.getByText(/8 of 10 creatives left/i)).toBeInTheDocument());
+  });
+
+  it("shows 'Daily limit reached' when remaining is 0 and not unlimited", async () => {
+    vi.mocked(api.getUsage).mockResolvedValue({ unlimited: false, used: 10, limit: 10, remaining: 0 });
+    render(<Board brandId={BRAND_ID} />);
+    await waitFor(() => expect(screen.getByText(/daily limit reached/i)).toBeInTheDocument());
+  });
+
+  it("does not show limit-reached message when unlimited is true", async () => {
+    vi.mocked(api.getUsage).mockResolvedValue({ unlimited: true, used: 10, limit: 10, remaining: 0 });
+    render(<Board brandId={BRAND_ID} />);
+    await waitFor(() => expect(screen.getByText("We beat the rest")).toBeInTheDocument());
+    expect(screen.queryByText(/daily limit reached/i)).not.toBeInTheDocument();
   });
 });
