@@ -26,7 +26,8 @@ export function RecoveryView() {
 
   return (
     <AuthLayout>
-      <h2 style={{ marginBottom: "var(--space-4)" }}>Set a new password</h2>
+      <h2 style={{ marginBottom: "var(--space-2)" }}>Set a new password</h2>
+      <p className="sub" style={{ marginBottom: "var(--space-4)" }}>Choose a new password for your account.</p>
       <form onSubmit={submit}>
         <label className="field">
           <span>New password</span>
@@ -34,7 +35,7 @@ export function RecoveryView() {
         </label>
         {error && <p style={{ marginTop: "var(--space-3)", color: "var(--bya-oxblood)" }}>{error}</p>}
         <button className="btn primary" type="submit" disabled={busy} style={{ marginTop: "var(--space-4)", width: "100%" }}>
-          {busy ? "…" : "Set password"}
+          {busy ? "Updating…" : "Update password"}
         </button>
       </form>
     </AuthLayout>

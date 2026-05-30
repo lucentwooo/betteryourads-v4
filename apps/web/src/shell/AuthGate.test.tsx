@@ -37,7 +37,7 @@ describe("AuthGate", () => {
   it("shows awaiting-approval when not approved", () => {
     mockUseAuth.mockReturnValue(value("awaiting-approval"));
     render(<AuthGate><div>APP</div></AuthGate>);
-    expect(screen.getByText(/on the list/i)).toBeInTheDocument();
+    expect(screen.getByText(/you're on the/i)).toBeInTheDocument();
   });
 
   it("lets an awaiting-approval user sign out", async () => {

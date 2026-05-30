@@ -9,6 +9,13 @@ import { deriveLogoFromUrls } from "../lib/deriveLogo";
 
 type Step = "url" | "analyzing" | "goal";
 
+/** Supporting copy under each goal (legacy renderOnboarding parity). */
+const GOAL_DESC: Record<Goal, string> = {
+  waitlist: "Catch people who feel the pain and want in early.",
+  trials: "They're comparing options — show, concretely, why yours wins.",
+  paid: "They already know you — remove the last reason not to buy.",
+};
+
 function hostname(url: string): string {
   try { return new URL(url).hostname; } catch { return url; }
 }
@@ -68,8 +75,9 @@ export default function Onboarding() {
       <div className="onboarding-center">
         <div className="stage">
           <div className="stage-body">
+            <div className="eyebrow-acc" style={{ marginBottom: 10 }}>welcome</div>
             <h1 className="onboarding-title">Let's learn your brand</h1>
-            <p className="onboarding-lead">Enter your website URL and we'll extract your colors, fonts, and messaging.</p>
+            <p className="onboarding-lead">Paste your site. We read it in a real browser, study what your customers say, and build you a board of ad concepts.</p>
             <div className="field">
               <label htmlFor="site-url">Website URL</label>
               <input
@@ -109,6 +117,7 @@ export default function Onboarding() {
       <div className="onboarding-center">
         <div className="stage">
           <div className="stage-body">
+            <div className="eyebrow-acc" style={{ marginBottom: 10 }}>one moment</div>
             <div className="status-row">
               <span className="spinner" />
               Reading {hostname(url)}…
@@ -129,6 +138,7 @@ export default function Onboarding() {
     <div className="onboarding-center">
       <div className="stage">
         <div className="stage-body">
+          <div className="eyebrow-acc" style={{ marginBottom: 10 }}>last step</div>
           <h2 className="onboarding-title">What are you trying to do right now?</h2>
           <div className="onboarding-goals">
             {goals.map(([goal, label]) => (
@@ -138,7 +148,8 @@ export default function Onboarding() {
                 disabled={submittingGoal}
                 onClick={() => handleGoal(goal)}
               >
-                {label}
+                <span className="goal-label">{label}</span>
+                <span className="goal-desc">{GOAL_DESC[goal]}</span>
               </button>
             ))}
           </div>

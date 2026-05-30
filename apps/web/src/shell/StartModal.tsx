@@ -44,9 +44,10 @@ export function StartModal({ open, onClose }: Props) {
       >
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: "var(--space-2)" }}>
           <div>
-            <h2 id="start-modal-title">Which brand?</h2>
+            <div className="eyebrow-acc">new ad</div>
+            <h2 id="start-modal-title" style={{ margin: "4px 0 0" }}>Which brand?</h2>
             <p style={{ margin: "4px 0 0", fontFamily: "var(--font-sans)", fontSize: "var(--size-14)", color: "var(--fg-2)" }}>
-              Pick a brand you've analyzed, or add a new one.
+              Pick a brand you've already analyzed, or add a new one.
             </p>
           </div>
           <button
@@ -68,6 +69,8 @@ export function StartModal({ open, onClose }: Props) {
         </button>
 
         {brands && brands.length > 0 && (
+          <>
+          <div className="eyebrow" style={{ margin: "4px 0 8px" }}>or your saved brands</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {brands.map((brand) => (
               <button
@@ -80,6 +83,7 @@ export function StartModal({ open, onClose }: Props) {
               </button>
             ))}
           </div>
+          </>
         )}
       </div>
     </div>

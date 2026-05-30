@@ -496,6 +496,19 @@ body { background: var(--bg); color: var(--fg); overflow: hidden; }
 .row { display: flex; gap: 12px; align-items: stretch; }
 .row > * { flex: 1; }
 .eyebrow { font-family: var(--font-sans); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: var(--fg-3); }
+.eyebrow-acc { font-family: var(--font-sans); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: var(--accent); }
+
+/* Onboarding (legacy renderOnboarding parity) */
+.onboarding-center { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.onboarding-center .stage { width: 100%; max-width: 460px; }
+.onboarding-title { font-size: 40px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.05; margin: 0 0 12px; }
+.onboarding-lead { font-size: 16px; color: var(--fg-2); margin: 0 0 24px; line-height: 1.5; }
+.onboarding-error { color: var(--bya-oxblood); font-size: 13px; margin-bottom: 12px; }
+.onboarding-goals { display: flex; flex-direction: column; gap: 10px; }
+.onboarding-goal-card { padding: 16px 18px; text-align: left; align-items: flex-start; flex-direction: column; gap: 4px; }
+.onboarding-goal-card .goal-label { font-size: 15px; font-weight: 600; color: var(--fg); }
+.onboarding-goal-card .goal-desc { font-size: 13px; color: var(--fg-2); line-height: 1.4; }
+
 .divider { height: 1px; background: var(--border-hairline); margin: 16px 0; }
 .spacer { flex: 1; }
 

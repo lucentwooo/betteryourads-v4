@@ -7,7 +7,7 @@ import { RecoveryView } from "../auth/RecoveryView";
 import { AuthLayout } from "../auth/AuthLayout";
 
 export function AuthGate({ children }: { children: ReactNode }) {
-  const { status, error, signOut } = useAuth();
+  const { status, error, signOut, email } = useAuth();
 
   if (status === "loading") {
     return (
@@ -29,8 +29,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (status === "awaiting-approval") {
     return (
       <AuthLayout>
-        <h2 style={{ marginBottom: "var(--space-3)" }}>You're on the list</h2>
-        <p>Your account is awaiting approval. We'll email you when it's ready.</p>
+        <h2 style={{ marginBottom: "var(--space-3)" }}>You're on the <span style={{ color: "var(--accent)" }}>list</span>.</h2>
+        <p>
+          {email ? `You're signed in as ${email}, but your account is awaiting approval. ` : "Your account is awaiting approval. "}
+          We'll email you the moment you're in.
+        </p>
         <button
           className="btn"
           style={{ marginTop: "var(--space-4)" }}

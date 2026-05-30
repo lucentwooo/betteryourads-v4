@@ -59,6 +59,7 @@ export function LoginView() {
   }
 
   const submitLabel = mode === "sign-in" ? "Sign in" : mode === "sign-up" ? "Create account" : "Send reset link";
+  const busyLabel = mode === "sign-in" ? "Signing in…" : mode === "sign-up" ? "Creating account…" : "Sending…";
 
   return (
     <AuthLayout>
@@ -89,8 +90,8 @@ export function LoginView() {
 
       <form onSubmit={submit}>
         <label className="field">
-          <span>Email</span>
-          <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <span>Work email</span>
+          <input className="input" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </label>
         {showPassword && (
           <label className="field">
@@ -99,6 +100,7 @@ export function LoginView() {
               id="password"
               className="input"
               type="password"
+              placeholder="your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -124,7 +126,7 @@ export function LoginView() {
           </p>
         )}
         <button className="btn primary" type="submit" disabled={busy} style={{ marginTop: "var(--space-4)", width: "100%" }}>
-          {busy ? "…" : submitLabel}
+          {busy ? busyLabel : submitLabel}
         </button>
       </form>
 
