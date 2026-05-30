@@ -116,7 +116,7 @@ export const api = {
     request<{ id: string; brandExtraction: BrandExtraction; partialAnalysis: { missing: string[] } | null }>("/api/brand", req),
   getBrands: () => request<BrandSummary[]>("/api/brands"),
   getBrand: (id: string) => request<BrandDetail>(`/api/brand/${id}`),
-  getAds: () => request<AdSummary[]>("/api/ads"),
+  getAds: (brandId?: string) => request<AdSummary[]>(brandId ? `/api/ads?brandId=${brandId}` : "/api/ads"),
   adPrompt: (req: AdPromptRequest) => request<{ id: string; adPrompt: AdPrompt }>("/api/ad-prompt", req),
   render: (req: RenderRequest) => request<{ id: string; imageUrl: string }>("/api/render", req),
   generateConceptBoard: (brandExtractionId: string, goal: Goal) =>

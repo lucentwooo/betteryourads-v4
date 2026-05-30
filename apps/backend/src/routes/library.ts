@@ -30,7 +30,8 @@ libraryRouter.get("/brand/:id", requireApprovedUser, async (req, res) => {
 
 libraryRouter.get("/ads", requireApprovedUser, async (req, res) => {
   try {
-    res.json(await listGeneratedAds(req.user!.id));
+    const brandId = typeof req.query.brandId === "string" ? req.query.brandId : undefined;
+    res.json(await listGeneratedAds(req.user!.id, brandId));
   } catch (err) {
     const { status, body } = toHttpError(err);
     res.status(status).json(body);

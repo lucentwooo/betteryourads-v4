@@ -93,6 +93,14 @@ describe("GET /api/ads", () => {
     const res = await request(app).get("/api/ads").set("Authorization", "Bearer ok");
     expect(res.status).toBe(200);
     expect(res.body[0].imageUrl).toBe("https://signed/x.png");
-    expect(listGeneratedAds).toHaveBeenCalledWith("u1");
+    expect(listGeneratedAds).toHaveBeenCalledWith("u1", undefined);
+  });
+
+  it("passes brandId to listGeneratedAds when provided as a query param", async () => {
+    approve();
+    vi.mocked(listGeneratedAds).mockResolvedValue([]);
+    const res = await request(app).get("/api/ads?brandId=brand-x").set("Authorization", "Bearer ok");
+    expect(res.status).toBe(200);
+    expect(listGeneratedAds).toHaveBeenCalledWith("u1", "brand-x");
   });
 });

@@ -288,17 +288,36 @@ export async function getBrandDetail(id: string, userId: string): Promise<BrandD
   return { id: row.id, brandExtraction: parsed.data, measuredSiteData: row.measured_site_data ?? null };
 }
 
-export async function listGeneratedAds(userId: string): Promise<AdSummary[]> {
-  const { data, error } = await admin()
+export async function listGeneratedAds(userId: string, brandId?: string): Promise<AdSummary[]> {
+  const selectClause = brandId
+    ? "id, image_path, aspect_ratio, resolution, created_at, ad_prompts!inner ( brand_extraction_id, brand_extractions ( website_url ) )"
+    : "id, image_path, aspect_ratio, resolution, created_at, ad_prompts ( brand_extraction_id, brand_extractions ( website_url ) )";
+
+  let query = admin()
     .from("generated_ads")
-    .select("id, image_path, aspect_ratio, resolution, created_at")
+    .select(selectClause)
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
+
+  if (brandId) {
+    query = query.eq("ad_prompts.brand_extraction_id", brandId);
+  }
+
+  const { data, error } = await query;
   if (error) throw new PersistenceError(`Listing generated ads failed: ${error.message}`);
-  type Row = { id: string; image_path: string; aspect_ratio: string | null; resolution: string | null; created_at: string };
+
+  type BrandEmbedded = { website_url: string | null } | { website_url: string | null }[] | null;
+  type PromptEmbedded = { brand_extraction_id: string | null; brand_extractions: BrandEmbedded } | { brand_extraction_id: string | null; brand_extractions: BrandEmbedded }[] | null;
+  type Row = { id: string; image_path: string; aspect_ratio: string | null; resolution: string | null; created_at: string; ad_prompts: PromptEmbedded };
+
   const rows = (data ?? []) as unknown as Row[];
   const out: AdSummary[] = [];
   for (const r of rows) {
+    const prompt = Array.isArray(r.ad_prompts) ? r.ad_prompts[0] : r.ad_prompts;
+    const brandRow = prompt ? (Array.isArray(prompt.brand_extractions) ? prompt.brand_extractions[0] : prompt.brand_extractions) : null;
+    const rowBrandId = prompt?.brand_extraction_id ?? null;
+    const websiteUrl = brandRow?.website_url ?? null;
+
     const signed = await admin().storage.from("ads").createSignedUrl(r.image_path, SIGNED_URL_TTL_SECONDS);
     if (signed.error || !signed.data) {
       // Keep the row visible with an explicit marker rather than silently dropping it.
@@ -309,10 +328,20 @@ export async function listGeneratedAds(userId: string): Promise<AdSummary[]> {
         aspectRatio: r.aspect_ratio,
         resolution: r.resolution,
         createdAt: r.created_at,
+        brandId: rowBrandId,
+        websiteUrl,
       });
       continue;
     }
-    out.push({ id: r.id, imageUrl: signed.data.signedUrl, aspectRatio: r.aspect_ratio, resolution: r.resolution, createdAt: r.created_at });
+    out.push({
+      id: r.id,
+      imageUrl: signed.data.signedUrl,
+      aspectRatio: r.aspect_ratio,
+      resolution: r.resolution,
+      createdAt: r.created_at,
+      brandId: rowBrandId,
+      websiteUrl,
+    });
   }
   return out;
 }
