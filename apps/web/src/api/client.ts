@@ -139,4 +139,6 @@ export const api = {
     request<ReferenceAd>("/api/admin/reference-ads", { variant, dataUrl, label }),
   adminDeleteReferenceAd: (id: string) =>
     request<{ ok: true }>(`/api/admin/reference-ads/${id}`, undefined, "DELETE"),
+  saveBrandLogo: (brandId: string, dataUrl: string) =>
+    request<{ url: string }>(`/api/brand/${brandId}/logo`, { dataUrl }),
 };

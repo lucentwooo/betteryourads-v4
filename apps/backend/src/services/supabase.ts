@@ -285,7 +285,8 @@ export async function getBrandDetail(id: string, userId: string): Promise<BrandD
   const row = data as unknown as { id: string; analysis: unknown; measured_site_data: unknown };
   const parsed = BrandExtraction.safeParse(row.analysis);
   if (!parsed.success) return null;
-  return { id: row.id, brandExtraction: parsed.data, measuredSiteData: row.measured_site_data ?? null };
+  const logoUrl = await getBrandLogoUrl(row.id, userId);
+  return { id: row.id, brandExtraction: parsed.data, measuredSiteData: row.measured_site_data ?? null, logoUrl };
 }
 
 export async function listGeneratedAds(userId: string, brandId?: string): Promise<AdSummary[]> {
@@ -401,6 +402,62 @@ export async function getConceptBoard(brandExtractionId: string, userId: string)
   if (error || !data) return null;
   const parsed = ConceptBoard.safeParse((data as { concept_set: unknown }).concept_set);
   return parsed.success ? parsed.data : null;
+}
+
+export async function saveBrandLogo(args: {
+  userId: string;
+  brandId: string;
+  dataUrl: string;
+}): Promise<{ url: string }> {
+  const { bytes, contentType } = decodeImageDataUrl(args.dataUrl);
+  const ext = contentType.slice("image/".length).split("+")[0].replace("jpeg", "jpg");
+  const imagePath = `${args.userId}/${randomUUID()}.${ext}`;
+
+  const up = await admin().storage.from("brand-assets").upload(imagePath, bytes, { contentType, upsert: false });
+  if (up.error) throw new PersistenceError(`Uploading the brand logo failed: ${up.error.message}`);
+
+  // Delete any existing logo rows for this brand (keep one logo per brand) and best-effort remove their files.
+  const { data: existing, error: selErr } = await admin()
+    .from("brand_assets")
+    .select("image_path")
+    .eq("user_id", args.userId)
+    .eq("brand_id", args.brandId)
+    .eq("kind", "logo");
+  if (!selErr && existing && existing.length > 0) {
+    const paths = (existing as { image_path: string }[]).map((r) => r.image_path);
+    await admin().storage.from("brand-assets").remove(paths); // best-effort; ignore missing files
+    await admin().from("brand_assets").delete().eq("user_id", args.userId).eq("brand_id", args.brandId).eq("kind", "logo");
+  }
+
+  const { error: insErr } = await admin()
+    .from("brand_assets")
+    .insert({ user_id: args.userId, brand_id: args.brandId, image_path: imagePath, kind: "logo" });
+  if (insErr) {
+    const removed = await admin().storage.from("brand-assets").remove([imagePath]);
+    const suffix = removed.error ? ` (cleanup of orphaned upload also failed: ${removed.error.message})` : "";
+    throw new PersistenceError(`Saving the brand logo failed: ${insErr.message}${suffix}`);
+  }
+
+  const signed = await admin().storage.from("brand-assets").createSignedUrl(imagePath, SIGNED_URL_TTL_SECONDS);
+  if (signed.error || !signed.data) throw new PersistenceError(`Signing the brand logo URL failed: ${signed.error?.message ?? "no url"}`);
+  return { url: signed.data.signedUrl };
+}
+
+export async function getBrandLogoUrl(brandId: string, userId: string): Promise<string | null> {
+  const { data, error } = await admin()
+    .from("brand_assets")
+    .select("image_path")
+    .eq("brand_id", brandId)
+    .eq("user_id", userId)
+    .eq("kind", "logo")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as { image_path: string };
+  const signed = await admin().storage.from("brand-assets").createSignedUrl(row.image_path, SIGNED_URL_TTL_SECONDS);
+  if (signed.error || !signed.data) return null;
+  return signed.data.signedUrl;
 }
 
 export async function setBrandGoal(userId: string, brandExtractionId: string, goal: Goal): Promise<void> {

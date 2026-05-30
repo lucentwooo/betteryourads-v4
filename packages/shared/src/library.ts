@@ -36,10 +36,12 @@ export const AdminUser = z.object({
 });
 export type AdminUser = z.infer<typeof AdminUser>;
 
-/** Full saved brand for reuse (GET /api/brand/:id). measuredSiteData is opaque jsonb. */
+/** Full saved brand for reuse (GET /api/brand/:id). measuredSiteData is opaque jsonb.
+ *  logoUrl is a signed Storage URL for the brand logo, or null when none has been saved. */
 export const BrandDetail = z.object({
   id: z.string(),
   brandExtraction: BrandExtraction,
   measuredSiteData: z.unknown(),
+  logoUrl: z.string().nullable().optional(),
 });
 export type BrandDetail = z.infer<typeof BrandDetail>;

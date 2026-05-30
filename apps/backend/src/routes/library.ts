@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { toHttpError } from "../lib/errors.js";
+import { toHttpError, ValidationError } from "../lib/errors.js";
 import { requireApprovedUser } from "../middleware/require-approved-user.js";
-import { listBrandExtractions, getBrandDetail, listGeneratedAds } from "../services/supabase.js";
+import { listBrandExtractions, getBrandDetail, listGeneratedAds, saveBrandLogo } from "../services/supabase.js";
 
 export const libraryRouter = Router();
 
@@ -22,6 +22,20 @@ libraryRouter.get("/brand/:id", requireApprovedUser, async (req, res) => {
       return;
     }
     res.json(detail);
+  } catch (err) {
+    const { status, body } = toHttpError(err);
+    res.status(status).json(body);
+  }
+});
+
+libraryRouter.post("/brand/:id/logo", requireApprovedUser, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+    const dataUrl: unknown = req.body?.dataUrl;
+    if (typeof dataUrl !== "string" || dataUrl.length === 0) throw new ValidationError("dataUrl is required.");
+    const result = await saveBrandLogo({ userId, brandId: id, dataUrl });
+    res.json({ url: result.url });
   } catch (err) {
     const { status, body } = toHttpError(err);
     res.status(status).json(body);
