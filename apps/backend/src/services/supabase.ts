@@ -409,6 +409,14 @@ export async function saveBrandLogo(args: {
   brandId: string;
   dataUrl: string;
 }): Promise<{ url: string }> {
+  const owned = await admin()
+    .from("brand_extractions")
+    .select("id")
+    .eq("id", args.brandId)
+    .eq("user_id", args.userId)
+    .maybeSingle();
+  if (!owned.data) throw new ValidationError("Brand not found.");
+
   const { bytes, contentType } = decodeImageDataUrl(args.dataUrl);
   const ext = contentType.slice("image/".length).split("+")[0].replace("jpeg", "jpg");
   const imagePath = `${args.userId}/${randomUUID()}.${ext}`;
