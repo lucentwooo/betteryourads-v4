@@ -114,3 +114,19 @@ Removed as part of the refactor: the Vite SPA entry (`index.html`, `main.tsx`, `
 `prompts/ad-concepts.v1.ts`, `ConceptSet`/`AdIdea`), the `react-router-dom` dependency, and
 orphaned helpers (`workbench/brandChip.ts`, `vite-env.d.ts`). `legacy/` is left intact as
 reference (untracked) — delete it yourself if you want it gone.
+
+---
+
+## 7. Spec #7 — legacy parity correction (VOC fix + UX parity)
+
+Detail: `docs/superpowers/manual-checks/spec-07-legacy-parity.md`.
+
+- **No migration.** `external_voc` is stored inside the existing `brand_extractions.analysis`
+  JSONB blob — nothing to paste.
+- **VOC needs `:online`.** Confirm `OPENROUTER_API_KEY` is set and `STAGE1_MODEL` supports the
+  OpenRouter `:online` web-search plugin, or VOC degrades to "none collected" (no crash).
+- **Click-through (vs legacy):** rail has no "Workspace" + uses the PNG logo; Home (`/`) is the
+  concept board for the most-recent brand; the brand-DNA strip shows on the board; brand logo
+  auto-captures from a CORS-friendly site during onboarding.
+- **Not done:** exhaustive screen-by-screen copy sweep; angle/color variations stay dropped
+  (unreachable in the board-first IA).
