@@ -5,10 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../auth/useAuth";
 import { IconHome, IconSparkle, IconGrid, IconUsers, IconCog } from "../ui/icons";
+import { useResource } from "../data/cache";
+import type { BrandSummary } from "@bya/shared";
+import { StartModal } from "./StartModal";
 
 const NAV = [
   { to: "/", label: "Home", Icon: IconHome, end: true },
-  { to: "/create", label: "Make an ad", Icon: IconSparkle, end: false },
   { to: "/library", label: "Library", Icon: IconGrid, end: false },
 ] as const;
 
@@ -32,6 +34,14 @@ function isActive(pathname: string, to: string, end: boolean): boolean {
   return pathname === to || pathname.startsWith(`${to}/`);
 }
 
+function hostname(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { email, signOut } = useAuth();
   const pathname = usePathname() ?? "/";
@@ -39,7 +49,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isAdmin = email?.toLowerCase() === ADMIN_EMAIL;
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { data: brands } = useResource<BrandSummary[]>("brands");
+  const savedBrands = brands ? brands.slice(0, 6) : [];
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -76,6 +89,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div className="nav-section">
           <h6>Workspace</h6>
+          <button
+            className={`nav-item${isActive(pathname, "/create", false) ? " active" : ""}`}
+            onClick={() => setModalOpen(true)}
+          >
+            <IconSparkle />
+            <span>Make an ad</span>
+          </button>
           {NAV.map(({ to, label, Icon, end }) => (
             <Link key={to} href={to} className={`nav-item${isActive(pathname, to, end) ? " active" : ""}`}>
               <Icon />
@@ -83,6 +103,24 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
           ))}
         </div>
+
+        {savedBrands.length > 0 && (
+          <div className="nav-section">
+            <h6>Your brands</h6>
+            {savedBrands.map((brand) => (
+              <Link
+                key={brand.id}
+                href={`/board/${brand.id}`}
+                className={`nav-item${isActive(pathname, `/board/${brand.id}`, false) ? " active" : ""}`}
+              >
+                <span>{hostname(brand.websiteUrl)}</span>
+              </Link>
+            ))}
+            <Link href="/onboarding" className="nav-item">
+              <span>+ Add client</span>
+            </Link>
+          </div>
+        )}
 
         {isAdmin && (
           <div className="nav-section">
@@ -144,6 +182,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
         <div className="canvas">{children}</div>
       </div>
+
+      <StartModal open={modalOpen} onClose={() => setModalOpen(false)} />
     </div>
   );
 }

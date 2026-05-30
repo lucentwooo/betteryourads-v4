@@ -8,6 +8,7 @@ import { reducer, initialState, type Stage, type WorkbenchState, type Action, ty
 import { Dropzone } from "./Dropzone";
 import { api, ApiError, type UsageInfo } from "../api/client";
 import { IconDownload } from "../ui/icons";
+import { Toast } from "../ui/Toast";
 
 async function urlToDataUrl(url: string): Promise<string> {
   const res = await fetch(url);
@@ -78,6 +79,8 @@ export default function Workbench() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const presetDone = useRef(false);
   const [usage, setUsage] = useState<UsageInfo | null>(null);
+  const [toastOpen, setToastOpen] = useState(false);
+  const prevStage = useRef<Stage | null>(null);
 
   function refreshUsage() {
     api.getUsage().then(setUsage).catch(() => {});
@@ -136,8 +139,16 @@ export default function Workbench() {
 
   const { stage } = state;
 
+  useEffect(() => {
+    if (prevStage.current !== "batch-done" && stage === "batch-done") {
+      setToastOpen(true);
+    }
+    prevStage.current = stage;
+  }, [stage]);
+
   return (
     <div style={{ maxWidth: 760 }}>
+      <Toast message="Your ads are ready" open={toastOpen} onDone={() => setToastOpen(false)} />
       <Stepper stage={stage} />
 
       {stage === "empty" && (

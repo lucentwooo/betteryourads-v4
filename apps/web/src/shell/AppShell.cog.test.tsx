@@ -4,13 +4,19 @@ import { AppShell } from "./AppShell";
 import { useAuth } from "../auth/useAuth";
 
 vi.mock("../auth/useAuth", () => ({ useAuth: vi.fn() }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+  useRouter: () => ({ push: vi.fn() }),
+}));
 vi.mock("next/link", () => ({
   default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
     <a href={href} {...rest}>
       {children}
     </a>
   ),
+}));
+vi.mock("../data/cache", () => ({
+  useResource: () => ({ data: [], status: "ready", error: null, refresh: vi.fn() }),
 }));
 
 const mockSignOut = vi.fn();

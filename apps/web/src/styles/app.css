@@ -861,6 +861,26 @@ body { background: var(--bg); color: var(--fg); overflow: hidden; }
   color: var(--fg);
 }
 
+/* ----- Toast ----------------------------------------------------- */
+.toast {
+  position: fixed;
+  bottom: var(--space-5);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  background: var(--fg);
+  color: var(--bg);
+  font-family: var(--font-sans);
+  font-size: var(--size-14);
+  font-weight: 500;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  animation: modal-pop var(--dur-base) var(--ease);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 /* ----- Batch error text ------------------------------------------ */
 .batch-error {
   font-family: var(--font-sans);
