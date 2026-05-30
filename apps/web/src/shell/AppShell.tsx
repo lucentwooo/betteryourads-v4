@@ -10,7 +10,7 @@ import type { BrandSummary } from "@bya/shared";
 import { StartModal } from "./StartModal";
 
 const CRUMBS: Record<string, string> = {
-  "/": "Home",
+  "/": "concept board",
   "/create": "Make an ad",
   "/library": "Library",
   "/admin": "Accounts",
@@ -171,9 +171,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="crumb">BetterYourAds</span>
             <span className="crumb-sep">/</span>
             <span className="crumb current">{current}</span>
-          </div>
-          <div className="actions">
-            <span className="meta">{email ?? ""}</span>
           </div>
         </header>
         <div className="canvas">{children}</div>
