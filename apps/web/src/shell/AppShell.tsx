@@ -1,10 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../auth/useAuth";
-import { IconHome, IconSparkle, IconGrid, IconUsers } from "../ui/icons";
+import { IconHome, IconSparkle, IconGrid, IconUsers, IconCog } from "../ui/icons";
 
 const NAV = [
   { to: "/", label: "Home", Icon: IconHome, end: true },
@@ -37,6 +37,30 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "/";
   const current = CRUMBS[pathname] ?? "Make an ad";
   const isAdmin = email?.toLowerCase() === ADMIN_EMAIL;
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    function handleMouseDown(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", handleMouseDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen]);
 
   return (
     <div className="app">
@@ -75,14 +99,34 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
 
         <div className="footer">
-          <div className="user">
+          <div className="user" ref={menuRef}>
             <span className="avatar">{initial(email)}</span>
             <span className="meta">
               <span className="name">{email ?? "Signed in"}</span>
-              <button className="role" onClick={() => void signOut()} style={{ background: "none", border: 0, padding: 0, cursor: "pointer", textAlign: "left" }}>
-                Sign out
-              </button>
             </span>
+            <button
+              className="user-menu-cog btn ghost icon"
+              aria-label="Account menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((o) => !o)}
+            >
+              <IconCog />
+            </button>
+
+            {menuOpen && (
+              <div className="user-menu-popover">
+                <span className="user-menu-email">{email ?? ""}</span>
+                <button
+                  className="user-menu-signout"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    void signOut();
+                  }}
+                >
+                  Sign out
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </nav>
