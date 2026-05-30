@@ -18,7 +18,7 @@ import type { Concept } from "@bya/shared";
 
 const baseItem = (id: string) => ({
   itemId: id,
-  concept: { idea_name: "A", main_hook: "h", cta: "c" } as unknown as Concept,
+  concept: { angle: "a", stage: "solution", headline: "h", rationale: "r" } satisfies Concept,
   brandExtraction: {},
   referenceAdImage: "data:ref",
   logoImage: "data:logo",

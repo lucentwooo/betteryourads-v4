@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useState, useEffect, useRef } from "react";
+import { useReducer, useState, useEffect, useRef, useCallback } from "react";
 import type { Dispatch } from "react";
 import Link from "next/link";
 import { MeasuredSiteData, type ReferenceAd, type Concept } from "@bya/shared";
@@ -137,6 +137,8 @@ export default function Workbench() {
     return () => { active = false; clearInterval(id); };
   }, [state.stage, state.batchId]);
 
+  const closeToast = useCallback(() => setToastOpen(false), []);
+
   const { stage } = state;
 
   useEffect(() => {
@@ -148,7 +150,7 @@ export default function Workbench() {
 
   return (
     <div style={{ maxWidth: 760 }}>
-      <Toast message="Your ads are ready" open={toastOpen} onDone={() => setToastOpen(false)} />
+      <Toast message="Your ads are ready" open={toastOpen} onDone={closeToast} />
       <Stepper stage={stage} />
 
       {stage === "empty" && (

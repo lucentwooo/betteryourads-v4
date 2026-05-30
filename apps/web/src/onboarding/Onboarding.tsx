@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { GOAL_LABEL } from "@bya/shared";
 import type { Goal } from "@bya/shared";
@@ -19,21 +19,27 @@ export default function Onboarding() {
   const [brandId, setBrandId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submittingGoal, setSubmittingGoal] = useState(false);
+  const runIdRef = useRef(0);
 
   async function handleContinue() {
+    runIdRef.current += 1;
+    const runId = runIdRef.current;
     setError(null);
     setStep("analyzing");
     try {
       const measuredSiteData = await api.extract(url);
       const result = await api.brand({ url, measuredSiteData });
+      if (runId !== runIdRef.current) return;
       setBrandId(result.id);
       setStep("goal");
     } catch (err) {
+      if (runId !== runIdRef.current) return;
       setError(err instanceof Error ? err.message : "Something went wrong.");
     }
   }
 
   function handleBack() {
+    runIdRef.current += 1;
     setStep("url");
     setError(null);
   }
@@ -41,8 +47,14 @@ export default function Onboarding() {
   async function handleGoal(goal: Goal) {
     if (!brandId || submittingGoal) return;
     setSubmittingGoal(true);
-    await api.setBrandGoal(brandId, goal);
-    router.push(`/board/${brandId}`);
+    try {
+      await api.setBrandGoal(brandId, goal);
+      router.push(`/board/${brandId}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setSubmittingGoal(false);
+    }
   }
 
   if (step === "url" || (step === "analyzing" && error !== null)) {
