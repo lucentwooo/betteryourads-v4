@@ -28,7 +28,13 @@ Full per-spec manual steps live in `docs/superpowers/manual-checks/`; they get a
   wired into `/admin` (it was already react-router-free). 128 web tests pass, build green. Review:
   no critical; fixed the admin guard to not render while auth is unresolved. Auth-screen pixel
   restyle left as later polish.
-- **Spec #5 — Quotas & per-brand: ⏳ pending.**
+- **Spec #5 — Quotas & per-brand: ✅ DONE, reviewed, pushed.** AEST-reset daily quota
+  (`GENERATION_TZ`/`DAILY_GENERATION_LIMIT`, enforced on render + batch) with remaining-count UI;
+  ad→brand scoping (`/library?brandId` = one brand, `/library` = all grouped by brand); per-brand
+  logo saved to `brand_assets` (kind='logo') on the board and pre-filled in the workbench. 143 web
+  + 192 backend tests pass. Review: quota TZ correct, ad-scoping auth solid; fixed a logo
+  brand-ownership check (IDOR hygiene). New env: `GENERATION_TZ`, `DAILY_GENERATION_LIMIT`; ops:
+  `brand-assets` bucket CORS for logo pre-fill.
 - **Spec #6 — Reference-ads bulk + cleanup + final MANUAL-CHECKS.md: ⏳ pending.**
 
 ## Manual items accumulated so far (for the owner)
