@@ -1,0 +1,44 @@
+# Render Blueprint. In Render: New → Blueprint → point at this repo.
+# Render builds the Dockerfile (Chromium baked in) and injects the env vars below.
+# Secrets (sync: false) are left blank here and filled in the Render dashboard.
+services:
+  - type: web
+    name: betteryourads
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter # Chromium needs RAM; the free plan's 512MB often OOMs on /extract.
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      # ── Secrets: set these in the Render dashboard (never committed) ──
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: KIE_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      # ── Non-secret config (edit freely; mirrors .env.example) ──
+      - key: STAGE1_MODEL
+        value: deepseek/deepseek-v4-flash
+      - key: STAGE2_MODEL
+        value: google/gemini-2.5-flash
+      - key: OPENROUTER_CHAT_MODELS
+        value: deepseek/deepseek-v4-flash,google/gemini-2.5-flash,openai/gpt-5-nano,google/gemini-3-pro-image-preview,anthropic/claude-sonnet-4.6
+      - key: IMAGE_BACKEND
+        value: kie
+      - key: OPENROUTER_IMAGE_MODEL
+        value: openai/gpt-5.4-image-2
+      - key: OPENROUTER_IMAGE_MODELS
+        value: openai/gpt-5.4-image-2,google/gemini-3-pro-image-preview,google/gemini-3.1-flash-image-preview
+      - key: KIE_IMAGE_MODEL
+        value: gpt-image-2-image-to-image
+      - key: KIE_IMAGE_RESOLUTION
+        value: 1K
+      # Per-account lifetime free generations before a tester must be made admin.
+      - key: LIFETIME_GENERATION_LIMIT
+        value: 5

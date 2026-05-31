@@ -1,0 +1,10 @@
+node_modules
+.git
+.env
+.next
+apps
+packages
+.claude
+.superpowers
+docs
+*.log
